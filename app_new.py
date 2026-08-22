@@ -30,7 +30,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 🎨 பக்கவாட்டு மெனு பொத்தான்களுக்கு வண்ணங்களை மாற்றும் ஜாவாஸ்கிரிப்ட்
+# 🎨 பக்கவாட்டு மெனு பொத்தான்களுக்கு வண்ணங்களை மாற்றும் திருத்தப்பட்ட ஜாவாஸ்கிரிப்ட்
 active_page_name = st.session_state.get('current_page', "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
 
 components.html(f"""
@@ -82,7 +82,7 @@ components.html(f"""
             }}
         }});
     }}
-    setInterval(styleButtons, 200);
+    setInterval(styleButtons, 100);
     </script>
 """, height=0, width=0)
 
@@ -110,7 +110,7 @@ if not st.session_state['logged_in']:
                     st.error("❌ தவறான அலைபேசி எண் அல்லது கடவுச்சொல்!")
     st.stop()
 
-# 📌 Sidebar Navigation (ஐகான்களுடன் கூடிய பக்கவாட்டு மெனு)
+# 📌 Sidebar Navigation (பக்கவாட்டு மெனு)
 st.sidebar.markdown("### 👤 **பயனர் கணக்கு**")
 if st.sidebar.button("🚪 வெளியேறு (Logout)", key="logout_btn"):
     st.session_state['logged_in'] = False
@@ -373,7 +373,6 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
             p_records = sheet_physically.get_all_values()
             vwbd_all_data = sheet_vendor_wise.get_all_values()
             
-            # ஏற்கனவே S மற்றும் T காலம்களில் 1 என Sync செய்யப்பட்ட பதிப்பகங்களைக் கண்டறிதல்
             synced_vendors = set()
             if len(vwbd_all_data) > 1:
                 for r in vwbd_all_data[1:]:
