@@ -29,14 +29,13 @@ def load_data(file_path):
 
 vendor_df, book_df = load_data(EXCEL_FILE)
 
-# உரையைச் சுத்தப்படுத்தும் சார்புகள் (Clean Text Functions)
-def extract_clean_vendor(raw_str):
-    if pd.isna(raw_str) or not raw_str:
-        return ""
-    text = str(raw_str).strip()
-    parts = [p.strip() for p in text.split('.') if p.strip()]
-    cleaned_parts = [p for p in parts if not p.isdigit()]
-    return cleaned_parts[-1] if cleaned_parts else text
+# தமிழ் மற்றும் ஆங்கில எழுத்துக்கள்/எண்களை மட்டும் தனியாகப் பிரித்தெடுக்கும் சார்பு
+def extract_words(val):
+    if pd.isna(val) or val is None:
+        return set()
+    words = re.findall(r'[\u0B80-\u0BFFa-zA-Z0-9]+', str(val).lower())
+    clean_words = set(w for w in words if not w.isdigit())
+    return clean_words
 
 def clean_for_match(val):
     if pd.isna(val) or val is None:
@@ -111,17 +110,23 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
         except Exception:
             pass
 
-    # Dropdown பட்டியல் உருவாக்கம்
+    # B மற்றும் C பத்திகளில் உள்ள பெயர்களை வைத்து Dropdown பட்டியலைத் தயார் செய்தல்
     vendor_options_map = {}
     if not vendor_df.empty:
         for idx, row in vendor_df.iterrows():
-            v_id = str(row.iloc[1]).strip() if pd.notna(row.iloc[1]) and str(row.iloc[1]).strip().lower() != "nan" else ""
-            v_raw_name = str(row.iloc[2]).strip() if pd.notna(row.iloc[2]) else ""
-            clean_name = extract_clean_vendor(v_raw_name)
+            colB_val = str(row.iloc[1]).strip() if len(row) > 1 and pd.notna(row.iloc[1]) else ""
+            colC_val = str(row.iloc[2]).strip() if len(row) > 2 and pd.notna(row.iloc[2]) else ""
             
-            if clean_name and clean_name.lower() != "nan":
-                display_label = f"{v_id}. {clean_name}" if v_id else clean_name
-                vendor_options_map[display_label] = clean_name
+            # Dropdown-ல் காட்ட வேண்டிய அழகிய பெயர் (எ.கா: 340. GRAPHIC NETWORK)
+            if colC_val and colC_val.lower() != "nan":
+                display_label = colB_val if colB_val else colC_val
+                # B மற்றும் C இரண்டின் வார்த்தைகளையும் சேகரித்தல்
+                all_words = extract_words(colB_val).union(extract_words(colC_val))
+                vendor_options_map[display_label] = {
+                    "words": all_words,
+                    "colB": colB_val,
+                    "colC": colC_val
+                }
                 
     st.subheader("1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:")
     vendor_disp_list = list(vendor_options_map.keys())
@@ -135,17 +140,19 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
     
     if selected_vendor_disp and selected_vendor_disp != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
         
-        actual_vendor = vendor_options_map[selected_vendor_disp]
+        vendor_data = vendor_options_map[selected_vendor_disp]
+        target_words = vendor_data["words"]
         
-        if clean_for_match(selected_vendor_disp) in verified_vendors or clean_for_match(actual_vendor) in verified_vendors:
+        if clean_for_match(selected_vendor_disp) in verified_vendors or clean_for_match(vendor_data["colC"]) in verified_vendors:
             st.warning("⚠️ இந்த பதிப்பகத்தின் விவரங்கள் ஏற்கனவே கூகுள் ஷீட்டில் சேமிக்கப்பட்டுவிட்டது!")
         else:
-            target_match = clean_for_match(actual_vendor)
-            
-            colJ = book_df.iloc[:, 9].apply(clean_for_match)
-            colK = book_df.iloc[:, 10].apply(clean_for_match)
-            
-            filtered_books = book_df[(colJ == target_match) | (colK == target_match) | colJ.str.contains(target_match, regex=False) | colK.str.contains(target_match, regex=False)]
+            # எக்செல் தரவில் இருந்து புத்தகங்களைப் பிரித்தெடுத்தல்
+            def is_vendor_match(row_val):
+                row_words = extract_words(row_val)
+                return len(target_words.intersection(row_words)) > 0
+
+            mask = book_df.iloc[:, 9].apply(is_vendor_match) | book_df.iloc[:, 10].apply(is_vendor_match)
+            filtered_books = book_df[mask]
 
             if filtered_books.empty:
                 st.warning("⚠️ இந்த பதிப்பகத்திற்குப் புத்தகத் தரவுகள் எதுவும் இல்லை!")
@@ -225,23 +232,25 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                                     }
                                     st.session_state['verified_list'].append(item)
                                     
-                                    # ⚡ உடனுக்குடன் 'Vendor Wise Book Data' சீட்டைப் புதுப்பிக்கும் பகுதி (Instant Live Update)
+                                    # கூகுள் ஷீட்டின் Vendor Wise Book Data சீட்டை நேரலையாகப் புதுப்பித்தல்
                                     if sheet_vendor_wise:
                                         try:
                                             vwbd_data = sheet_vendor_wise.get_all_values()
                                             if len(vwbd_data) > 1:
                                                 cell_updates = []
-                                                target_v_match = clean_for_match(actual_vendor)
                                                 target_t_match = clean_for_match(matched_row['Title'])
                                                 
                                                 matching_row_indices = []
                                                 for r_idx, r_data in enumerate(vwbd_data[1:], start=2):
                                                     if len(r_data) > 10:
-                                                        row_title = clean_for_match(r_data[1])   # Col B: Title
-                                                        colJ_v = clean_for_match(r_data[9])      # Col J: Vendor/Publication
-                                                        colK_v = clean_for_match(r_data[10])     # Col K: Vendor Name
+                                                        row_title = clean_for_match(r_data[1])  # Col B: Title
+                                                        colJ_words = extract_words(r_data[9])   # Col J
+                                                        colK_words = extract_words(r_data[10])  # Col K
                                                         
-                                                        if row_title == target_t_match and (target_v_match in colJ_v or target_v_match in colK_v or colJ_v in target_v_match or colK_v in target_v_match):
+                                                        # B அல்லது C பத்தியின் மூல வார்த்தைகளுடன் ஒப்பிடுதல்
+                                                        v_matched = len(target_words.intersection(colJ_words)) > 0 or len(target_words.intersection(colK_words)) > 0
+                                                        
+                                                        if row_title == target_t_match and v_matched:
                                                             matching_row_indices.append(r_idx)
                                                 
                                                 current_rec = 0
@@ -260,14 +269,14 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                                             
                                             if cell_updates:
                                                 sheet_vendor_wise.update_cells(cell_updates)
-                                                st.toast(f"⚡ '{matched_row['Title']}' - Vendor Wise Book Data சீட்டில் நேரலையாகப் புதுப்பிக்கப்பட்டது!", icon="✅")
+                                                st.toast(f"⚡ '{matched_row['Title']}' - Vendor Wise Book Data சீட்டில் Received = 1 என மாற்றப்பட்டது!", icon="✅")
                                         except Exception as sec_e:
-                                            st.warning(f"⚠️ 'Vendor Wise Book Data' புதுப்பிப்பில் எச்சரிக்கை: {sec_e}")
+                                            st.warning(f"⚠️ புதுப்பிப்பு எச்சரிக்கை: {sec_e}")
 
                                     st.session_state['book_key'] += 1
                                     st.rerun()
 
-    # Step 3: Verified Draft Table & Final Save to Google Sheet
+    # Step 3: Verified Draft Table & Save to Google Sheet
     if st.session_state['verified_list']:
         st.markdown("---")
         st.subheader(f"📋 சரிபார்க்கப்பட்ட புத்தகங்கள் பட்டியல் ({len(st.session_state['verified_list'])})")
@@ -294,21 +303,20 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                 try:
                     curr_date = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     
-                    # Physically verified சீட்டில் தரவுகளைச் சேமித்தல்
                     if sheet_physically:
                         physically_rows = []
                         for item in st.session_state['verified_list']:
                             physically_rows.append([
-                                selected_vendor_disp if 'selected_vendor_disp' in locals() else '',
+                                selected_vendor_disp,
                                 item['Title'], item['language'], item['Author'],
-                                actual_vendor if 'actual_vendor' in locals() else '',
+                                vendor_data["colC"],
                                 item['TotalQty'], item['ReceivedQty'], item['NotReceivedQty'],
                                 curr_date, st.session_state.get('user_phone', '')
                             ])
                         sheet_physically.append_rows(physically_rows)
 
                     st.balloons()
-                    st.success("🎉 இந்த பதிப்பகத்தின் சரிபார்ப்பு பணி நிறைவடைந்தது!")
+                    st.success("🎉 இந்த பதிப்பகத்தின் சரிபார்ப்பு பணி வெற்றிகரமாக நிறைவடைந்தது!")
                     
                     st.session_state['verified_list'] = []
                     st.session_state['vendor_key'] += 1
