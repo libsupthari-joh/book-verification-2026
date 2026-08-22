@@ -64,7 +64,7 @@ try:
 except Exception as e:
     st.error(f"❌ Google Sheet இணைப்புப் பிழை: {e}")
 
-# Session State
+# Session State அமைப்புகள்
 if 'verified_list' not in st.session_state:
     st.session_state['verified_list'] = []
 
@@ -74,7 +74,13 @@ if 'vendor_key' not in st.session_state:
 if 'book_key' not in st.session_state:
     st.session_state['book_key'] = 0
 
-# 4. இடதுபுற மெனு (தெளிவான வண்ண ஐகான்களுடன்)
+if 'show_vendor_select' not in st.session_state:
+    st.session_state['show_vendor_select'] = True
+
+if 'show_book_select' not in st.session_state:
+    st.session_state['show_book_select'] = False
+
+# 4. இடதுபுற மெனு
 st.sidebar.header("📌 முதன்மைப் பணிகள்")
 menu_choice = st.sidebar.radio(
     "பணியைத் தேர்ந்தெடுக்கவும்:",
@@ -96,7 +102,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         st.error("❌ 'Book Supply-2026.xlsx' கோப்பு காணப்படவில்லை!")
         st.stop()
 
-    # கூகுள் ஷீட்டில் ஏற்கனவே சேமிக்கப்பட்ட பதிப்பகங்கள் / புத்தகங்களை மீட்டெடுத்தல்
+    # ஏற்கனவே சேமிக்கப்பட்ட தரவுகளை மீட்டெடுத்தல்
     saved_entries = set()
     if sheet_physically:
         try:
@@ -117,97 +123,126 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
             label = col_b if col_b else col_c
             if label and label.lower() != "nan" and label not in vendor_list:
                 vendor_list.append(label)
-                
-    st.markdown("### 🏢 1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:")
-    
-    selected_vendor_raw = st.selectbox(
-        "பதிப்பகப் பெயரைத் தேர்ந்தெடுக்கவும்...", 
-        ["-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + vendor_list, 
-        key=f"vendor_select_{st.session_state['vendor_key']}",
-        label_visibility="collapsed"
-    )
-    
-    if selected_vendor_raw and selected_vendor_raw != "-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
-        target_vendor_clean = clean_text(selected_vendor_raw)
-        
-        def is_vendor_match(row_val):
-            return clean_text(row_val) == target_vendor_clean
 
-        mask = book_df.iloc[:, 9].apply(is_vendor_match) | book_df.iloc[:, 10].apply(is_vendor_match)
-        filtered_books = book_df[mask]
+    # வலது பக்க பொத்தான்களுக்கான லேஅவுட் (Layout with Right Side Buttons)
+    col_left, col_right = st.columns([3, 1])
 
-        if filtered_books.empty:
-            st.warning("⚠️ இந்த பதிப்பகத்திற்குப் புத்தகத் தரவுகள் எதுவும் இல்லை!")
+    with col_right:
+        st.markdown("### 🔘 விரைவுப் பொத்தான்கள்")
+        btn_select_vendor = st.button("🏢 1. பதிப்பகத்தைத் தேர்வு செய்க", use_container_width=True, type="primary")
+        btn_change_title = st.button("📖 2. தலைப்பினைத் தேர்வு செய்க / மாற்றுக", use_container_width=True)
+
+        if btn_select_vendor:
+            st.session_state['show_vendor_select'] = True
+            st.session_state['show_book_select'] = False
+            st.rerun()
+
+        if btn_change_title:
+            st.session_state['show_vendor_select'] = False
+            st.session_state['show_book_select'] = True
+            st.rerun()
+
+    with col_left:
+        # பதிப்பகம் தேர்ந்தெடுக்கும் பகுதி
+        selected_vendor_raw = None
+        if st.session_state['show_vendor_select']:
+            st.markdown("### 🏢 1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:")
+            selected_vendor_raw = st.selectbox(
+                "பதிப்பகப் பெயரைத் தேர்ந்தெடுக்கவும்...", 
+                ["-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + vendor_list, 
+                key=f"vendor_select_{st.session_state['vendor_key']}",
+                label_visibility="collapsed"
+            )
+            if selected_vendor_raw and selected_vendor_raw != "-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+                st.session_state['selected_vendor_store'] = selected_vendor_raw
+                st.session_state['show_vendor_select'] = False
+                st.session_state['show_book_select'] = True
+                st.rerun()
         else:
-            grouped = filtered_books.groupby(['Title', 'Author Name', 'Language'], as_index=False).agg({
-                'Quantity': 'sum',
-                'Original Price': 'first',
-                'Acccepted Price': 'first',
-                'Isbn': 'first',
-                'Book Id': 'first'
-            })
+            selected_vendor_raw = st.session_state.get('selected_vendor_store', None)
+            if selected_vendor_raw:
+                st.success(f"🏢 **தேர்ந்தெடுக்கப்பட்ட பதிப்பகம்:** {selected_vendor_raw}")
+
+        # புத்தகம் தேர்ந்தெடுக்கும் மற்றும் சரிபார்க்கும் பகுதி
+        if selected_vendor_raw and selected_vendor_raw != "-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+            target_vendor_clean = clean_text(selected_vendor_raw)
             
-            c1, c2 = st.columns(2)
-            c1.metric("📚 மொத்தத் தலைப்புகள்", len(grouped))
-            c2.metric("📦 மொத்தப் படிகள்", int(grouped['Quantity'].sum()))
-            
-            st.markdown("### 📖 2. புத்தகத் தலைப்பதைத் தேர்ந்தெடுக்கவும்:")
-            
-            added_titles_clean = [clean_text(x['Title']) for x in st.session_state['verified_list']]
-            title_options = ["-- 📖 புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"]
-            
-            for idx, row in grouped.iterrows():
-                t_str = str(row['Title']).strip()
-                t_clean = clean_text(t_str)
-                
-                # ஏற்கனவே கூகுள் ஷீட்டில் சேமிக்கப்பட்டதோ அல்லது தற்போதைய பட்டியலில் உள்ளதோ மறைக்கப்படும்
-                if t_clean not in added_titles_clean and (target_vendor_clean, t_clean) not in saved_entries:
-                    a_str = str(row['Author Name']).strip() if pd.notna(row['Author Name']) else ""
-                    disp = f"{t_str} - {a_str}" if a_str else t_str
-                    title_options.append(disp)
-            
-            if len(title_options) == 1:
-                st.success("🎉 இந்த பதிப்பகத்தின் அனைத்துப் புத்தகங்களும் ஏற்கனவே சரிபார்க்கப்பட்டு சேமிக்கப்பட்டுவிட்டன!")
+            def is_vendor_match(row_val):
+                return clean_text(row_val) == target_vendor_clean
+
+            mask = book_df.iloc[:, 9].apply(is_vendor_match) | book_df.iloc[:, 10].apply(is_vendor_match)
+            filtered_books = book_df[mask]
+
+            if filtered_books.empty:
+                st.warning("⚠️ இந்த பதிப்பகத்திற்குப் புத்தகத் தரவுகள் எதுவும் இல்லை!")
             else:
-                selected_title_disp = st.selectbox(
-                    "புத்தகத்தைத் தேர்ந்தெடுக்கவும்...", 
-                    title_options, 
-                    key=f"book_select_{st.session_state['book_key']}",
-                    label_visibility="collapsed"
-                )
+                grouped = filtered_books.groupby(['Title', 'Author Name', 'Language'], as_index=False).agg({
+                    'Quantity': 'sum',
+                    'Original Price': 'first',
+                    'Acccepted Price': 'first',
+                    'Isbn': 'first',
+                    'Book Id': 'first'
+                })
                 
-                if selected_title_disp and selected_title_disp != "-- 📖 புத்தகத்தைத் தேர்ந்தெடுக்கவும் --":
-                    matched_row = None
-                    for idx, row in grouped.iterrows():
-                        t_str = str(row['Title']).strip()
+                c1, c2 = st.columns(2)
+                c1.metric("📚 மொத்தத் தலைப்புகள்", len(grouped))
+                c2.metric("📦 மொத்தப் படிகள்", int(grouped['Quantity'].sum()))
+
+                added_titles_clean = [clean_text(x['Title']) for x in st.session_state['verified_list']]
+                title_options = ["-- 📖 புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"]
+                
+                for idx, row in grouped.iterrows():
+                    t_str = str(row['Title']).strip()
+                    t_clean = clean_text(t_str)
+                    
+                    if t_clean not in added_titles_clean and (target_vendor_clean, t_clean) not in saved_entries:
                         a_str = str(row['Author Name']).strip() if pd.notna(row['Author Name']) else ""
                         disp = f"{t_str} - {a_str}" if a_str else t_str
-                        if disp == selected_title_disp:
-                            matched_row = row
-                            break
-                            
-                    if matched_row is not None:
-                        tot_qty = int(matched_row['Quantity'])
-                        with st.form("verify_form"):
-                            st.write(f"📖 **புத்தகத் தலைப்பு:** {matched_row['Title']}")
-                            st.write(f"✍️ **ஆசிரியர் பெயர்:** {matched_row['Author Name']}")
-                            rec_qty = st.number_input("📦 பெறப்பட்ட படிகள் (எண்ணிக்கை):", min_value=0, max_value=1000, value=tot_qty)
-                            submitted = st.form_submit_button("➕ பட்டியலில் சேர் (Add to List)")
-                            
-                            if submitted:
-                                not_rec_qty = max(0, tot_qty - rec_qty)
-                                item = {
-                                    "Vendor": selected_vendor_raw,
-                                    "Title": matched_row['Title'],
-                                    "Language": matched_row['Language'],
-                                    "Author": matched_row['Author Name'],
-                                    "TotalQty": tot_qty,
-                                    "ReceivedQty": rec_qty,
-                                    "NotReceivedQty": not_rec_qty
-                                }
-                                st.session_state['verified_list'].append(item)
-                                st.session_state['book_key'] += 1
-                                st.rerun()
+                        title_options.append(disp)
+                
+                if len(title_options) == 1:
+                    st.success("🎉 இந்த பதிப்பகத்தின் அனைத்துப் புத்தகங்களும் ஏற்கனவே சரிபார்க்கப்பட்டுவிட்டன!")
+                else:
+                    st.markdown("### 📖 2. புத்தகத் தலைப்பதைத் தேர்ந்தெடுக்கவும்:")
+                    selected_title_disp = st.selectbox(
+                        "புத்தகத்தைத் தேர்ந்தெடுக்கவும்...", 
+                        title_options, 
+                        key=f"book_select_{st.session_state['book_key']}",
+                        label_visibility="collapsed"
+                    )
+                    
+                    if selected_title_disp and selected_title_disp != "-- 📖 புத்தகத்தைத் தேர்ந்தெடுக்கவும் --":
+                        matched_row = None
+                        for idx, row in grouped.iterrows():
+                            t_str = str(row['Title']).strip()
+                            a_str = str(row['Author Name']).strip() if pd.notna(row['Author Name']) else ""
+                            disp = f"{t_str} - {a_str}" if a_str else t_str
+                            if disp == selected_title_disp:
+                                matched_row = row
+                                break
+                                
+                        if matched_row is not None:
+                            tot_qty = int(matched_row['Quantity'])
+                            with st.form("verify_form"):
+                                st.write(f"📖 **புத்தகத் தலைப்பு:** {matched_row['Title']}")
+                                st.write(f"✍️ **ஆசிரியர் பெயர்:** {matched_row['Author Name']}")
+                                rec_qty = st.number_input("📦 பெறப்பட்ட படிகள் (எண்ணிக்கை):", min_value=0, max_value=1000, value=tot_qty)
+                                submitted = st.form_submit_button("➕ பட்டியலில் சேர் (Add to List)")
+                                
+                                if submitted:
+                                    not_rec_qty = max(0, tot_qty - rec_qty)
+                                    item = {
+                                        "Vendor": selected_vendor_raw,
+                                        "Title": matched_row['Title'],
+                                        "Language": matched_row['Language'],
+                                        "Author": matched_row['Author Name'],
+                                        "TotalQty": tot_qty,
+                                        "ReceivedQty": rec_qty,
+                                        "NotReceivedQty": not_rec_qty
+                                    }
+                                    st.session_state['verified_list'].append(item)
+                                    st.session_state['book_key'] += 1
+                                    st.rerun()
 
     if st.session_state['verified_list']:
         st.markdown("---")
@@ -249,7 +284,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
 # ---------------------------------------------------------
 elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)":
     st.subheader("🔄 2. பதிப்பகம் வாரியாக தரவு ஒத்திசைவு (Vendor Wise Sync)")
-    st.info("💡 'Physically Verified' தாளில் சேமிக்கப்பட்டு, இன்னும் ஒத்திசைக்கப்படாத (Unsynced) பதிப்பகங்கள் மட்டும் இங்கு தோன்றும்.")
+    st.info("💡 'Physically Verified' தாளில் சேமிக்கப்பட்டு, இன்னும் ஒத்திசைக்கப்படாத பதிப்பகங்கள் மட்டும் தோன்றும்.")
 
     if not sheet_physically or not sheet_vendor_wise:
         st.error("❌ கூகுள் ஷீட் இணைப்புகள் சரியாக இல்லை!")
@@ -258,7 +293,6 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
             p_records = sheet_physically.get_all_values()
             vwbd_data = sheet_vendor_wise.get_all_values()
 
-            # ஏற்கனவே Received = 1 என ஒத்திசைக்கப்பட்ட பதிப்பகம்/புத்தகங்கள்
             synced_pairs = set()
             for r_data in vwbd_data[1:]:
                 if len(r_data) >= 19 and str(r_data[18]).strip() == "1":
@@ -273,12 +307,11 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
                         v_raw = row[0]
                         v_c = clean_text(v_raw)
                         t_c = clean_text(row[1])
-                        # ஒத்திசைக்கப்படாத பதிப்பகங்கள் மட்டும் பட்டியலிடப்படும்
                         if (v_c, t_c) not in synced_pairs and v_raw and v_raw not in p_vendors:
                             p_vendors.append(v_raw)
 
             if not p_vendors:
-                st.success("🟢 அனைத்துப் பதிப்பகங்களின் தரவுகளும் ஏற்கனவே ஒத்திசைக்கப்பட்டுவிட்டன (All Synced)!")
+                st.success("🟢 அனைத்துப் பதிப்பகங்களின் தரவுகளும் ஏற்கனவே ஒத்திசைக்கப்பட்டுவிட்டன!")
             else:
                 st.markdown("### 🏢 புதுப்பிக்க வேண்டிய பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:")
                 selected_sync_vendor = st.selectbox(
@@ -307,7 +340,6 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
 
                         if st.button(f"🚀 🔴 {selected_sync_vendor} - தரவை கூகுள் ஷீட்டில் புதுப்பி (Sync Now)", use_container_width=True):
                             with st.spinner("⏳ சரியான பதிப்பகத்தை சரிபார்த்து புதுப்பிக்கிறது..."):
-                                
                                 updated_count = 0
 
                                 for rec in filtered_records:
@@ -332,8 +364,6 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
                                             
                                             if is_vendor_matched and is_title_matched:
                                                 if matched_count < needed_qty:
-                                                    # Col S (19) -> Received = 1
-                                                    # Col T (20) -> Not Received = 0
                                                     sheet_vendor_wise.update_cell(r_idx, 19, 1)
                                                     sheet_vendor_wise.update_cell(r_idx, 20, 0)
                                                     matched_count += 1
