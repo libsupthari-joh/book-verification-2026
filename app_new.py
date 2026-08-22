@@ -197,14 +197,14 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
     with col_v_btn:
         if str_lit.button("🔄 பதிப்பகத்தை மாற்றுக", key="btn_v_change", use_container_width=True):
             str_lit.session_state['selected_vendor'] = None
-            str_lit.session_state['verified_list'] = []  # பதிப்பகத்தை மாற்றும்போது பட்டியலைத் தூய்மைப்படுத்த
+            str_lit.session_state['verified_list'] = []
             str_lit.session_state['vendor_key'] += 1
             str_lit.rerun()
 
     if selected_vendor_raw and selected_vendor_raw != "-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
         if str_lit.session_state['selected_vendor'] != selected_vendor_raw:
             str_lit.session_state['selected_vendor'] = selected_vendor_raw
-            str_lit.session_state['verified_list'] = []  # புதிய பதிப்பகம் தேர்ந்தெடுக்கும்போது பட்டியல் ரீசெட்
+            str_lit.session_state['verified_list'] = []
 
     if str_lit.session_state['selected_vendor']:
         target_vendor_clean = clean_text(str_lit.session_state['selected_vendor'])
