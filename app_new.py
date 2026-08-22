@@ -10,7 +10,7 @@ import streamlit.components.v1 as components
 # 1. Streamlit பக்க அமைப்பு
 st.set_page_config(page_title="2026 புதிய நூல்கள் விநியோகம்", layout="wide", initial_sidebar_state="expanded")
 
-# 🎨 பக்கவாட்டு மெனு மற்றும் பொத்தான்களுக்கான நவீன Styling (CSS)
+# 🎨 பக்கவாட்டு மெனு Styling (CSS)
 st.markdown("""
     <style>
     div.stButton > button[key^="nav_"] {
@@ -41,7 +41,7 @@ components.html("""
                 btn.style.setProperty('border', 'none', 'important');
                 btn.style.setProperty('border-radius', '8px', 'important');
             }
-            if (text.includes("கூகுள் ஷீட்டில் சேமி") || text.includes("பட்டியலில் சேர்") || text.includes("உள்நுழை") || text.includes("எண்களைப் புதுப்பி")) {
+            if (text.includes("கூகுள் ஷீட்டில் சேமி") || text.includes("பட்டியலில் சேர்") || text.includes("உள்நுழை") || text.includes("எண்களைப் புதுப்பி") || text.includes("Central Accession")) {
                 btn.style.setProperty('background-color', '#28a745', 'important');
                 btn.style.setProperty('color', 'white', 'important');
                 btn.style.setProperty('border', 'none', 'important');
@@ -562,7 +562,7 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
                     )
 
 # ---------------------------------------------------------
-# பணி 5: Accession எண்கள் மேலாண்மை (புதிய பிரிவு)
+# பணி 5: Accession எண்கள் மேலாண்மை (சரிசெய்யப்பட்டது)
 # ---------------------------------------------------------
 elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
     st.subheader("⚙️ 5. Accession எண்கள் நேரலை மேலாண்மை (Lib_Detail Dashboard)")
@@ -573,9 +573,18 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
             lib_records = sheet_library_details.get_all_values()
             
             if len(lib_records) > 1:
-                # Central Accession (Col F)
-                central_val = lib_records[1][5] if len(lib_records[1]) > 5 else "1001"
+                # Header Cleaning & Alignment
+                headers = [str(h).strip() for h in lib_records[0]]
+                df_lib = pd.DataFrame(lib_records[1:], columns=headers)
                 
+                # Dynamic Column Identification
+                code_col = headers[1] if len(headers) > 1 else df_lib.columns[1]
+                name_col = headers[2] if len(headers) > 2 else df_lib.columns[2]
+                acc_col = headers[6] if len(headers) > 6 else df_lib.columns[6]
+
+                # Central Accession (Col F - Row 2)
+                central_val = lib_records[1][5] if len(lib_records[1]) > 5 and lib_records[1][5].strip() != "" else "1001"
+
                 # 1. Central Accession Number Card
                 st.markdown("---")
                 st.markdown("### 🏷️ 1. Last Central Accession Number")
@@ -585,57 +594,61 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                 with c2:
                     new_central = st.number_input("புதிய Central Accession Number அமைக்கவும்:", min_value=1, value=int(central_val) if central_val.isdigit() else 1001)
                     if st.button("💾 Central Accession எண்ணைப் புதுப்பி", key="btn_update_central"):
-                        sheet_library_details.update_cell(2, 6, new_central) # F2 புதுப்பிப்பு
-                        st.success(f"✅ Last Central Accession Number successfully updated to {new_central}")
+                        sheet_library_details.update_cell(2, 6, new_central)
+                        st.success(f"✅ Last Central Accession Number {new_central} எனப் புதுப்பிக்கப்பட்டது!")
                         st.rerun()
 
                 st.markdown("---")
                 st.markdown("### 🏛️ 2. நூலகங்கள் வாரியான Last Accession Number (DCL / FTB / BL / VL)")
                 
-                # Lib Details DataFrame
-                df_lib = pd.DataFrame(lib_records[1:], columns=lib_records[0] if lib_records[0] else None)
-                
-                # Filter DCL / FTB / BL / VL
-                code_col = df_lib.columns[1] if len(df_lib.columns) > 1 else None
-                name_col = df_lib.columns[2] if len(df_lib.columns) > 2 else None
-                acc_col = df_lib.columns[6] if len(df_lib.columns) > 6 else None # Col G
-                
-                # Category Filter Buttons/Select
+                # Filter Categories
                 type_filter = st.radio("நூலக வகையைத் தேர்ந்தெடுக்கவும் (Category Filter):", ["அனைத்தும் (All 103)", "DCL", "FTB", "BL", "VL"], horizontal=True)
                 
+                # Robust Filtering Logic
                 filtered_df = df_lib.copy()
-                if type_filter != "அனைத்தும் (All 103)" and code_col:
-                    filtered_df = filtered_df[filtered_df[code_col].astype(str).str.startswith(type_filter, na=False)]
+                if type_filter != "அனைத்தும் (All 103)":
+                    filtered_df = filtered_df[filtered_df[code_col].astype(str).str.upper().str.contains(type_filter, na=False)]
                 
-                st.dataframe(filtered_df[[code_col, name_col, acc_col]], use_container_width=True)
+                # Clean Output Display Table
+                display_df = filtered_df[[code_col, name_col, acc_col]].copy()
+                display_df.columns = ["Lib Code", "Library Name", "DCL /FTB /BL / VL LAST ACCESION NUMBER"]
+                st.dataframe(display_df, use_container_width=True)
 
-                # Individual Update Section
+                st.markdown("---")
+                # Individual Library Update Section
                 st.markdown("### ✏️ குறிப்பிட்ட நூலகத்தின் எண்களை நேரடியாக மாற்ற:")
-                col_sel, col_val, col_btn = st.columns([3, 2, 2])
                 
-                lib_options = [f"{row[code_col]} - {row[name_col]}" for idx, row in filtered_df.iterrows() if row[code_col]]
+                lib_options = []
+                for idx, row in filtered_df.iterrows():
+                    c_val = str(row[code_col]).strip()
+                    n_val = str(row[name_col]).strip()
+                    if c_val and c_val.lower() != "nan":
+                        lib_options.append(f"{c_val} - {n_val}")
                 
-                with col_sel:
-                    selected_lib_opt = st.selectbox("நூலகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- தேர்ந்தெடுக்கவும் --"] + lib_options)
-                
-                if selected_lib_opt and selected_lib_opt != "-- தேர்ந்தெடுக்கவும் --":
-                    sel_code = selected_lib_opt.split(" - ")[0].strip()
-                    curr_acc = 1000
-                    target_row_idx = None
+                if not lib_options:
+                    st.warning("⚠️ தேர்ந்தெடுக்கப்பட்ட பிரிவில் நூலகங்கள் எதுவும் கிடைக்கவில்லை!")
+                else:
+                    col_sel, col_val = st.columns([3, 2])
                     
-                    for idx, r in enumerate(lib_records[1:], start=2):
-                        if len(r) > 1 and r[1].strip() == sel_code:
-                            target_row_idx = idx
-                            curr_acc = int(r[6]) if len(r) > 6 and r[6].isdigit() else 1000
-                            break
+                    with col_sel:
+                        selected_lib_opt = st.selectbox("நூலகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- தேர்ந்தெடுக்கவும் --"] + lib_options)
                     
-                    with col_val:
-                        new_lib_acc = st.number_input(f"{sel_code} - புதிய Acc No:", min_value=1, value=curr_acc)
-                    
-                    with col_btn:
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        if st.button("💾 எண்களைப் புதுப்பி", key="btn_update_lib"):
+                    if selected_lib_opt and selected_lib_opt != "-- தேர்ந்தெடுக்கவும் --":
+                        sel_code = selected_lib_opt.split(" - ")[0].strip()
+                        curr_acc = 1000
+                        target_row_idx = None
+                        
+                        for idx, r in enumerate(lib_records[1:], start=2):
+                            if len(r) > 1 and str(r[1]).strip().upper() == sel_code.upper():
+                                target_row_idx = idx
+                                curr_acc = int(r[6]) if len(r) > 6 and str(r[6]).strip().isdigit() else 1000
+                                break
+                        
+                        with col_val:
+                            new_lib_acc = st.number_input(f"{sel_code} - புதிய Acc No:", min_value=1, value=curr_acc)
+                        
+                        if st.button("💾 நூலக Accession எண்ணைப் புதுப்பி", key="btn_update_lib", use_container_width=True):
                             if target_row_idx:
                                 sheet_library_details.update_cell(target_row_idx, 7, new_lib_acc) # Col G update
-                                st.success(f"✅ {sel_code} நூலகத்தின் Last Accession Number {new_lib_acc} என மாற்றப்பட்டது!")
+                                st.success(f"✅ {sel_code} நூலகத்தின் Last Accession Number {new_lib_acc} என வெற்றிகரமாக மாற்றப்பட்டது!")
                                 st.rerun()
