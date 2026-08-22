@@ -220,19 +220,35 @@ st.markdown(get_custom_css(), unsafe_allow_html=True)
 
 
 # ============================================================
-# 3. SECURITY AND LOGIN
+# 3. SECURITY AND LOGIN (ADMIN & USER ROLES)
 # ============================================================
 def hash_password(password):
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
-def valid_login(phone, password):
-    saved_phone = "9842759306"
-    saved_hash = hash_password("123456")
+# Admin மற்றும் User கணக்கு விவரங்கள்
+USERS_DATABASE = {
+    "9842759306": {
+        "password_hash": hash_password("123456"),
+        "role": "Admin",
+        "name": "முதன்மை நிர்வாகி (Admin)",
+    },
+    "9000000000": {
+        "password_hash": hash_password("123456"),
+        "role": "User",
+        "name": "சரிபார்ப்பு பயனர் (User)",
+    },
+}
 
-    phone_valid = hmac.compare_digest(phone.strip(), saved_phone)
-    password_valid = hmac.compare_digest(hash_password(password), saved_hash)
-    return phone_valid and password_valid
+
+def authenticate_user(phone, password):
+    phone_clean = phone.strip()
+    if phone_clean in USERS_DATABASE:
+        user_data = USERS_DATABASE[phone_clean]
+        input_pass_hash = hash_password(password)
+        if hmac.compare_digest(input_pass_hash, user_data["password_hash"]):
+            return user_data
+    return None
 
 
 def show_login_page():
@@ -266,8 +282,11 @@ def show_login_page():
             )
 
         if submitted:
-            if valid_login(phone, password):
+            user_info = authenticate_user(phone, password)
+            if user_info:
                 st.session_state["logged_in"] = True
+                st.session_state["user_role"] = user_info["role"]
+                st.session_state["user_name"] = user_info["name"]
                 st.session_state["login_attempts"] = 0
                 st.rerun()
             else:
@@ -276,6 +295,8 @@ def show_login_page():
 
 
 st.session_state.setdefault("logged_in", False)
+st.session_state.setdefault("user_role", None)
+st.session_state.setdefault("user_name", "")
 st.session_state.setdefault("login_attempts", 0)
 
 if not st.session_state["logged_in"]:
@@ -367,7 +388,7 @@ except Exception as error:
 
 
 # ============================================================
-# 5. SIDEBAR
+# 5. SIDEBAR & ROLE-BASED NAVIGATION
 # ============================================================
 st.session_state.setdefault("current_page", "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
 st.session_state.setdefault("verified_list", [])
@@ -375,23 +396,36 @@ st.session_state.setdefault("vendor_key", 0)
 st.session_state.setdefault("book_key", 0)
 st.session_state.setdefault("selected_vendor", None)
 
-st.sidebar.markdown("### 👤 பயனர் கணக்கு")
+st.sidebar.markdown(f"### 👤 {st.session_state['user_name']}")
+role_badge = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
+st.sidebar.caption(f"அதிகார நிலை: **{role_badge}**")
 
 if st.sidebar.button("🚪 வெளியேறு (Logout)", use_container_width=True):
     st.session_state["logged_in"] = False
+    st.session_state["user_role"] = None
+    st.session_state["user_name"] = ""
     st.session_state["verified_list"] = []
     st.rerun()
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 📌 முதன்மைப் பணிகள்")
 
-menu_items = [
-    "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு",
-    "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)",
-    "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)",
-    "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)",
-    "⚙️ 5. Accession எண்கள் மேலாண்மை",
-]
+# Admin மற்றும் User-க்கான மெனு உரிமைகள்
+if st.session_state["user_role"] == "Admin":
+    menu_items = [
+        "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு",
+        "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)",
+        "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)",
+        "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)",
+        "⚙️ 5. Accession எண்கள் மேலாண்மை",
+    ]
+else:
+    # User-க்குக் கட்டுப்பாடான பணிகள் மட்டுமே
+    menu_items = [
+        "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு",
+        "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)",
+        "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)",
+    ]
 
 for item in menu_items:
     if st.sidebar.button(item, use_container_width=True):
@@ -403,7 +437,7 @@ menu_choice = st.session_state["current_page"]
 
 
 # ============================================================
-# 6. TASK 1 - PHYSICAL VERIFICATION
+# 6. TASK 1 - PHYSICAL VERIFICATION (ADMIN & USER)
 # ============================================================
 if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு":
     st.subheader("📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு போர்ட்டல்")
@@ -596,9 +630,13 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
 
 
 # ============================================================
-# 7. TASK 2 - SYNC
+# 7. TASK 2 - SYNC (ADMIN ONLY)
 # ============================================================
 elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)":
+    if st.session_state["user_role"] != "Admin":
+        st.warning("🔒 இந்தப் பக்கத்தை அணுக **Admin** அனுமதி தேவை!")
+        st.stop()
+
     st.subheader("🔄 2. பதிப்பகம் வாரியாக பெறப்பட்ட நூல்கள் ஒத்திசைவு")
 
     if not sheet_physically or not sheet_vendor_wise:
@@ -686,7 +724,7 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
 
 
 # ============================================================
-# 8. TASK 3 - VENDOR DETAILS
+# 8. TASK 3 - VENDOR DETAILS (ADMIN & USER)
 # ============================================================
 elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)":
     st.subheader("🏢 3. 480 பதிப்பாளர் வாரியான நூல் விவரங்கள்")
@@ -715,7 +753,7 @@ elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் வ�
 
 
 # ============================================================
-# 9. TASK 4 - LIBRARY DELIVERY REPORT
+# 9. TASK 4 - LIBRARY DELIVERY REPORT (ADMIN & USER)
 # ============================================================
 elif menu_choice == "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)":
     st.subheader("🏛️ 4. 103 நூலகங்கள் வாரியான விநியோக அறிக்கை")
@@ -794,9 +832,13 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
 
 
 # ============================================================
-# 10. TASK 5 - ACCESSION MANAGEMENT
+# 10. TASK 5 - ACCESSION MANAGEMENT (ADMIN ONLY)
 # ============================================================
 elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
+    if st.session_state["user_role"] != "Admin":
+        st.warning("🔒 இந்தப் பக்கத்தை அணுக **Admin** அனுமதி தேவை!")
+        st.stop()
+
     st.subheader("⚙️ 5. Accession எண்கள் மற்றும் Batch ஒதுக்கீடு மேலாண்மை")
     st.info("💡 சரிபார்ப்பு மற்றும் ஒத்திசைவு பணிகள் முடிந்த பிறகு இந்தப் பணியைச் செய்யவும்.")
 
@@ -819,7 +861,7 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                     st.markdown("---")
                     st.markdown("### 📝 Accession எண்கள் ஒதுக்கீடு முன்னோட்டம்")
 
-                    if st.button("🔢 Accession எண்களை உருவாக்கு / Generates", use_container_width=True):
+                    if st.button("🔢 Accession எண்களை உருவாக்கு / Generate", use_container_width=True):
                         live_df["Accession No"] = [
                             f"{prefix}{start_num + i}" for i in range(len(live_df))
                         ]
