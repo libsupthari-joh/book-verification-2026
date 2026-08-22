@@ -42,7 +42,7 @@ components.html("""
                 btn.style.setProperty('border', 'none', 'important');
                 btn.style.setProperty('border-radius', '8px', 'important');
             }
-            if (text.includes("கூகுள் ஷீட்டில் சேமி") || text.includes("உள்நுழை") || text.includes("புதுப்பி") || text.includes("Central Accession")) {
+            if (text.includes("கூகுள் ஷீட்டில் சேமி") || text.includes("உள்நுழை") || text.includes("புதுப்பி") || text.includes("Sync to Sheet")) {
                 btn.style.setProperty('background-color', '#28a745', 'important');
                 btn.style.setProperty('color', 'white', 'important');
                 btn.style.setProperty('border', 'none', 'important');
@@ -341,10 +341,10 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                 st.rerun()
 
 # ---------------------------------------------------------
-# பணி 2: Google Sheet தரவு ஒத்திசைவு (வெகு சுத்தமாக - பெறப்பட்ட/பெறப்படாத நூல்கள் மட்டும்)
+# பணி 2: Google Sheet தரவு ஒத்திசைவு மற்றும் Vendor Wise Book Data ஷீட்டிற்கு அனுப்புதல்
 # ---------------------------------------------------------
 elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)":
-    st.subheader("🔄 2. பதிப்பகம் வாரியாக பெறப்பட்ட மற்றும் பெறப்படாத நூல்களின் பட்டியல்")
+    st.subheader("🔄 2. பதிப்பகம் வாரியாக பெறப்பட்ட மற்றும் பெறப்படாத நூல்களின் பட்டியல் & ஒத்திசைவு")
 
     if not sheet_physically or not sheet_vendor_wise:
         st.error("❌ கூகுள் ஷீட் இணைப்புகள் சரியாக இல்லை!")
@@ -380,7 +380,6 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
                             if nr_qty > 0:
                                 not_rec_books.append({"📖 புத்தகத் தலைப்பு": row[1], "🗣️ மொழி": row[2], "❌ பெறப்படாத படிகள்": nr_qty})
 
-                    # முற்றிலும் பெறப்பட்ட மற்றும் பெறப்படாத நூல்களை மட்டும் காட்டும் 2 தனித்தனிப் பிரிவுகள் (Tabs)
                     tab1, tab2 = st.tabs([
                         "✅ 1. பெறப்பட்ட நூல்களின் விவரம் (Received List)", 
                         "⚠️ 2. பெறப்படாத நூல்களின் விவரம் (Not Received List)"
@@ -403,6 +402,43 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
                             st.dataframe(df_not_rec, use_container_width=True)
                         else:
                             st.success("பெறப்படாத நூல்கள் எதுவுமில்லை! அனைத்து நூல்களும் பெறப்பட்டுவிட்டன.")
+
+                st.markdown("---")
+                st.markdown("### 🚀 முக்கிய செயல்பாடு: Vendor Wise Book Data ஷீட்டிற்குத் தரவுகளை ஒத்திசைத்தல்")
+                st.info("💡 இந்தப் பொத்தானை அழுத்தினால், பெறப்பட்ட மற்றும் பெறப்படாத நூல்களின் எண்ணிக்கைகள் **Vendor Wise Book Data** ஷீட்டின் உரிய நெடுவரிசைகளுக்கு மாற்றப்படும். இதன் பிறகே 3-வது பணியில் பதிப்பாளர் வாரியான அறிக்கைகள் சரியாக வரும்.")
+
+                if st.button("🔄 Vendor Wise Book Data ஷீட்டிற்கு அனுப்பு (Sync to Sheet)", key="btn_sync_to_vendor_wise", use_container_width=True):
+                    with st.spinner("⏳ தரவுகள் Vendor Wise Book Data ஷீட்டிற்கு ஒத்திசைவு செய்யப்படுகின்றன... कृपया காத்திருக்கவும்..."):
+                        vwbd_data = sheet_vendor_wise.get_all_values()
+                        batch_updates = []
+                        update_count = 0
+
+                        for rec in p_records[1:]:
+                            if len(rec) >= 8:
+                                pub_name = clean_text(rec[0])
+                                book_title = clean_text(rec[1])
+                                r_qty = int(rec[6]) if str(rec[6]).isdigit() else 0
+                                nr_qty = int(rec[7]) if str(rec[7]).isdigit() else 0
+
+                                for r_idx, r_data in enumerate(vwbd_data[1:], start=2):
+                                    if len(r_data) > 10:
+                                        s_title = clean_text(r_data[4])
+                                        s_pub = clean_text(r_data[9])
+                                        s_vendor = clean_text(r_data[10])
+
+                                        if (pub_name == s_pub or pub_name == s_vendor) and (book_title in s_title or s_title in book_title):
+                                            # S and T columns (Col 19 & 20 - Indices 18 & 19) for Received & Not Received Status/Qty
+                                            batch_updates.append({
+                                                'range': f'S{r_idx}:T{r_idx}',
+                                                'values': [[r_qty if r_qty > 0 else 0, nr_qty if nr_qty > 0 else 0]]
+                                            })
+                                            update_count += 1
+
+                        if batch_updates:
+                            sheet_vendor_wise.batch_update(batch_updates)
+                        
+                        st.balloons()
+                        st.success(f"🎉 வெற்றி! {update_count} பதிவுகள் Vendor Wise Book Data ஷீட்டிற்கு வெற்றிகரமாக ஒத்திசைவு செய்யப்பட்டன!")
 
         except Exception as e:
             st.error(f"❌ பிழை ஏற்பட்டது: {e}")
@@ -516,11 +552,11 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
                     )
 
 # ---------------------------------------------------------
-# பணி 5: Accession எண்கள் மேலாண்மை (இறுதிக்கட்டப் பணி - தனிப்பகுதி)
+# பணி 5: Accession எண்கள் மேலாண்மை (இறுதிக்கட்டப் பணி)
 # ---------------------------------------------------------
 elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை (இறுதிக்கட்டப் பணி)":
     st.subheader("⚙️ 5. இறுதிக்கட்டப் பணி: Accession எண்கள் மற்றும் Batch ஒதுக்கீடு மேலாண்மை")
-    st.info("💡 **குறிப்பு:** அனைத்துப் பதிப்பகங்களின் நூல்களும் முழுமையாகச் சரிபார்க்கப்பட்டு உறுதி செய்யப்பட்ட பிறகே இந்தப் பணியைச் செய்ய வேண்டும்.")
+    st.info("💡 **குறிப்பு:** அனைத்துப் பதிப்பகங்களின் நூல்களும் முழுமையாகச் சரிபார்க்கப்பட்டு, Vendor Wise Book Data ஷீட்டிற்கு ஒத்திசைவு செய்யப்பட்ட பிறகே இந்தப் பணியைச் செய்ய வேண்டும்.")
 
     if not sheet_library_details or not sheet_vendor_wise or not sheet_physically:
         st.error("❌ கூகுள் ஷீட் தரவுகள் முழுமையாகக் கிடைக்கவில்லை!")
