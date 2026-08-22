@@ -8,7 +8,6 @@ from datetime import datetime
 # 1. Streamlit பக்க அமைப்பு
 st.set_page_config(page_title="2026 புதிய நூல்கள் விநியோகம்", layout="wide")
 
-# தலைப்பு
 st.title("📚 2026 புதிய நூல்கள் விநியோகம்")
 
 # 2. எக்செல் கோப்பை ஏற்றுதல்
@@ -40,7 +39,9 @@ def init_gspread():
 
 try:
     client = init_gspread()
-    sheet = client.open_by_key("1LNogKaLvdqkoITSLE971jTBIy9QO4s90j1WDxY1cDrc").worksheet("Physically verified")
+    spreadsheet = client.open_by_key("1LNogKaLvdqkoITSLE971jTBIy9QO4s90j1WDxY1cDrc")
+    sheet_physically = spreadsheet.worksheet("Physically verified")
+    sheet_vendor_wise = spreadsheet.worksheet("Vendor Wise Book Data")
 except Exception as e:
     st.error(f"Google Sheet இணைப்புப் பிழை: {e}")
 
@@ -78,7 +79,7 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
     # ஏற்கனவே கூகுள் ஷீட்டில் உள்ள பதிப்பகங்களைப் படித்தல்
     verified_vendors = []
     try:
-        existing_records = sheet.get_all_values()
+        existing_records = sheet_physically.get_all_values()
         if len(existing_records) > 1:
             verified_vendors = set(row[0].strip() for row in existing_records[1:] if row and row[0])
     except Exception:
@@ -136,13 +137,11 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                 
                 st.subheader("2. புத்தகத் தலைப்பதைத் தேர்ந்தெடுக்கவும்:")
                 
-                # ஏற்கனவே சேமிக்கப்பட்ட புத்தகங்களை வடிகட்டி நீக்குதல்
                 added_titles = [x['Title'] for x in st.session_state['verified_list']]
                 
                 title_options = ["-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"]
                 for idx, row in grouped.iterrows():
                     t_str = str(row['Title']).strip()
-                    # பட்டியலில் இல்லாத புத்தகங்களை மட்டும் தேர்வில் காட்டுதல்
                     if t_str not in added_titles:
                         a_str = str(row['Author Name']).strip() if pd.notna(row['Author Name']) else ""
                         disp = f"{t_str} - {a_str}" if a_str else t_str
@@ -178,7 +177,7 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                                 submitted = st.form_submit_button("➕ பட்டியலில் சேர்")
                                 
                                 if submitted:
-                                    not_rec_qty = tot_qty - rec_qty
+                                    not_rec_qty = max(0, tot_qty - rec_qty)
                                     item = {
                                         "Book Id": matched_row.get('Book Id', ''),
                                         "Title": matched_row['Title'],
@@ -192,7 +191,7 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                                         "Isbn": matched_row.get('Isbn', '')
                                     }
                                     st.session_state['verified_list'].append(item)
-                                    st.session_state['book_key'] += 1  # Reset dropdown & Remove selected title
+                                    st.session_state['book_key'] += 1
                                     st.success("✅ பட்டியல் சேர்க்கப்பட்டது!")
                                     st.rerun()
 
@@ -222,18 +221,60 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
             if st.button("💾 கூகுள் ஷீட்டில் சேமி (Final Submit)", use_container_width=True):
                 try:
                     curr_date = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                    rows = []
+                    
+                    # 1. Physically verified சீட்டில் சேமித்தல்
+                    physically_rows = []
                     for item in st.session_state['verified_list']:
-                        rows.append([
+                        physically_rows.append([
                             selected_vendor_full if 'selected_vendor_full' in locals() else '',
                             item['Title'], item['language'], item['Author'],
                             actual_vendor if 'actual_vendor' in locals() else '',
                             item['TotalQty'], item['ReceivedQty'], item['NotReceivedQty'],
                             curr_date, st.session_state.get('user_phone', '')
                         ])
-                    sheet.append_rows(rows)
+                    sheet_physically.append_rows(physically_rows)
+                    
+                    # 2. Vendor Wise Book Data சீட்டை புதுப்பித்தல் (S & T Columns)
+                    vwbd_data = sheet_vendor_wise.get_all_values()
+                    
+                    if len(vwbd_data) > 1:
+                        # Col B (Title): Index 1, Col E (Vendor): Index 4
+                        cell_updates = []
+                        
+                        for item in st.session_state['verified_list']:
+                            target_title = str(item['Title']).strip().lower()
+                            rec_count = item['ReceivedQty']
+                            
+                            matching_row_indices = []
+                            for r_idx, r_data in enumerate(vwbd_data[1:], start=2):
+                                if len(r_data) > 4:
+                                    row_title = str(r_data[1]).strip().lower()
+                                    row_vendor = str(r_data[4]).strip().lower()
+                                    target_v = str(actual_vendor).strip().lower()
+                                    
+                                    if row_title == target_title and target_v in row_vendor:
+                                        matching_row_indices.append(r_idx)
+                            
+                            # வரிசையாக S மற்றும் T பத்திகளை நிரப்புதல்
+                            current_rec = 0
+                            for row_num in matching_row_indices:
+                                if current_rec < rec_count:
+                                    s_val = 1
+                                    t_val = 0
+                                    current_rec += 1
+                                else:
+                                    s_val = 0
+                                    t_val = 1
+                                
+                                # Row updates for S (19) and T (20) columns
+                                cell_updates.append(gspread.Cell(row_num, 19, s_val))
+                                cell_updates.append(gspread.Cell(row_num, 20, t_val))
+                        
+                        if cell_updates:
+                            sheet_vendor_wise.update_cells(cell_updates)
+
                     st.balloons()
-                    st.success("🎉 அனைத்து விவரங்களும் கூகுள் ஷீட்டில் சேமிக்கப்பட்டன!")
+                    st.success("🎉 'Physically verified' மற்றும் 'Vendor Wise Book Data' ஆகிய இரண்டு சீட்களிலும் தகவல்கள் துல்லியமாக புதுப்பிக்கப்பட்டன!")
                     
                     st.session_state['verified_list'] = []
                     st.session_state['vendor_key'] += 1
