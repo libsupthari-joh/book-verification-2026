@@ -10,49 +10,100 @@ import time
 # 1. Streamlit பக்க அமைப்பு
 str_lit.set_page_config(page_title="2026 புதிய நூல்கள் விநியோகம்", layout="wide", initial_sidebar_state="expanded")
 
-# 🎨 3D பக்கவாட்டு மெனு மற்றும் பட்டன்களுக்கான Styling (CSS)
+# 🎨 ஒவ்வொரு மெனுவிற்கும் தனித்துவமான வண்ணங்களுடன் கூடிய 3D CSS குறியீடு
 def get_custom_css():
     return """
     <style>
     .stAppViewContainer {
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
-    /* பக்கவாட்டு மெனுவின் பட்டன்களுக்கு 3D லுக் */
+    
+    /* பக்கவாட்டு மெனு பட்டன்களின் பொதுவான 3D வடிவமைப்பு */
     div[data-testid="stSidebar"] button {
         width: 100% !important;
         text-align: left !important;
         padding: 14px 18px !important;
-        margin-bottom: 10px !important;
-        border-radius: 10px !important;
+        margin-bottom: 12px !important;
+        border-radius: 12px !important;
         font-weight: 800 !important;
         font-size: 15px !important;
         border: none !important;
-        transition: all 0.3s ease !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1), inset 0 -2px 2px rgba(0,0,0,0.1) !important;
+        transition: all 0.25s ease-in-out !important;
+        box-shadow: 0 5px 0 rgba(0,0,0,0.2), 0 7px 10px rgba(0,0,0,0.15) !important;
     }
 
-    /* சாதாரண நிலை பட்டன் - சாம்பல் நிறம் */
-    div[data-testid="stSidebar"] button[kind="secondary"] {
-        background: linear-gradient(145deg, #f0f0f0, #e0e0e0) !important;
-        color: #333 !important;
+    div[data-testid="stSidebar"] button p {
+        font-weight: 800 !important;
+        font-size: 15px !important;
+        margin: 0 !important;
     }
 
-    /* ஆக்டிவ் நிலை - 3D ப்ளூ நிறம் மற்றும் அழுத்தப்பட்ட உணர்வு */
-    div[data-testid="stSidebar"] button[kind="primary"] {
-        background: linear-gradient(145deg, #007bff, #0056b3) !important;
+    /* 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு - பச்சை நிற 3D தீம் */
+    div[data-testid="stSidebar"] button.nav-1-btn {
+        background: linear-gradient(145deg, #2e7d32, #1b5e20) !important;
         color: white !important;
-        transform: translateY(2px) !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2), inset 0 2px 3px rgba(255,255,255,0.3) !important;
+    }
+    div[data-testid="stSidebar"] button.nav-1-btn p { color: white !important; }
+
+    /* 2. Google Sheet தரவு ஒத்திசைவு - ஊதா (Purple) நிற 3D தீம் */
+    div[data-testid="stSidebar"] button.nav-2-btn {
+        background: linear-gradient(145deg, #7b1fa2, #4a148c) !important;
+        color: white !important;
+    }
+    div[data-testid="stSidebar"] button.nav-2-btn p { color: white !important; }
+
+    /* 3. மொத்த பதிப்பாளர் விவரங்கள் - சாக்லேட்/ஆரஞ்சு நிற 3D தீம் */
+    div[data-testid="stSidebar"] button.nav-3-btn {
+        background: linear-gradient(145deg, #e65100, #bf360c) !important;
+        color: white !important;
+    }
+    div[data-testid="stSidebar"] button.nav-3-btn p { color: white !important; }
+
+    /* 4. நூலகத்திற்கு விநியோகம் - நீல (Blue) நிற 3D தீம் */
+    div[data-testid="stSidebar"] button.nav-4-btn {
+        background: linear-gradient(145deg, #0277bd, #01579b) !important;
+        color: white !important;
+    }
+    div[data-testid="stSidebar"] button.nav-4-btn p { color: white !important; }
+
+    /* 5. Accession எண்கள் மேலாண்மை - சாம்பல்/கருப்பு (Dark Slate) 3D தீம் */
+    div[data-testid="stSidebar"] button.nav-5-btn {
+        background: linear-gradient(145deg, #37474f, #263238) !important;
+        color: white !important;
+    }
+    div[data-testid="stSidebar"] button.nav-5-btn p { color: white !important; }
+
+    /* வெளியேறு பட்டன் - சிவப்பு நிற 3D தீம் */
+    div[data-testid="stSidebar"] button.logout-btn {
+        background: linear-gradient(145deg, #c62828, #b71c1c) !important;
+        color: white !important;
+    }
+    div[data-testid="stSidebar"] button.logout-btn p { color: white !important; }
+
+    /* செயலற்ற (Inactive) பட்டன்களை சற்று மங்கலாக்குதல் */
+    div[data-testid="stSidebar"] button:not([kind="primary"]) {
+        filter: brightness(0.85);
+        opacity: 0.85;
     }
 
+    /* தேர்ந்தெடுக்கப்பட்ட (Active) முதன்மை பட்டன் - முழுப் பளபளப்பு மற்றும் அழுத்தப்பட்ட 3D தோற்றம் */
+    div[data-testid="stSidebar"] button[kind="primary"] {
+        filter: brightness(1.2) !important;
+        opacity: 1 !important;
+        transform: translateY(3px) !important;
+        box-shadow: 0 2px 0 rgba(0,0,0,0.4), inset 0 2px 3px rgba(255,255,255,0.3) !important;
+    }
+
+    /* மவுஸ் வைக்கும் போது மேலே எழும்புதல் */
     div[data-testid="stSidebar"] button:hover {
         filter: brightness(1.1) !important;
-        cursor: pointer !important;
+        opacity: 1 !important;
+        transform: translateY(-2px) !important;
     }
     </style>
     """
 
-# Session State Initializations (பிழை வராமல் இருக்க அவசியமானது)
+# Session State Initializations
 if 'logged_in' not in str_lit.session_state:
     str_lit.session_state['logged_in'] = False
 if 'current_page' not in str_lit.session_state:
@@ -84,6 +135,21 @@ str_lit.sidebar.markdown("### 👤 **பயனர் கணக்கு**")
 if str_lit.sidebar.button("🚪 வெளியேறு (Logout)", key="logout_btn", use_container_width=True):
     str_lit.session_state['logged_in'] = False
     str_lit.rerun()
+
+# Logout பட்டனுக்கான ஜாவாஸ்கிரிப்ட் கிளாஸ் சேர்க்க
+str_lit.markdown("""
+<script>
+var buttons = document.querySelectorAll('div[data-testid="stSidebar"] button');
+for (var i = 0; i < buttons.length; i++) {
+    if (buttons[i].innerText.includes("வெளியேறு")) { buttons[i].classList.add("logout-btn"); }
+    if (buttons[i].innerText.includes("பெறப்பட்ட நூல்கள்")) { buttons[i].classList.add("nav-1-btn"); }
+    if (buttons[i].innerText.includes("ஒத்திசைவு")) { buttons[i].classList.add("nav-2-btn"); }
+    if (buttons[i].innerText.includes("பதிப்பாளர் விவரங்கள்")) { buttons[i].classList.add("nav-3-btn"); }
+    if (buttons[i].innerText.includes("நூலகத்திற்கு விநியோகம்")) { buttons[i].classList.add("nav-4-btn"); }
+    if (buttons[i].innerText.includes("Accession எண்கள்")) { buttons[i].classList.add("nav-5-btn"); }
+}
+</script>
+""", unsafe_allow_html=True)
 
 str_lit.sidebar.markdown("---")
 str_lit.sidebar.markdown("### 📌 **முதன்மைப் பணிகள்**")
