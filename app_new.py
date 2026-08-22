@@ -163,16 +163,6 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         str_lit.error("❌ 'Book Supply-2026.xlsx' கோப்பு காணப்படவில்லை!")
         str_lit.stop()
 
-    saved_entries = set()
-    if sheet_physically:
-        try:
-            records = sheet_physically.get_all_values()
-            for r in records[1:]:
-                if len(r) >= 2:
-                    saved_entries.add((clean_text(r[0]), clean_text(r[1])))
-        except Exception:
-            pass
-
     vendor_list = []
     if not vendor_df.empty:
         for idx, row in vendor_df.iterrows():
@@ -222,69 +212,69 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
             c1.metric("📚 மொத்தத் தலைப்புகள்", len(grouped))
             c2.metric("📦 மொத்தப் படிகள்", int(grouped['Quantity'].sum()))
 
+            # தற்காலிகப் பட்டியலில் ஏற்கனவே சேர்க்கப்பட்ட தலைப்புகள் மட்டும் தவிர்க்கப்படும் (Google Sheet சோதனை நீக்கப்பட்டுவிட்டது)
             added_titles_clean = [clean_text(x['Title']) for x in str_lit.session_state['verified_list']]
             title_options = ["-- 📖 புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"]
             
             for idx, row in grouped.iterrows():
                 t_str = str(row['Title']).strip()
                 t_clean = clean_text(t_str)
-                if t_clean not in added_titles_clean and (target_vendor_clean, t_clean) not in saved_entries:
+                if t_clean not in added_titles_clean:
                     a_str = str(row['Author Name']).strip() if pd.notna(row['Author Name']) else ""
                     disp = f"{t_str} - {a_str}" if a_str else t_str
                     title_options.append(disp)
             
-            if len(title_options) == 1 and len(str_lit.session_state['verified_list']) == 0:
-                str_lit.success("🎉 இந்த பதிப்பகத்தின் அனைத்துப் புத்தகங்களும் ஏற்கனவே சரிபார்க்கப்பட்டுவிட்டன!")
+            if len(title_options) == 1:
+                str_lit.success("🎉 இந்த பதிப்பகத்தின் அனைத்துத் தலைப்புகளும் தற்காலிகப் பட்டியலில் சேர்க்கப்பட்டுவிட்டன! கீழே உள்ள பொத்தானை அழுத்தி கூகுள் ஷீட்டில் சேமிக்கவும்.")
             else:
-                if len(title_options) > 1:
-                    str_lit.markdown("### 📖 **2. புத்தகத் தலைப்பதைத் தேர்ந்தெடுக்கவும்:**")
-                    col_b_select, col_b_btn = str_lit.columns([5, 1])
+                str_lit.markdown("### 📖 **2. புத்தகத் தலைப்பதைத் தேர்ந்தெடுக்கவும்:**")
+                col_b_select, col_b_btn = str_lit.columns([5, 1])
 
-                    with col_b_select:
-                        selected_title_disp = str_lit.selectbox(
-                            "புத்தகத்தைத் தேர்ந்தெடுக்கவும்...", 
-                            title_options, 
-                            key=f"book_select_{str_lit.session_state['book_key']}",
-                            label_visibility="collapsed"
-                        )
+                with col_b_select:
+                    selected_title_disp = str_lit.selectbox(
+                        "புத்தகத்தைத் தேர்ந்தெடுக்கவும்...", 
+                        title_options, 
+                        key=f"book_select_{str_lit.session_state['book_key']}",
+                        label_visibility="collapsed"
+                    )
 
-                    with col_b_btn:
-                        if str_lit.button("🔄 தலைப்பை மாற்றுக", key="btn_b_change", use_container_width=True):
-                            str_lit.session_state['book_key'] += 1
-                            str_lit.rerun()
+                with col_b_btn:
+                    if str_lit.button("🔄 தலைப்பை மாற்றுக", key="btn_b_change", use_container_width=True):
+                        str_lit.session_state['book_key'] += 1
+                        str_lit.rerun()
 
-                    if selected_title_disp and selected_title_disp != "-- 📖 புத்தகத்தைத் தேர்ந்தெடுக்கவும் --":
-                        matched_row = None
-                        for idx, row in grouped.iterrows():
-                            t_str = str(row['Title']).strip()
-                            a_str = str(row['Author Name']).strip() if pd.notna(row['Author Name']) else ""
-                            disp = f"{t_str} - {a_str}" if a_str else t_str
-                            if disp == selected_title_disp:
-                                matched_row = row
-                                break
-                                
-                        if matched_row is not None:
-                            tot_qty = int(matched_row['Quantity'])
-                            with str_lit.form("verify_form"):
-                                str_lit.write(f"📖 **புத்தகத் தலைப்பு:** {matched_row['Title']}")
-                                str_lit.write(f"✍️ **ஆசிரியர் பெயர்:** {matched_row['Author Name']}")
-                                rec_qty = str_lit.number_input("📦 பெறப்பட்ட படிகள் (எண்ணிக்கை):", min_value=0, max_value=1000, value=tot_qty)
-                                submitted = str_lit.form_submit_button("➕ பட்டியலில் சேர் (Add to List)")
-                                
-                                if submitted:
-                                    not_rec_qty = max(0, tot_qty - rec_qty)
-                                    item = {
-                                        "Vendor": str_lit.session_state['selected_vendor'],
-                                        "Title": matched_row['Title'],
-                                        "Language": matched_row['Language'],
-                                        "Author": matched_row['Author Name'],
-                                        "TotalQty": tot_qty,
-                                        "ReceivedQty": rec_qty,
-                                        "NotReceivedQty": not_rec_qty
-                                    }
-                                    str_lit.session_state['verified_list'].append(item)
-                                    str_lit.session_state['book_key'] += 1
-                                    str_lit.rerun()
+                if selected_title_disp and selected_title_disp != "-- 📖 புத்தகத்தைத் தேர்ந்தெடுக்கவும் --":
+                    matched_row = None
+                    for idx, row in grouped.iterrows():
+                        t_str = str(row['Title']).strip()
+                        a_str = str(row['Author Name']).strip() if pd.notna(row['Author Name']) else ""
+                        disp = f"{t_str} - {a_str}" if a_str else t_str
+                        if disp == selected_title_disp:
+                            matched_row = row
+                            break
+                            
+                    if matched_row is not None:
+                        tot_qty = int(matched_row['Quantity'])
+                        with str_lit.form("verify_form"):
+                            str_lit.write(f"📖 **புத்தகத் தலைப்பு:** {matched_row['Title']}")
+                            str_lit.write(f"✍️ **ஆசிரியர் பெயர்:** {matched_row['Author Name']}")
+                            rec_qty = str_lit.number_input("📦 பெறப்பட்ட படிகள் (எண்ணிக்கை):", min_value=0, max_value=1000, value=tot_qty)
+                            submitted = str_lit.form_submit_button("➕ பட்டியலில் சேர் (Add to List)")
+                            
+                            if submitted:
+                                not_rec_qty = max(0, tot_qty - rec_qty)
+                                item = {
+                                    "Vendor": str_lit.session_state['selected_vendor'],
+                                    "Title": matched_row['Title'],
+                                    "Language": matched_row['Language'],
+                                    "Author": matched_row['Author Name'],
+                                    "TotalQty": tot_qty,
+                                    "ReceivedQty": rec_qty,
+                                    "NotReceivedQty": not_rec_qty
+                                }
+                                str_lit.session_state['verified_list'].append(item)
+                                str_lit.session_state['book_key'] += 1
+                                str_lit.rerun()
 
     if str_lit.session_state['verified_list']:
         str_lit.markdown("---")
