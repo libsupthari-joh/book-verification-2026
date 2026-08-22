@@ -4,6 +4,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import os
 from datetime import datetime
+import re
 
 # 1. Streamlit பக்க அமைப்பு
 st.set_page_config(page_title="2026 புதிய நூல்கள் விநியோகம்", layout="wide")
@@ -27,6 +28,13 @@ def load_data(file_path):
     return vendor_df, book_df
 
 vendor_df, book_df = load_data(EXCEL_FILE)
+
+# உரையைத் தூய்மையாக்கும் துணைச் சார்பு (Helper Function for String Cleaning)
+def clean_str(val):
+    if pd.isna(val) or val is None:
+        return ""
+    # தேவையில்லாத குறியீடுகள் மற்றும் இடைவெளிகளை நீக்குகிறது
+    return re.sub(r'\s+', ' ', str(val)).strip().lower()
 
 # 3. கூகுள் ஷீட் இணைப்பு
 @st.cache_resource
@@ -92,7 +100,7 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
         try:
             existing_records = sheet_physically.get_all_values()
             if len(existing_records) > 1:
-                verified_vendors = set(row[0].strip() for row in existing_records[1:] if row and row[0])
+                verified_vendors = set(clean_str(row[0]) for row in existing_records[1:] if row and row[0])
         except Exception:
             pass
 
@@ -117,19 +125,22 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
     
     if selected_vendor_disp and selected_vendor_disp != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
         
-        # உண்மையான பதிப்பகப் பெயர் (எ.கா: GRAPHIC NETWORK)
         actual_vendor = next((v[1] for v in vendors if v[0] == selected_vendor_disp), selected_vendor_disp)
         
-        if selected_vendor_disp in verified_vendors or actual_vendor in verified_vendors:
+        if clean_str(selected_vendor_disp) in verified_vendors or clean_str(actual_vendor) in verified_vendors:
             st.warning("⚠️ இந்த பதிப்பகத்தின் விவரங்கள் ஏற்கனவே கூகுள் ஷீட்டில் சேமிக்கப்பட்டுவிட்டது!")
         else:
-            target = str(actual_vendor).strip().lower()
+            target_vendor_clean = clean_str(actual_vendor)
             
-            colJ = book_df.iloc[:, 9].astype(str).str.strip().str.lower()
-            colK = book_df.iloc[:, 10].astype(str).str.strip().str.lower()
+            colJ = book_df.iloc[:, 9].apply(clean_str)
+            colK = book_df.iloc[:, 10].apply(clean_str)
             
-            filtered_books = book_df[(colJ == target) | (colK == target)]
+            filtered_books = book_df[(colJ == target_vendor_clean) | (colK == target_vendor_clean)]
             
+            if filtered_books.empty:
+                # பாக பகுதிப் பொருத்தமும் (partial match) சோதிக்கப்படுகிறது
+                filtered_books = book_df[colJ.str.contains(target_vendor_clean, regex=False) | colK.str.contains(target_vendor_clean, regex=False)]
+
             if filtered_books.empty:
                 st.warning("⚠️ இந்த பதிப்பகத்திற்குப் புத்தகத் தரவுகள் எதுவும் இல்லை!")
             else:
@@ -150,18 +161,18 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                 
                 st.subheader("2. புத்தகத் தலைப்பதைத் தேர்ந்தெடுக்கவும்:")
                 
-                added_titles = [x['Title'] for x in st.session_state['verified_list']]
+                added_titles = [clean_str(x['Title']) for x in st.session_state['verified_list']]
                 
                 title_options = ["-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"]
                 for idx, row in grouped.iterrows():
                     t_str = str(row['Title']).strip()
-                    if t_str not in added_titles:
+                    if clean_str(t_str) not in added_titles:
                         a_str = str(row['Author Name']).strip() if pd.notna(row['Author Name']) else ""
                         disp = f"{t_str} - {a_str}" if a_str else t_str
                         title_options.append(disp)
                 
                 if len(title_options) == 1 and len(added_titles) > 0:
-                    st.success("🎉 இந்த பதிப்பகத்தின் அனைத்துப் புத்தகங்களும் பட்டியலில் சேர்க்கப்பட்டுவிட்டன!")
+                    st.success("🎉 இந்த பதிப்பகத்தின் அனைத்துப் புத்தகங்களும்列表中 சேர்க்கப்பட்டுவிட்டன!")
                 else:
                     selected_title_disp = st.selectbox(
                         "புத்தகத்தைத் தேர்ந்தெடுக்கவும்...", 
@@ -235,7 +246,7 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                 try:
                     curr_date = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     
-                    # 1. Physically verified சேமிப்பு
+                    # 1. Physically verified பக்கத்தில் சேமிப்பு
                     if sheet_physically:
                         physically_rows = []
                         for item in st.session_state['verified_list']:
@@ -248,26 +259,27 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                             ])
                         sheet_physically.append_rows(physically_rows)
                     
-                    # 2. Vendor Wise Book Data சீட்டைத் துல்லியமாகப் புதுப்பித்தல்
+                    # 2. Vendor Wise Book Data பக்கத்தைப் புதுப்பித்தல் (S & T பத்திகள்)
                     if sheet_vendor_wise:
                         try:
                             vwbd_data = sheet_vendor_wise.get_all_values()
                             if len(vwbd_data) > 1:
                                 cell_updates = []
-                                target_vendor_clean = str(actual_vendor).strip().lower()
+                                target_v_clean = clean_str(actual_vendor)
                                 
                                 for item in st.session_state['verified_list']:
-                                    target_title = str(item['Title']).strip().lower()
+                                    target_t_clean = clean_str(item['Title'])
                                     rec_count = item['ReceivedQty']
                                     
                                     matching_row_indices = []
                                     for r_idx, r_data in enumerate(vwbd_data[1:], start=2):
                                         if len(r_data) > 10:
-                                            row_title = str(r_data[1]).strip().lower() # Col B: Title
-                                            colJ_v = str(r_data[9]).strip().lower()    # Col J: Publication/Vendor
-                                            colK_v = str(r_data[10]).strip().lower()   # Col K: Vendor Name
+                                            row_title = clean_str(r_data[1])  # Col B: Title
+                                            colJ_v = clean_str(r_data[9])     # Col J: Vendor/Publication
+                                            colK_v = clean_str(r_data[10])    # Col K: Vendor Name
                                             
-                                            if row_title == target_title and (target_vendor_clean in colJ_v or target_vendor_clean in colK_v):
+                                            # தலைப்பும் பதிப்பகமும் பொருந்துகிறதா எனச் சோதிக்கிறது
+                                            if row_title == target_t_clean and (target_v_clean in colJ_v or target_v_clean in colK_v or colJ_v in target_v_clean or colK_v in target_v_clean):
                                                 matching_row_indices.append(r_idx)
                                     
                                     current_rec = 0
