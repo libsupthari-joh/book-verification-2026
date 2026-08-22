@@ -8,7 +8,29 @@ import re
 import streamlit.components.v1 as components
 
 # 1. Streamlit பக்க அமைப்பு
-st.set_page_config(page_title="2026 புதிய நூல்கள் விநியோகம்", layout="wide")
+st.set_page_config(page_title="2026 புதிய நூல்கள் விநியோகம்", layout="wide", initial_sidebar_state="expanded")
+
+# 🎨 பக்கவாட்டு மெனு மற்றும் பொத்தான்களுக்கான நவீன Styling (CSS)
+st.markdown("""
+    <style>
+    /* Sidebar Navigation Buttons */
+    div.stButton > button[key^="nav_"] {
+        width: 100% !important;
+        text-align: left !important;
+        padding: 12px 16px !important;
+        margin-bottom: 8px !important;
+        border-radius: 8px !important;
+        font-weight: bold !important;
+        font-size: 15px !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    /* Button Custom Colors */
+    .stAppViewContainer {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 components.html("""
     <script>
@@ -19,47 +41,31 @@ components.html("""
             
             if (text.includes("பதிப்பகத்தை மாற்றுக") || text.includes("தலைப்பை மாற்றுக")) {
                 btn.style.setProperty('background-color', '#ff9800', 'important');
-                btn.style.setProperty('background-image', 'linear-gradient(180deg, #ff9800 0%, #e65100 100%)', 'important');
                 btn.style.setProperty('color', 'white', 'important');
                 btn.style.setProperty('border', 'none', 'important');
-                btn.style.setProperty('box-shadow', '0px 4px 0px #b55d00, 0px 4px 6px rgba(0,0,0,0.2)', 'important');
                 btn.style.setProperty('border-radius', '8px', 'important');
                 btn.style.setProperty('font-weight', 'bold', 'important');
-                const p = btn.querySelector('p');
-                if (p) p.style.setProperty('color', 'white', 'important');
             }
             if (text.includes("கூகுள் ஷீட்டில் சேமி") || text.includes("பட்டியலில் சேர்") || text.includes("உள்நுழை")) {
                 btn.style.setProperty('background-color', '#28a745', 'important');
-                btn.style.setProperty('background-image', 'linear-gradient(180deg, #28a745 0%, #218838 100%)', 'important');
                 btn.style.setProperty('color', 'white', 'important');
                 btn.style.setProperty('border', 'none', 'important');
-                btn.style.setProperty('box-shadow', '0px 4px 0px #1e7e34, 0px 4px 6px rgba(0,0,0,0.2)', 'important');
                 btn.style.setProperty('border-radius', '8px', 'important');
                 btn.style.setProperty('font-weight', 'bold', 'important');
-                const p = btn.querySelector('p');
-                if (p) p.style.setProperty('color', 'white', 'important');
             }
             if (text.includes("பட்டியலை அழி")) {
                 btn.style.setProperty('background-color', '#dc3545', 'important');
-                btn.style.setProperty('background-image', 'linear-gradient(180deg, #dc3545 0%, #bd2130 100%)', 'important');
                 btn.style.setProperty('color', 'white', 'important');
                 btn.style.setProperty('border', 'none', 'important');
-                btn.style.setProperty('box-shadow', '0px 4px 0px #721c24, 0px 4px 6px rgba(0,0,0,0.2)', 'important');
                 btn.style.setProperty('border-radius', '8px', 'important');
                 btn.style.setProperty('font-weight', 'bold', 'important');
-                const p = btn.querySelector('p');
-                if (p) p.style.setProperty('color', 'white', 'important');
             }
             if (text.includes("Sync Now") || text.includes("ஒத்திசை")) {
                 btn.style.setProperty('background-color', '#007bff', 'important');
-                btn.style.setProperty('background-image', 'linear-gradient(180deg, #007bff 0%, #0056b3 100%)', 'important');
                 btn.style.setProperty('color', 'white', 'important');
                 btn.style.setProperty('border', 'none', 'important');
-                btn.style.setProperty('box-shadow', '0px 4px 0px #004085, 0px 4px 6px rgba(0,0,0,0.2)', 'important');
                 btn.style.setProperty('border-radius', '8px', 'important');
                 btn.style.setProperty('font-weight', 'bold', 'important');
-                const p = btn.querySelector('p');
-                if (p) p.style.setProperty('color', 'white', 'important');
             }
         });
     }
@@ -67,9 +73,11 @@ components.html("""
     </script>
 """, height=0, width=0)
 
-# Session State
+# Session State Initializations
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
+if 'current_page' not in st.session_state:
+    st.session_state['current_page'] = "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு"
 
 # 🔒 Login Page
 if not st.session_state['logged_in']:
@@ -89,9 +97,30 @@ if not st.session_state['logged_in']:
                     st.error("❌ தவறான அலைபேசி எண் அல்லது கடவுச்சொல்!")
     st.stop()
 
-st.sidebar.markdown(f"👤 **உள்நுழைந்துள்ளீர்**")
-if st.sidebar.button("🚪 வெளியேறு (Logout)"):
+# 📌 Sidebar Layout Design
+st.sidebar.markdown("### 👤 **பயனர் கணக்கு**")
+if st.sidebar.button("🚪 வெளியேறு (Logout)", key="logout_btn"):
     st.session_state['logged_in'] = False
+    st.rerun()
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 📌 **முதன்மைப் பணிகள்**")
+
+# தனித்தனி Navigation Buttons
+if st.sidebar.button("📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு", key="nav_1", use_container_width=True):
+    st.session_state['current_page'] = "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு"
+    st.rerun()
+
+if st.sidebar.button("🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)", key="nav_2", use_container_width=True):
+    st.session_state['current_page'] = "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)"
+    st.rerun()
+
+if st.sidebar.button("🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)", key="nav_3", use_container_width=True):
+    st.session_state['current_page'] = "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)"
+    st.rerun()
+
+if st.sidebar.button("🏛️ 4. நூலகத்திற்கு விநியோகம் (103)", key="nav_4", use_container_width=True):
+    st.session_state['current_page'] = "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)"
     st.rerun()
 
 st.title("📚 2026 புதிய நூல்கள் விநியோகம் - பணி போர்ட்டல்")
@@ -153,16 +182,7 @@ if 'book_key' not in st.session_state:
 if 'selected_vendor' not in st.session_state:
     st.session_state['selected_vendor'] = None
 
-st.sidebar.header("📌 முதன்மைப் பணிகள்")
-menu_choice = st.sidebar.radio(
-    "பணியைத் தேர்ந்தெடுக்கவும்:",
-    [
-        "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு",
-        "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)",
-        "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)",
-        "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)"
-    ]
-)
+menu_choice = st.session_state['current_page']
 
 # ---------------------------------------------------------
 # பணி 1: பெறப்பட்ட நூல்கள் சரிபார்ப்பு
@@ -301,7 +321,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         
         col_sub, col_del = st.columns([3, 1])
         with col_sub:
-            if st.button("💾 கூகுள் ஷீட்டில் சேமி (Save All to Sheet)", key="btn_save", use_container_width=True):
+            if st.button("💾 கூகுள் ഷீட்டில் சேமி (Save All to Sheet)", key="btn_save", use_container_width=True):
                 try:
                     curr_date = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     if sheet_physically:
@@ -325,7 +345,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                 st.rerun()
 
 # ---------------------------------------------------------
-# பணி 2: Google Sheet தரவு ஒத்திசைவு (Sync - எண்களுடன்)
+# பணி 2: Google Sheet தரவு ஒத்திசைவு (Sync)
 # ---------------------------------------------------------
 elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)":
     st.subheader("🔄 2. பதிப்பகம் வாரியாக தரவு ஒத்திசைவு (Strict Received & Accession Rules)")
@@ -373,18 +393,14 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
                         if st.button(f"🚀 {selected_sync_vendor} - Accession எண்களுடன் புதுப்பி (Sync Now)", key="btn_sync_now", use_container_width=True):
                             with st.spinner("⏳ Lib_Detail எண்களின் அடிப்படையில் Accession எண்கள் ஒதுக்கப்படுகின்றன..."):
                                 
-                                # 1. Lib_Detail தாளில் இருந்து F & G பத்திகளை படித்தல்
                                 lib_records = sheet_library_details.get_all_values()
-                                
-                                # Last Central Accession Number (F2 செல்)
                                 last_central_acc = int(lib_records[1][5]) if len(lib_records) > 1 and str(lib_records[1][5]).isdigit() else 1001
                                 
-                                # 103 நூலகங்களின் Last Lib Accession Number (G பத்தி)
                                 lib_acc_map = {}
                                 for idx, r in enumerate(lib_records[1:], start=2):
                                     if len(r) >= 7:
-                                        code = str(r[1]).strip() # Col B: Lib Code
-                                        g_val = str(r[6]).strip() # Col G: Lib Acc No
+                                        code = str(r[1]).strip()
+                                        g_val = str(r[6]).strip()
                                         last_lib_acc = int(g_val) if g_val.isdigit() else 1000
                                         if code:
                                             lib_acc_map[code] = {'last_acc': last_lib_acc, 'row_idx': idx}
@@ -392,7 +408,6 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
                                 curr_central_acc = last_central_acc
                                 updated_count = 0
 
-                                # 2. Vendor Wise Book Data தாளில் U மற்றும் V பத்திகளைப் புதுப்பித்தல்
                                 for rec in filtered_records:
                                     target_title_clean = clean_text(rec["📖 புத்தகத் தலைப்பு"])
                                     target_vendor_clean = clean_text(rec["🏢 பதிப்பகம்"])
@@ -404,13 +419,12 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
                                             sheet_title_clean = clean_text(r_data[4])
                                             sheet_pub_clean = clean_text(r_data[9])
                                             sheet_vendor_clean = clean_text(r_data[10])
-                                            lib_code = str(r_data[14]).strip() # Col O: Lib Code
+                                            lib_code = str(r_data[14]).strip()
 
                                             is_vendor_matched = (target_vendor_clean == sheet_pub_clean or target_vendor_clean == sheet_vendor_clean)
                                             is_title_matched = (target_title_clean in sheet_title_clean or sheet_title_clean in target_title_clean)
 
                                             if is_vendor_matched and is_title_matched:
-                                                # ✅ பெறப்பட்ட படிகளுக்கு மட்டும் Accession எண்கள்
                                                 if matched_count < needed_qty:
                                                     curr_central_acc += 1
                                                     
@@ -420,25 +434,22 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
                                                     else:
                                                         next_lib_acc = 1001
 
-                                                    sheet_vendor_wise.update_cell(r_idx, 19, 1)                  # Col S: Received = 1
-                                                    sheet_vendor_wise.update_cell(r_idx, 20, 0)                  # Col T: Not Received = 0
-                                                    sheet_vendor_wise.update_cell(r_idx, 21, curr_central_acc)   # Col U: Central Acc No
-                                                    sheet_vendor_wise.update_cell(r_idx, 22, next_lib_acc)      # Col V: Lib Acc No
+                                                    sheet_vendor_wise.update_cell(r_idx, 19, 1)
+                                                    sheet_vendor_wise.update_cell(r_idx, 20, 0)
+                                                    sheet_vendor_wise.update_cell(r_idx, 21, curr_central_acc)
+                                                    sheet_vendor_wise.update_cell(r_idx, 22, next_lib_acc)
                                                     
                                                     matched_count += 1
                                                     updated_count += 1
-                                                
-                                                # ❌ பெறப்படாத மீதிப் படிகளுக்கு (Blank)
                                                 else:
-                                                    sheet_vendor_wise.update_cell(r_idx, 19, 0)  # Col S: Received = 0
-                                                    sheet_vendor_wise.update_cell(r_idx, 20, 1)  # Col T: Not Received = 1
-                                                    sheet_vendor_wise.update_cell(r_idx, 21, "") # Col U: Blank
-                                                    sheet_vendor_wise.update_cell(r_idx, 22, "") # Col V: Blank
+                                                    sheet_vendor_wise.update_cell(r_idx, 19, 0)
+                                                    sheet_vendor_wise.update_cell(r_idx, 20, 1)
+                                                    sheet_vendor_wise.update_cell(r_idx, 21, "")
+                                                    sheet_vendor_wise.update_cell(r_idx, 22, "")
 
-                                # 3. Lib_Detail தாளில் புதிய எண்களைச் சேமித்தல்
-                                sheet_library_details.update_cell(2, 6, curr_central_acc) # F2 புதுப்பிப்பு
+                                sheet_library_details.update_cell(2, 6, curr_central_acc)
                                 for code, data in lib_acc_map.items():
-                                    sheet_library_details.update_cell(data['row_idx'], 7, data['last_acc']) # Col G புதுப்பிப்பு
+                                    sheet_library_details.update_cell(data['row_idx'], 7, data['last_acc'])
 
                                 st.balloons()
                                 st.success(f"🎉 வெற்றி! {updated_count} படிகளுக்கு Accession எண்கள் வெற்றிகரமாக ஒதுக்கப்பட்டன!")
