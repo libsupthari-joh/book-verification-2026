@@ -29,12 +29,12 @@ def load_data(file_path):
 
 vendor_df, book_df = load_data(EXCEL_FILE)
 
-# உரையை ஒப்பிடுவதற்காக சுத்தப்படுத்தும் சார்பு
+# எண்களையும் குறியீடுகளையும் நீக்கி ஒப்பீட்டிற்கு மட்டும் சுத்தப்படுத்தும் சார்பு
 def clean_for_match(val):
     if pd.isna(val) or val is None:
         return ""
     s = str(val).strip()
-    s = re.sub(r'^\d+[\.\s\-]*', '', s)  # எண்களை நீக்குதல்
+    s = re.sub(r'^\d+[\.\s\-]*', '', s)  # முன்னால் உள்ள எண்களை நீக்குதல்
     return re.sub(r'[^a-zA-Z0-9\u0B80-\u0BFF]', '', s).lower()
 
 # 3. கூகுள் ஷீட் இணைப்பு
@@ -96,7 +96,6 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
         st.error("❌ 'Book Supply-2026.xlsx' கோப்பு காணப்படவில்லை!")
         st.stop()
 
-    # ஏற்கனவே கூகுள் ஷீட்டில் உள்ள பதிப்பகங்களைப் படித்தல்
     verified_vendors = set()
     if sheet_physically:
         try:
@@ -218,7 +217,6 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                                     st.session_state['book_key'] += 1
                                     st.rerun()
 
-    # Step 3: Verified Draft Table & Save to Google Sheet
     if st.session_state['verified_list']:
         st.markdown("---")
         st.subheader(f"📋 சரிபார்க்கப்பட்ட புத்தகங்கள் பட்டியல் ({len(st.session_state['verified_list'])})")
@@ -280,52 +278,55 @@ elif menu_choice == "2. 🔄 Google Sheet தரவு ஒத்திசைவ�
         else:
             try:
                 with st.spinner("⏳ கூகுள் ஷீட் தரவுகள் ஒத்திசைக்கப்படுகின்றன... தயவுசெய்து காத்திருக்கவும்..."):
-                    # 1. Physically Verified தாளில் இருந்து பெறப்பட்ட புத்தகங்களை படித்தல்
+                    # 1. Physically Verified தாளில் இருந்து படிக்கிறது
                     p_records = sheet_physically.get_all_values()
                     
                     if len(p_records) <= 1:
                         st.warning("⚠️ 'Physically Verified' தாளில் தரவுகள் எதுவும் இல்லை!")
                     else:
-                        # (Vendor, Title) -> ReceivedQty வரைபடத்தை உருவாக்குதல்
+                        # (Cleaned Vendor Name, Cleaned Title Name) -> ReceivedQty வரைபடம்
                         verified_map = {}
                         for row in p_records[1:]:
                             if len(row) >= 7:
-                                v_clean = clean_for_match(row[0])
-                                t_clean = clean_for_match(row[1])
+                                # Col A (Vendor) அல்லது Col E (Vendor) இரண்டையும் சுத்தமாக்கி சரிபார்த்தல்
+                                v_clean = clean_for_match(row[0]) if row[0] else clean_for_match(row[4])
+                                t_clean = clean_for_match(row[1])  # Col B (Title)
+                                
                                 try:
-                                    rec_qty = int(row[6])
+                                    rec_qty = int(row[6])  # Col G (Received Qty)
                                 except ValueError:
                                     rec_qty = 0
                                 
-                                verified_map[(v_clean, t_clean)] = rec_qty
+                                if v_clean and t_clean:
+                                    verified_map[(v_clean, t_clean)] = rec_qty
 
                         # 2. Vendor Wise Book Data தாளைப் படித்து updates தயார் செய்தல்
                         vwbd_data = sheet_vendor_wise.get_all_values()
                         cell_updates = []
-                        
-                        # புத்தகங்களின் எண்ணிக்கையைக் கண்காணிக்க
                         book_counter = {}
 
                         for r_idx, r_data in enumerate(vwbd_data[1:], start=2):
                             if len(r_data) > 10:
-                                row_title = clean_for_match(r_data[1])  # Column B
-                                row_colJ = clean_for_match(r_data[9])   # Column J
-                                row_colK = clean_for_match(r_data[10])  # Column K
+                                row_title = clean_for_match(r_data[1])  # Col B
+                                row_colJ = clean_for_match(r_data[9])   # Col J
+                                row_colK = clean_for_match(r_data[10])  # Col K
 
-                                # பொருந்துமா என சரிபார்த்தல்
                                 matched_qty = None
+                                matched_key = None
+                                
+                                # பொருத்துதல்
                                 for (v_clean, t_clean), qty in verified_map.items():
-                                    if row_title == t_clean and (row_colJ == v_clean or row_colK == v_clean):
+                                    if row_title == t_clean and (row_colJ == v_clean or row_colK == v_clean or v_clean in row_colJ or v_clean in row_colK):
                                         matched_qty = qty
-                                        key = (v_clean, t_clean)
+                                        matched_key = (v_clean, t_clean)
                                         break
 
-                                if matched_qty is not None:
-                                    current_count = book_counter.get(key, 0)
+                                if matched_qty is not None and matched_key is not None:
+                                    current_count = book_counter.get(matched_key, 0)
                                     if current_count < matched_qty:
                                         s_val = 1
                                         t_val = 0
-                                        book_counter[key] = current_count + 1
+                                        book_counter[matched_key] = current_count + 1
                                     else:
                                         s_val = 0
                                         t_val = 1
@@ -337,9 +338,9 @@ elif menu_choice == "2. 🔄 Google Sheet தரவு ஒத்திசைவ�
                         if cell_updates:
                             sheet_vendor_wise.update_cells(cell_updates)
                             st.balloons()
-                            st.success(f"✅ வெற்றி! மொத்தம் {len(cell_updates)//2} வரிசைகள் 'Vendor Wise Book Data' தாளில் புதுப்பிக்கப்பட்டன!")
+                            st.success(f"✅ வெற்றி! மொத்தம் {len(cell_updates)//2} வரிகள் 'Vendor Wise Book Data' தாளில் Received = 1 எனப் புதுப்பிக்கப்பட்டன!")
                         else:
-                            st.warning("⚠️ புதுப்பிப்பதற்குப் புதிய தரவுகள் எதுவும் இல்லை!")
+                            st.warning("⚠️ பொருந்துமாறு புதிய தரவுகள் எதுவும் கண்டுபிடிக்கப்படவில்லை. (Physically Verified தாளில் சரியாகச் சேமிக்கப்பட்டுள்ளதா எனச் சரிபார்க்கவும்).")
 
             except Exception as e:
                 st.error(f"❌ ஒத்திசைவில் பிழை ஏற்பட்டது: {e}")
