@@ -10,7 +10,7 @@ import time
 # 1. Streamlit பக்க அமைப்பு
 str_lit.set_page_config(page_title="2026 புதிய நூல்கள் விநியோகம்", layout="wide", initial_sidebar_state="expanded")
 
-# 🎨 ஒவ்வொரு மெனுவிற்கும் தனித்துவமான வண்ணங்களுடன் கூடிய 3D CSS குறியீடு
+# 🎨 ஒவ்வொரு மெனுவிற்கும் தனித்துவமான வண்ணங்களுடன் கூடிய 3D CSS மற்றும் JS குறியீடு
 def get_custom_css():
     return """
     <style>
@@ -80,27 +80,43 @@ def get_custom_css():
     }
     div[data-testid="stSidebar"] button.logout-btn p { color: white !important; }
 
+    /* Streamlit-ன் இயல்பான சிகப்பு நிற முதன்மை பட்டனை (Primary button) முற்றிலுமாக மாற்றுதல் */
+    div[data-testid="stSidebar"] button[kind="primary"] {
+        filter: brightness(1.15) !important;
+        opacity: 1 !important;
+        transform: translateY(2px) !important;
+        box-shadow: 0 2px 0 rgba(0,0,0,0.4), inset 0 2px 3px rgba(255,255,255,0.3) !important;
+    }
+
     /* செயலற்ற (Inactive) பட்டன்களை சற்று மங்கலாக்குதல் */
-    div[data-testid="stSidebar"] button:not([kind="primary"]) {
+    div[data-testid="stSidebar"] button[kind="secondary"] {
         filter: brightness(0.85);
         opacity: 0.85;
     }
 
-    /* தேர்ந்தெடுக்கப்பட்ட (Active) முதன்மை பட்டன் - முழுப் பளபளப்பு மற்றும் அழுத்தப்பட்ட 3D தோற்றம் */
-    div[data-testid="stSidebar"] button[kind="primary"] {
-        filter: brightness(1.2) !important;
-        opacity: 1 !important;
-        transform: translateY(3px) !important;
-        box-shadow: 0 2px 0 rgba(0,0,0,0.4), inset 0 2px 3px rgba(255,255,255,0.3) !important;
-    }
-
     /* மவுஸ் வைக்கும் போது மேலே எழும்புதல் */
     div[data-testid="stSidebar"] button:hover {
-        filter: brightness(1.1) !important;
+        filter: brightness(1.05) !important;
         opacity: 1 !important;
         transform: translateY(-2px) !important;
     }
     </style>
+    
+    <script>
+    // Streamlit ரெண்டர் ஆன பின் கிளாஸ்களை இணைக்க ஜாவாஸ்கிரிப்ட்
+    setTimeout(function() {
+        var buttons = document.querySelectorAll('div[data-testid="stSidebar"] button');
+        for (var i = 0; i < buttons.length; i++) {
+            var text = buttons[i].innerText;
+            if (text.includes("வெளியேறு")) { buttons[i].classList.add("logout-btn"); }
+            else if (text.includes("பெறப்பட்ட நூல்கள்")) { buttons[i].classList.add("nav-1-btn"); }
+            else if (text.includes("ஒத்திசைவு")) { buttons[i].classList.add("nav-2-btn"); }
+            else if (text.includes("பதிப்பாளர் விவரங்கள்")) { buttons[i].classList.add("nav-3-btn"); }
+            else if (text.includes("நூலகத்திற்கு விநியோகம்")) { buttons[i].classList.add("nav-4-btn"); }
+            else if (text.includes("Accession எண்கள்")) { buttons[i].classList.add("nav-5-btn"); }
+        }
+    }, 200);
+    </script>
     """
 
 # Session State Initializations
@@ -109,7 +125,7 @@ if 'logged_in' not in str_lit.session_state:
 if 'current_page' not in str_lit.session_state:
     str_lit.session_state['current_page'] = "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு"
 
-# CSS-ஐ அப்ளை செய்தல்
+# CSS மற்றும் JS-ஐ அப்ளை செய்தல்
 str_lit.markdown(get_custom_css(), unsafe_allow_html=True)
 
 # 🔒 Login Page
@@ -135,21 +151,6 @@ str_lit.sidebar.markdown("### 👤 **பயனர் கணக்கு**")
 if str_lit.sidebar.button("🚪 வெளியேறு (Logout)", key="logout_btn", use_container_width=True):
     str_lit.session_state['logged_in'] = False
     str_lit.rerun()
-
-# Logout பட்டனுக்கான ஜாவாஸ்கிரிப்ட் கிளாஸ் சேர்க்க
-str_lit.markdown("""
-<script>
-var buttons = document.querySelectorAll('div[data-testid="stSidebar"] button');
-for (var i = 0; i < buttons.length; i++) {
-    if (buttons[i].innerText.includes("வெளியேறு")) { buttons[i].classList.add("logout-btn"); }
-    if (buttons[i].innerText.includes("பெறப்பட்ட நூல்கள்")) { buttons[i].classList.add("nav-1-btn"); }
-    if (buttons[i].innerText.includes("ஒத்திசைவு")) { buttons[i].classList.add("nav-2-btn"); }
-    if (buttons[i].innerText.includes("பதிப்பாளர் விவரங்கள்")) { buttons[i].classList.add("nav-3-btn"); }
-    if (buttons[i].innerText.includes("நூலகத்திற்கு விநியோகம்")) { buttons[i].classList.add("nav-4-btn"); }
-    if (buttons[i].innerText.includes("Accession எண்கள்")) { buttons[i].classList.add("nav-5-btn"); }
-}
-</script>
-""", unsafe_allow_html=True)
 
 str_lit.sidebar.markdown("---")
 str_lit.sidebar.markdown("### 📌 **முதன்மைப் பணிகள்**")
