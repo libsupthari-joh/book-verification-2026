@@ -7,28 +7,30 @@ from datetime import datetime
 import re
 
 # 1. Streamlit பக்க அமைப்பு
-st.set_page_config(page_title="2026 புதிய நூல்கள் વિநியோகம்", layout="wide")
+st.set_page_config(page_title="2026 புதிய நூல்கள் விநியோகம்", layout="wide")
 
-# CSS - நேரடி Key மற்றும் Class மூலம் வண்ணங்கள்
+# CSS - அனைத்து பொத்தான்களுக்கான நேரடி வண்ணங்கள் (Override All Button Styles)
 st.markdown("""
     <style>
-    /* 1. ஆரஞ்சு பொத்தான்கள்: பதிப்பகத்தை மாற்றுக & தலைப்பை மாற்றுக */
-    button[key="btn_v_change"], button[key="btn_b_change"] {
-        background: linear-gradient(180deg, #ff9800 0%, #f57c00 100%) !important;
+    /* 1. பதிப்பகத்தை மாற்றுக & தலைப்பை மாற்றுக - ஆரஞ்சு பொத்தான்கள் */
+    div[data-testid="stColumn"] button {
+        background-color: #ff9800 !important;
+        background-image: linear-gradient(180deg, #ff9800 0%, #e65100 100%) !important;
         color: white !important;
         border: none !important;
         box-shadow: 0px 4px 0px #b55d00, 0px 4px 6px rgba(0,0,0,0.2) !important;
         border-radius: 8px !important;
         font-weight: bold !important;
     }
-    button[key="btn_v_change"]:hover, button[key="btn_b_change"]:hover {
-        background: linear-gradient(180deg, #fb8c00 0%, #e65100 100%) !important;
+    div[data-testid="stColumn"] button p {
         color: white !important;
+        font-weight: bold !important;
     }
 
-    /* 2. பச்சை பொத்தான்: கூகுள் ஷீட்டில் சேமி */
+    /* 2. கூகுள் ஷீட்டில் சேமி (பச்சை பொத்தான்) */
     button[key="btn_save"] {
-        background: linear-gradient(180deg, #28a745 0%, #218838 100%) !important;
+        background-color: #28a745 !important;
+        background-image: linear-gradient(180deg, #28a745 0%, #218838 100%) !important;
         color: white !important;
         border: none !important;
         box-shadow: 0px 4px 0px #1e7e34, 0px 4px 6px rgba(0,0,0,0.2) !important;
@@ -37,10 +39,15 @@ st.markdown("""
         border-radius: 8px !important;
         font-weight: bold !important;
     }
+    button[key="btn_save"] p {
+        color: white !important;
+        font-weight: bold !important;
+    }
 
-    /* 3. சிவப்பு பொத்தான்: பட்டியலை அழி */
+    /* 3. பட்டியலை அழி (சிவப்பு பொத்தான்) */
     button[key="btn_clear"] {
-        background: linear-gradient(180deg, #dc3545 0%, #bd2130 100%) !important;
+        background-color: #dc3545 !important;
+        background-image: linear-gradient(180deg, #dc3545 0%, #bd2130 100%) !important;
         color: white !important;
         border: none !important;
         box-shadow: 0px 4px 0px #721c24, 0px 4px 6px rgba(0,0,0,0.2) !important;
@@ -49,10 +56,15 @@ st.markdown("""
         border-radius: 8px !important;
         font-weight: bold !important;
     }
+    button[key="btn_clear"] p {
+        color: white !important;
+        font-weight: bold !important;
+    }
 
-    /* 4. நீல பொத்தான்: Sync Now */
+    /* 4. Sync Now (நீல பொத்தான்) */
     button[key="btn_sync_now"] {
-        background: linear-gradient(180deg, #007bff 0%, #0056b3 100%) !important;
+        background-color: #007bff !important;
+        background-image: linear-gradient(180deg, #007bff 0%, #0056b3 100%) !important;
         color: white !important;
         border: none !important;
         box-shadow: 0px 4px 0px #004085, 0px 4px 6px rgba(0,0,0,0.2) !important;
@@ -61,15 +73,24 @@ st.markdown("""
         border-radius: 8px !important;
         font-weight: bold !important;
     }
+    button[key="btn_sync_now"] p {
+        color: white !important;
+        font-weight: bold !important;
+    }
 
     /* 5. Form Submit பொத்தான் (பச்சை) */
     div[data-testid="stForm"] button {
-        background: linear-gradient(180deg, #28a745 0%, #218838 100%) !important;
+        background-color: #28a745 !important;
+        background-image: linear-gradient(180deg, #28a745 0%, #218838 100%) !important;
         color: white !important;
         border: none !important;
         box-shadow: 0px 4px 0px #1e7e34, 0px 4px 6px rgba(0,0,0,0.2) !important;
         font-size: 15px !important;
         border-radius: 8px !important;
+        font-weight: bold !important;
+    }
+    div[data-testid="stForm"] button p {
+        color: white !important;
         font-weight: bold !important;
     }
     </style>
