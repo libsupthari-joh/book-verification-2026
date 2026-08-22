@@ -1,178 +1,84 @@
 import streamlit as st
 import pandas as pd
-import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-import os
 
-# Page Config
-st.set_page_config(page_title="2026 நூல்கள் சரிபார்ப்பு மையம்", page_icon="📚", layout="wide")
+# 1. Streamlit பக்க அமைப்பு
+st.set_page_config(page_title="2026 புதிய நூல்கள் விநியோகம்", layout="wide")
 
-# Custom CSS for UI Matching Apps Script Design
-st.markdown("""
-    <style>
-    .main-header { text-align: center; color: #1a73e8; font-family: 'Arial', sans-serif; margin-bottom: 20px; }
-    .card-box { background-color: #f8f9fa; padding: 20px; border-radius: 10px; border: 1px solid #e0e0e0; margin-bottom: 15px; }
-    .stButton>button { background-color: #1a73e8; color: white; font-weight: bold; border-radius: 6px; border: none; }
-    .metric-card { background-color: #eef5ff; border: 1px solid #c7dcff; padding: 15px; border-radius: 8px; text-align: center; }
-    .metric-title { font-size: 14px; color: #1557b0; font-weight: bold; }
-    .metric-value { font-size: 24px; color: #1a73e8; font-weight: bold; }
-    </style>
-""", unsafe_allow_html=True)
+# தலைப்பு மாற்றம்
+st.title("📚 2026 புதிய நூல்கள் விநியோகம்")
 
-# 1. Login Logic
-if 'logged_in' not in st.session_state:
-    st.session_state['logged_in'] = False
-if 'verified_list' not in st.session_state:
-    st.session_state['verified_list'] = []
+# 2. கூகுள் ஷீட் இணைப்பு
+@st.cache_resource
+def init_gspread():
+    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    creds_dict = dict(st.secrets["gcp_service_account"])
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+    client = gspread.authorize(creds)
+    return client
 
-if not st.session_state['logged_in']:
-    st.markdown("<h2 class='main-header'>🔐 பணியாளர் உள்நுழைவு (Login)</h2>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        phone = st.text_input("📱 உங்களது அழைப்பேசி எண் / PIN:", type="password")
-        if st.button("🚀 உள்நுழை (Login)", use_container_width=True):
-            if len(phone.strip()) >= 4:
-                st.session_state['logged_in'] = True
-                st.session_state['user_phone'] = phone.strip()
-                st.rerun()
-            else:
-                st.error("சரியான எண்ணை உள்ளிடவும்!")
-    st.stop()
+try:
+    client = init_gspread()
+    sheet = client.open_by_key("1LNogKaLvdqkoITSLE971jTBIy9QO4s90j1WDxY1cDrc").worksheet("Physically verified")
+except Exception as e:
+    st.error(f"Google Sheet இணைப்புப் பிழை: {e}")
 
-st.markdown("<h1 class='main-header'>📚 2026 நூல்கள் தனித்தனி சரிபார்ப்பு போர்ட்டல்</h1>", unsafe_allow_html=True)
+# கேட்கப்பட்ட 20 புலன்களின் பட்டியல்
+ALL_COLUMNS = [
+    "Book Id", "Title", "Language", "Author Name", "Isbn", "Year", 
+    "Publication Name", "Vendor Name", "Original Price", "Acccepted Price", 
+    "library Type", "librarianId", "Library Name", "State Accession Number", 
+    "Quantity", "Received", "Not Received"
+]
 
-# 2. Fast Data Load using Pandas Caching
-EXCEL_FILE = "Book Supply-2026.xlsx"
+# 3. இடதுபுற மெனு (Sidebar Menu)
+st.sidebar.header("📋 முதன்மை பணிகள்")
+menu_choice = st.sidebar.radio(
+    "பணியைத் தேர்ந்தெடுக்கவும்:",
+    [
+        "1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு",
+        "2. மொத்த பதிப்பாளர் விவரங்கள் (480)",
+        "3. நூலகத்திற்கு விநியோகம் (104)"
+    ]
+)
 
-@st.cache_data
-def load_data(file_path):
-    if not os.path.exists(file_path):
-        return None, None
-    excel_data = pd.ExcelFile(file_path)
-    vendor_df = pd.read_excel(file_path, sheet_name="Vendor Name") if "Vendor Name" in excel_data.sheet_names else pd.DataFrame()
-    book_sheet_name = [s for s in excel_data.sheet_names if "Vendor Wise Book Data" in s]
-    book_df = pd.read_excel(file_path, sheet_name=book_sheet_name[0]) if book_sheet_name else pd.DataFrame()
-    return vendor_df, book_df
+# ---------------------------------------------------------
+# பணி 1: பெறப்பட்ட நூல்கள் சரிபார்ப்பு
+# ---------------------------------------------------------
+if menu_choice == "1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு":
+    st.subheader("🔍 பெறப்பட்ட நூல்கள் சரிபார்ப்பு போர்ட்டல்")
+    st.info("இங்கே பதிப்பகம் மற்றும் புத்தக தலைப்புகளை தேர்வு செய்து சரிபார்க்கலாம்.")
 
-vendor_df, book_df = load_data(EXCEL_FILE)
-
-if vendor_df is None or book_df is None:
-    st.error(f"❌ '{EXCEL_FILE}' கோப்பு காணப்படவில்லை!")
-    st.stop()
-
-# Vendor Options Setup
-vendors = []
-if not vendor_df.empty:
-    for idx, row in vendor_df.iterrows():
-        v_id = str(row.iloc[1]).strip() if pd.notna(row.iloc[1]) else ""
-        v_name = str(row.iloc[2]).strip() if pd.notna(row.iloc[2]) else ""
-        if v_name and v_name.lower() != "nan":
-            full_name = f"{v_id} - {v_name}" if v_id and v_id.lower() != "nan" else v_name
-            vendors.append((full_name, v_name))
-
-# Step 1: Vendor Selection
-st.subheader("1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:")
-vendor_options = [v[0] for v in vendors]
-selected_vendor_full = st.selectbox("🔍 பதிப்பகப் பெயரைத் தட்டச்சு செய்க...", [""] + vendor_options, label_visibility="collapsed")
-
-if selected_vendor_full:
-    actual_vendor = next((v[1] for v in vendors if v[0] == selected_vendor_full), selected_vendor_full)
-    target = str(actual_vendor).strip().lower()
-
-    colJ = book_df.iloc[:, 9].astype(str).str.strip().str.lower()
-    colK = book_df.iloc[:, 10].astype(str).str.strip().str.lower()
+# ---------------------------------------------------------
+# பணி 2: மொத்த பதிப்பாளர் விவரங்கள் (480)
+# ---------------------------------------------------------
+elif menu_choice == "2. மொத்த பதிப்பாளர் விவரங்கள் (480)":
+    st.subheader("📚 480 பதிப்பாளர் வாரியான நூல் விவரங்கள்")
     
-    filtered_books = book_df[(colJ == target) | (colK == target)]
+    pub_search = st.text_input("🔎 பதிப்பாளர் பெயர் அல்லது குறியீடு கொண்டு தேடுக:")
+    
+    st.markdown("---")
+    st.write("### 📄 பதிப்பாளர் அறிக்கை (Report)")
+    
+    empty_df = pd.DataFrame(columns=ALL_COLUMNS)
+    st.dataframe(empty_df, use_container_width=True)
 
-    if filtered_books.empty:
-        st.warning("❌ இந்த பதிப்பகத்திற்குப் புத்தகத் தரவுகள் எதுவும் இல்லை!")
-    else:
-        # Grouping and Summarizing Titles
-        grouped = filtered_books.groupby([filtered_books.iloc[:, 4], filtered_books.iloc[:, 6], filtered_books.iloc[:, 5]]).size().reset_index(name='Quantity')
-        grouped.columns = ['Title', 'Author', 'Language', 'TotalQty']
-
-        total_titles = len(grouped)
-        total_copies = grouped['TotalQty'].sum()
-
-        # Summary Cards UI
-        m_col1, m_col2 = st.columns(2)
-        with m_col1:
-            st.markdown(f"<div class='metric-card'><div class='metric-title'>📖 மொத்த தலைப்புகள்</div><div class='metric-value'>{total_titles}</div></div>", unsafe_allow_html=True)
-        with m_col2:
-            st.markdown(f"<div class='metric-card'><div class='metric-title'>📦 மொத்த படிகள்</div><div class='metric-value'>{total_copies}</div></div>", unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        # Step 2: Book Selection
-        st.subheader("2. புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும்:")
+# ---------------------------------------------------------
+# பணி 3: நூலகத்திற்கு விநியோகம் (104)
+# ---------------------------------------------------------
+elif menu_choice == "3. நூலகத்திற்கு விநியோகம் (104)":
+    st.subheader("🏛️ 104 நூலகங்கள் வாரியான விநியோக அறிக்கை")
+    
+    selected_lib = st.selectbox("நூலகத்தைத் தேர்ந்தெடுக்கவும் (Library Name):", [f"நூலகம் {i}" for i in range(1, 105)])
+    
+    st.markdown("---")
+    
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.write(f"### 📋 {selected_lib} - ஒதுக்கீடு செய்யப்பட்ட நூல்கள் பட்டியல்")
+    with col2:
+        st.button("🖨️ Print / Save PDF")
         
-        # Filter already verified books
-        verified_titles = [item['Title'] for item in st.session_state['verified_list']]
-        available_grouped = grouped[~grouped['Title'].isin(verified_titles)]
-        
-        title_list = available_grouped['Title'].tolist()
-        selected_title = st.selectbox("🔍 புத்தகத் தலைப்பைத் தேடுக...", [""] + title_list, label_visibility="collapsed")
-
-        if selected_title:
-            b_info = available_grouped[available_grouped['Title'] == selected_title].iloc[0]
-            
-            c1, c2 = st.columns(2)
-            with c1:
-                st.number_input("📦 மொத்த எண்ணிக்கை:", value=int(b_info['TotalQty']), disabled=True)
-            with c2:
-                rec_qty = st.number_input("✅ பெறப்பட்ட எண்ணிக்கை:", min_value=0, max_value=int(b_info['TotalQty'])*2, value=int(b_info['TotalQty']))
-
-            if st.button("➕ சரிபார்ப்புப் பட்டியலில் சேர்", use_container_width=True):
-                st.session_state['verified_list'].append({
-                    'Title': selected_title,
-                    'Author': b_info['Author'],
-                    'Language': b_info['Language'],
-                    'TotalQty': int(b_info['TotalQty']),
-                    'ReceivedQty': int(rec_qty),
-                    'NotReceivedQty': int(b_info['TotalQty']) - int(rec_qty)
-                })
-                st.rerun()
-
-        # Step 3: Verified Draft Table UI
-        if st.session_state['verified_list']:
-            st.markdown("---")
-            st.subheader(f"📋 சரிபார்க்கப்பட்ட புத்தகங்கள் பட்டியல் ({len(st.session_state['verified_list'])} / {total_titles})")
-
-            v_df = pd.DataFrame(st.session_state['verified_list'])
-            v_df.index = range(1, len(v_df) + 1)
-            st.dataframe(v_df[['Title', 'Author', 'TotalQty', 'ReceivedQty']], use_container_width=True)
-
-            col_sub, col_del = st.columns([3, 1])
-            with col_del:
-                if st.button("🔄 பட்டியலை அழி (Reset List)", use_container_width=True):
-                    st.session_state['verified_list'] = []
-                    st.rerun()
-
-            with col_sub:
-                if st.button("💾 Final Submit (Save to Google Sheet)", use_container_width=True):
-                    if len(st.session_state['verified_list']) < total_titles:
-                        st.error(f"⚠️ அனைத்துத் தலைப்புகளையும் சரிபார்க்க வேண்டும்! பாக்கி: {total_titles - len(st.session_state['verified_list'])}")
-                    else:
-                        try:
-                            scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-                            creds_dict = dict(st.secrets["gcp_service_account"])
-                            creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-                            client = gspread.authorize(creds)
-                            sheet = client.open_by_key("1LNogKaLvdqkoITSLE971jTBIy9QO4s90j1WDxY1cDrc").worksheet("Physically verified")
-
-                            curr_date = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                            rows = []
-                            for item in st.session_state['verified_list']:
-                                rows.append([
-                                    selected_vendor_full, item['Title'], item['Language'], item['Author'],
-                                    actual_vendor, item['TotalQty'], item['ReceivedQty'], item['NotReceivedQty'],
-                                    curr_date, st.session_state['user_phone']
-                                ])
-
-                            sheet.append_rows(rows)
-                            st.balloons()
-                            st.success("🎉 அனைத்து விவரங்களும் Google Sheet-இல் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
-                            st.session_state['verified_list'] = []
-                        except Exception as e:
-                            st.error(f"❌ பிழை: {e}")
+    empty_df = pd.DataFrame(columns=ALL_COLUMNS)
+    st.dataframe(empty_df, use_container_width=True)
