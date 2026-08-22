@@ -10,46 +10,56 @@ import time
 # 1. Streamlit பக்க அமைப்பு
 str_lit.set_page_config(page_title="2026 புதிய நூல்கள் விநியோகம்", layout="wide", initial_sidebar_state="expanded")
 
-# 🎨 பக்கவாட்டு மெனுவிற்கான நவீன 3D ஸ்டைலிங் (CSS)
+# 🎨 3D பக்கவாட்டு மெனு மற்றும் பட்டன்களுக்கான Styling (CSS)
 def get_custom_css():
     return """
     <style>
+    .stAppViewContainer {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
     /* பக்கவாட்டு மெனுவின் பட்டன்களுக்கு 3D லுக் */
     div[data-testid="stSidebar"] button {
         width: 100% !important;
         text-align: left !important;
-        padding: 15px 20px !important;
-        margin-bottom: 12px !important;
-        border-radius: 12px !important;
+        padding: 14px 18px !important;
+        margin-bottom: 10px !important;
+        border-radius: 10px !important;
         font-weight: 800 !important;
-        font-size: 16px !important;
+        font-size: 15px !important;
         border: none !important;
         transition: all 0.3s ease !important;
-        /* பட்டனுக்கு 3D நிழல் */
-        box-shadow: 0 6px 0 #999, 0 8px 10px rgba(0,0,0,0.3) !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1), inset 0 -2px 2px rgba(0,0,0,0.1) !important;
     }
 
     /* சாதாரண நிலை பட்டன் - சாம்பல் நிறம் */
-    div[data-testid="stSidebar"] button:not([kind="primary"]) {
-        background: linear-gradient(145deg, #f0f0f0, #d1d1d1) !important;
+    div[data-testid="stSidebar"] button[kind="secondary"] {
+        background: linear-gradient(145deg, #f0f0f0, #e0e0e0) !important;
         color: #333 !important;
     }
 
-    /* ஆக்டிவ் / கிளிக் செய்த நிலை (3D ப்ளூ) */
+    /* ஆக்டிவ் நிலை - 3D ப்ளூ நிறம் மற்றும் அழுத்தப்பட்ட உணர்வு */
     div[data-testid="stSidebar"] button[kind="primary"] {
         background: linear-gradient(145deg, #007bff, #0056b3) !important;
         color: white !important;
-        /* அழுத்தப்பட்ட 3D உணர்வு */
-        transform: translateY(4px) !important;
-        box-shadow: 0 2px 0 #003d80 !important;
+        transform: translateY(2px) !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2), inset 0 2px 3px rgba(255,255,255,0.3) !important;
     }
 
-    /* மவுஸ் வைக்கும் போது சிறிய மாற்றம் */
     div[data-testid="stSidebar"] button:hover {
         filter: brightness(1.1) !important;
+        cursor: pointer !important;
     }
     </style>
     """
+
+# Session State Initializations (பிழை வராமல் இருக்க அவசியமானது)
+if 'logged_in' not in str_lit.session_state:
+    str_lit.session_state['logged_in'] = False
+if 'current_page' not in str_lit.session_state:
+    str_lit.session_state['current_page'] = "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு"
+
+# CSS-ஐ அப்ளை செய்தல்
+str_lit.markdown(get_custom_css(), unsafe_allow_html=True)
 
 # 🔒 Login Page
 if not str_lit.session_state['logged_in']:
@@ -99,7 +109,7 @@ if str_lit.sidebar.button("🏛️ 4. நூலகத்திற்கு வ�
     str_lit.session_state['current_page'] = "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)"
     str_lit.rerun()
 
-if str_lit.sidebar.button("⚙️ 5. Accession எண்கள் மேலாண்மை (இறுதிக்கட்டப் பணி)", key="nav_5", use_container_width=True, type="primary" if style_button_active("⚙️ 5.") else "secondary"):
+if str_lit.sidebar.button("⚙️ 5. Accession எண்கள் மேலாண்மை", key="nav_5", use_container_width=True, type="primary" if style_button_active("⚙️ 5.") else "secondary"):
     str_lit.session_state['current_page'] = "⚙️ 5. Accession எண்கள் மேலாண்மை (இறுதிக்கட்டப் பணி)"
     str_lit.rerun()
 
