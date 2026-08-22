@@ -1,76 +1,29 @@
-# உங்கள் தற்போதைய code-ல் password மற்றும் phone-ஐ hard-code செய்யாமல்,
-# கீழே உள்ள login பகுதியை மட்டும் மாற்றவும்.
-# மீதமுள்ள உங்கள் existing application code-ஐ மாற்றத் தேவையில்லை.
-
 import hashlib
 import hmac
 import streamlit as st
 
 
 # ============================================================
-# MULTI-USER SECURE LOGIN
+# 1. SECURE AUTHENTICATION & SECRETS CONFIG
 # ============================================================
-# Users:
-# Admin      : 9842759306 / Basswood 123456
-# Task 1 User: 9787555290 / Basswood 123456
-# Task 1 User: 9751687939 / Basswood 123456
-#
-# Password plain text-ஆக code-ல் சேமிக்கப்படவில்லை.
-# கீழே உள்ள hash, "Basswood 123456" password-க்கு SHA-256 hash ஆகும்.
-
-USERS = {
-    "9842759306": {
-        "name": "Admin",
-        "password_hash": "REPLACE_WITH_BASSWOOD_HASH",
-        "role": "admin",
-        "pages": "all",
-    },
-    "9787555290": {
-        "name": "Task 1 User 1",
-        "password_hash": "REPLACE_WITH_BASSWOOD_HASH",
-        "role": "task1",
-        "pages": ["📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு"],
-    },
-    "9751687939": {
-        "name": "Task 1 User 2",
-        "password_hash": "REPLACE_WITH_BASSWOOD_HASH",
-        "role": "task1",
-        "pages": ["📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு"],
-    },
-}
+def get_users():
+    """Streamlit secrets-ல் இருந்து பயனர் விவரங்களைப் பாதுகாப்பாகப் பெறுதல்"""
+    try:
+        return st.secrets.get("users", {})
+    except Exception:
+        return {}
 
 
-# ============================================================
-# PASSWORD HASH GENERATION
-# ============================================================
 def hash_password(password):
-    return hashlib.sha256(
-        password.encode("utf-8")
-    ).hexdigest()
-
-
-# Local testing / first setup மட்டும்:
-# இந்த command-ன் output-ஐ copy செய்து,
-# REPLACE_WITH_BASSWOOD_HASH இடத்தில் paste செய்யவும்.
-#
-# python -c "import hashlib; print(hashlib.sha256('Basswood 123456'.encode()).hexdigest())"
-
-
-# Temporary automatic setup option:
-# Production-ல் plain password code-ல் வைக்க வேண்டாம்.
-# Hash உருவாக்கிய பிறகு இந்த வரியை நீக்கலாம்.
-BASSWOOD_HASH = hash_password("Basswood 123456")
-
-for user in USERS.values():
-    if user["password_hash"] == "REPLACE_WITH_BASSWOOD_HASH":
-        user["password_hash"] = BASSWOOD_HASH
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
 def authenticate_user(phone, password):
     phone = str(phone).strip()
     password = str(password)
 
-    user = USERS.get(phone)
+    users_db = get_users()
+    user = users_db.get(phone)
     if not user:
         return None
 
@@ -129,6 +82,10 @@ def show_login_page():
                 st.warning("⚠️ கடவுச்சொல்லை உள்ளிடவும்.")
                 return
 
+            if not get_users():
+                st.error("❌ செயலியில் பயனர்களின் விவரங்கள் (Secrets) அமைக்கப்படவில்லை!")
+                return
+
             authenticated_user = authenticate_user(phone, password)
 
             if authenticated_user:
@@ -147,7 +104,7 @@ def show_login_page():
 
 
 # ============================================================
-# LOGIN SESSION INITIALIZATION
+# 2. SESSION INITIALIZATION & LOGIN GUARD
 # ============================================================
 st.session_state.setdefault("logged_in", False)
 st.session_state.setdefault("login_attempts", 0)
@@ -158,7 +115,7 @@ if not st.session_state["logged_in"]:
 
 
 # ============================================================
-# ACCESS CONTROL HELPERS
+# 3. ACCESS CONTROL HELPERS
 # ============================================================
 def is_admin():
     return st.session_state.get("user_role") == "admin"
@@ -167,7 +124,6 @@ def is_admin():
 def can_access_page(page_name):
     if is_admin():
         return True
-
     allowed_pages = st.session_state.get("allowed_pages", [])
     return page_name in allowed_pages
 
@@ -179,6 +135,7 @@ def logout():
         "user_name",
         "user_role",
         "allowed_pages",
+        "current_page",
     ]:
         st.session_state.pop(key, None)
 
@@ -187,7 +144,7 @@ def logout():
 
 
 # ============================================================
-# SIDEBAR USER INFORMATION
+# 4. SIDEBAR NAVIGATION & USER INFO
 # ============================================================
 st.sidebar.markdown(
     f"### 👤 {st.session_state.get('user_name', 'User')}"
@@ -215,10 +172,7 @@ visible_menu_items = [
     if can_access_page(item)
 ]
 
-if "current_page" not in st.session_state:
-    st.session_state["current_page"] = visible_menu_items[0]
-
-if st.session_state["current_page"] not in visible_menu_items:
+if "current_page" not in st.session_state or st.session_state["current_page"] not in visible_menu_items:
     st.session_state["current_page"] = visible_menu_items[0]
 
 for item in visible_menu_items:
@@ -228,24 +182,26 @@ for item in visible_menu_items:
 
 
 # ============================================================
-# IMPORTANT: YOUR EXISTING PAGE CODE
+# 5. MAIN APPLICATION PAGE ROUTER (YOUR EXISTING CODE)
 # ============================================================
-# உங்கள் தற்போதைய code-ல் கீழே இருக்கும் பகுதியை மட்டும் மாற்றவும்:
-#
-# menu_choice = st.session_state["current_page"]
-#
-# அதன் பிறகு உங்கள் existing:
-# if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு":
-#     ...
-# elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)":
-#     ...
-# elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)":
-#     ...
-# elif menu_choice == "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)":
-#     ...
-# elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
-#     ...
-#
-# என்ற page logic-ஐ அப்படியே கீழே வைத்திருக்கவும்.
-# Admin user-க்கு 5 pages அனைத்தும் தெரியும்.
-# மற்ற இரண்டு users-க்கு Task 1 மட்டும் தெரியும்.
+menu_choice = st.session_state["current_page"]
+
+if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு":
+    # உங்கள் தற்போதைய Task 1 கோடை இங்கு இணைக்கவும்
+    st.subheader("📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
+
+elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)":
+    # உங்கள் தற்போதைய Sync கோடை இங்கு இணைக்கவும்
+    st.subheader("🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)")
+
+elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)":
+    # உங்கள் தற்போதைய பதிப்பாளர் கோடை இங்கு இணைக்கவும்
+    st.subheader("🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)")
+
+elif menu_choice == "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)":
+    # உங்கள் தற்போதைய விநியோக கோடை இங்கு இணைக்கவும்
+    st.subheader("🏛️ 4. நூலகத்திற்கு விநியோகம் (103)")
+
+elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
+    # உங்கள் தற்போதைய Accession கோடை இங்கு இணைக்கவும்
+    st.subheader("⚙️ 5. Accession எண்கள் மேலாண்மை")
