@@ -29,31 +29,19 @@ def load_data(file_path):
 
 vendor_df, book_df = load_data(EXCEL_FILE)
 
-# பதிப்பகர் பெயரைச் சுத்தப்படுத்தும் முக்கியச் சார்பு (Cleaning Function)
+# உரையைச் சுத்தப்படுத்தும் சார்புகள்
 def extract_clean_vendor(raw_str):
     if pd.isna(raw_str) or not raw_str:
         return ""
     text = str(raw_str).strip()
-    
-    # "340.Graphic Network. GRAPHIC NETWORK" போன்ற தொடர்களில் இருந்து சுத்தமான பெயரைப் பிரித்தல்
     parts = [p.strip() for p in text.split('.') if p.strip()]
-    
-    # எண்கள் இல்லாத வார்த்தைகளை மட்டும் எடுத்தல்
-    cleaned_parts = []
-    for p in parts:
-        if not p.isdigit():
-            cleaned_parts.append(p)
-            
-    if cleaned_parts:
-        # கடைசி அல்லது முதல் சுத்தமான பெயரைப் பயன்படுத்துதல்
-        return cleaned_parts[-1]
-    return text
+    cleaned_parts = [p for p in parts if not p.isdigit()]
+    return cleaned_parts[-1] if cleaned_parts else text
 
 def clean_for_match(val):
     if pd.isna(val) or val is None:
         return ""
-    # சிறப்பு எழுத்துக்கள் மற்றும் இடைவெளிகளை நீக்கி ஒப்பிடுதல்
-    return re.sub(r'[^a-zA-Z0-9]', '', str(val)).lower()
+    return re.sub(r'[^a-zA-Z0-9\u0B80-\u0BFF]', '', str(val)).lower()
 
 # 3. கூகுள் ஷீட் இணைப்பு
 @st.cache_resource
@@ -123,13 +111,12 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
         except Exception:
             pass
 
-    # Dropdown-ற்கான பட்டியலைச் சரியாக உருவாக்குதல்
+    # Dropdown பட்டியல் உருவாக்கம்
     vendor_options_map = {}
     if not vendor_df.empty:
         for idx, row in vendor_df.iterrows():
             v_id = str(row.iloc[1]).strip() if pd.notna(row.iloc[1]) and str(row.iloc[1]).strip().lower() != "nan" else ""
             v_raw_name = str(row.iloc[2]).strip() if pd.notna(row.iloc[2]) else ""
-            
             clean_name = extract_clean_vendor(v_raw_name)
             
             if clean_name and clean_name.lower() != "nan":
@@ -148,7 +135,6 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
     
     if selected_vendor_disp and selected_vendor_disp != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
         
-        # உண்மையான பதிப்பகத்தின் பெயர் (எ.கா: GRAPHIC NETWORK)
         actual_vendor = vendor_options_map[selected_vendor_disp]
         
         if clean_for_match(selected_vendor_disp) in verified_vendors or clean_for_match(actual_vendor) in verified_vendors:
@@ -181,17 +167,22 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                 
                 st.subheader("2. புத்தகத் தலைப்பதைத் தேர்ந்தெடுக்கவும்:")
                 
-                added_titles = [clean_for_match(x['Title']) for x in st.session_state['verified_list']]
+                # ஏற்கனவே சேர்க்கப்பட்ட புத்தகத் தலைப்புகள்
+                added_titles_clean = [clean_for_match(x['Title']) for x in st.session_state['verified_list']]
                 
+                # சேர்க்கப்படாத புத்தகங்கள் மட்டும் Dropdown-ல் வரும்
                 title_options = ["-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"]
+                remaining_books_count = 0
+                
                 for idx, row in grouped.iterrows():
                     t_str = str(row['Title']).strip()
-                    if clean_for_match(t_str) not in added_titles:
+                    if clean_for_match(t_str) not in added_titles_clean:
                         a_str = str(row['Author Name']).strip() if pd.notna(row['Author Name']) else ""
                         disp = f"{t_str} - {a_str}" if a_str else t_str
                         title_options.append(disp)
+                        remaining_books_count += 1
                 
-                if len(title_options) == 1 and len(added_titles) > 0:
+                if remaining_books_count == 0 and len(st.session_state['verified_list']) > 0:
                     st.success("🎉 இந்த பதிப்பகத்தின் அனைத்துப் புத்தகங்களும் பட்டியலில் சேர்க்கப்பட்டுவிட்டன!")
                 else:
                     selected_title_disp = st.selectbox(
