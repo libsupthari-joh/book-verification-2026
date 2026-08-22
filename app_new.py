@@ -48,6 +48,9 @@ except Exception as e:
 if 'verified_list' not in st.session_state:
     st.session_state['verified_list'] = []
 
+if 'book_select_key' not in st.session_state:
+    st.session_state['book_select_key'] = 0
+
 # 4. இடதுபுற மெனு (Sidebar Menu)
 st.sidebar.header("📋 முதன்மை பணிகள்")
 menu_choice = st.sidebar.radio(
@@ -60,7 +63,7 @@ menu_choice = st.sidebar.radio(
 )
 
 # ---------------------------------------------------------
-# பணி 1: பெறப்பட்ட நூல்கள் சரிபார்ப்பு (முந்தைய வசதியுடன்)
+# பணி 1: பெறப்பட்ட நூல்கள் சரிபார்ப்பு
 # ---------------------------------------------------------
 if menu_choice == "1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு":
     st.subheader("🔍 பெறப்பட்ட நூல்கள் சரிபார்ப்பு போர்ட்டல்")
@@ -111,16 +114,21 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
             
             st.subheader("2. புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும்:")
             
-            title_options = [""]
+            title_options = ["Choose an option"]
             for idx, row in grouped.iterrows():
                 t_str = str(row['Title']).strip()
                 a_str = str(row['Author Name']).strip() if pd.notna(row['Author Name']) else ""
                 disp = f"{t_str} - {a_str}" if a_str else t_str
                 title_options.append(disp)
                 
-            selected_title_disp = st.selectbox("புத்தகத்தைத் தேர்ந்தெடுக்கவும்...", title_options, label_visibility="collapsed")
+            selected_title_disp = st.selectbox(
+                "புத்தகத்தைத் தேர்ந்தெடுக்கவும்...", 
+                title_options, 
+                key=f"book_select_{st.session_state['book_select_key']}",
+                label_visibility="collapsed"
+            )
             
-            if selected_title_disp:
+            if selected_title_disp and selected_title_disp != "Choose an option":
                 matched_row = None
                 for idx, row in grouped.iterrows():
                     t_str = str(row['Title']).strip()
@@ -158,6 +166,7 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                                     "Isbn": matched_row.get('Isbn', '')
                                 }
                                 st.session_state['verified_list'].append(item)
+                                st.session_state['book_select_key'] += 1  # Reset selectbox
                                 st.success("✅ சேர்க்கப்பட்டது!")
                                 st.rerun()
 
@@ -193,6 +202,7 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                     st.balloons()
                     st.success("🎉 அனைத்து விவரங்களும் Google Sheet-இல் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
                     st.session_state['verified_list'] = []
+                    st.rerun()
                 except Exception as e:
                     st.error(f"❌ பிழை: {e}")
 
