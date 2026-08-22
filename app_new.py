@@ -13,7 +13,6 @@ st.set_page_config(page_title="2026 புதிய நூல்கள் வி
 # 🎨 பக்கவாட்டு மெனு மற்றும் பொத்தான்களுக்கான நவீன Styling (CSS)
 st.markdown("""
     <style>
-    /* Sidebar Navigation Buttons */
     div.stButton > button[key^="nav_"] {
         width: 100% !important;
         text-align: left !important;
@@ -24,8 +23,6 @@ st.markdown("""
         font-size: 15px !important;
         transition: all 0.3s ease !important;
     }
-    
-    /* Button Custom Colors */
     .stAppViewContainer {
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
@@ -38,34 +35,29 @@ components.html("""
         const buttons = window.parent.document.querySelectorAll('button');
         buttons.forEach(btn => {
             const text = btn.innerText || btn.textContent;
-            
             if (text.includes("பதிப்பகத்தை மாற்றுக") || text.includes("தலைப்பை மாற்றுக")) {
                 btn.style.setProperty('background-color', '#ff9800', 'important');
                 btn.style.setProperty('color', 'white', 'important');
                 btn.style.setProperty('border', 'none', 'important');
                 btn.style.setProperty('border-radius', '8px', 'important');
-                btn.style.setProperty('font-weight', 'bold', 'important');
             }
-            if (text.includes("கூகுள் ஷீட்டில் சேமி") || text.includes("பட்டியலில் சேர்") || text.includes("உள்நுழை")) {
+            if (text.includes("கூகுள் ஷீட்டில் சேமி") || text.includes("பட்டியலில் சேர்") || text.includes("உள்நுழை") || text.includes("எண்களைப் புதுப்பி")) {
                 btn.style.setProperty('background-color', '#28a745', 'important');
                 btn.style.setProperty('color', 'white', 'important');
                 btn.style.setProperty('border', 'none', 'important');
                 btn.style.setProperty('border-radius', '8px', 'important');
-                btn.style.setProperty('font-weight', 'bold', 'important');
             }
             if (text.includes("பட்டியலை அழி")) {
                 btn.style.setProperty('background-color', '#dc3545', 'important');
                 btn.style.setProperty('color', 'white', 'important');
                 btn.style.setProperty('border', 'none', 'important');
                 btn.style.setProperty('border-radius', '8px', 'important');
-                btn.style.setProperty('font-weight', 'bold', 'important');
             }
             if (text.includes("Sync Now") || text.includes("ஒத்திசை")) {
                 btn.style.setProperty('background-color', '#007bff', 'important');
                 btn.style.setProperty('color', 'white', 'important');
                 btn.style.setProperty('border', 'none', 'important');
                 btn.style.setProperty('border-radius', '8px', 'important');
-                btn.style.setProperty('font-weight', 'bold', 'important');
             }
         });
     }
@@ -97,7 +89,7 @@ if not st.session_state['logged_in']:
                     st.error("❌ தவறான அலைபேசி எண் அல்லது கடவுச்சொல்!")
     st.stop()
 
-# 📌 Sidebar Layout Design
+# 📌 Sidebar Navigation
 st.sidebar.markdown("### 👤 **பயனர் கணக்கு**")
 if st.sidebar.button("🚪 வெளியேறு (Logout)", key="logout_btn"):
     st.session_state['logged_in'] = False
@@ -106,7 +98,6 @@ if st.sidebar.button("🚪 வெளியேறு (Logout)", key="logout_btn")
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 📌 **முதன்மைப் பணிகள்**")
 
-# தனித்தனி Navigation Buttons
 if st.sidebar.button("📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு", key="nav_1", use_container_width=True):
     st.session_state['current_page'] = "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு"
     st.rerun()
@@ -121,6 +112,10 @@ if st.sidebar.button("🏢 3. மொத்த பதிப்பாளர் வ
 
 if st.sidebar.button("🏛️ 4. நூலகத்திற்கு விநியோகம் (103)", key="nav_4", use_container_width=True):
     st.session_state['current_page'] = "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)"
+    st.rerun()
+
+if st.sidebar.button("⚙️ 5. Accession எண்கள் மேலாண்மை", key="nav_5", use_container_width=True):
+    st.session_state['current_page'] = "⚙️ 5. Accession எண்கள் மேலாண்மை"
     st.rerun()
 
 st.title("📚 2026 புதிய நூல்கள் விநியோகம் - பணி போர்ட்டல்")
@@ -321,7 +316,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         
         col_sub, col_del = st.columns([3, 1])
         with col_sub:
-            if st.button("💾 கூகுள் ഷீட்டில் சேமி (Save All to Sheet)", key="btn_save", use_container_width=True):
+            if st.button("💾 கூகுள் ஷீட்டில் சேமி (Save All to Sheet)", key="btn_save", use_container_width=True):
                 try:
                     curr_date = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     if sheet_physically:
@@ -565,3 +560,82 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
                         mime="text/csv",
                         use_container_width=True
                     )
+
+# ---------------------------------------------------------
+# பணி 5: Accession எண்கள் மேலாண்மை (புதிய பிரிவு)
+# ---------------------------------------------------------
+elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
+    st.subheader("⚙️ 5. Accession எண்கள் நேரலை மேலாண்மை (Lib_Detail Dashboard)")
+    if not sheet_library_details:
+        st.error("❌ 'Lib_Detail' கூகுள் ஷீட் கிடைக்கவில்லை!")
+    else:
+        with st.spinner("⏳ Lib_Detail தாளில் இருந்து தரவுகள் பெறப்படுகின்றன..."):
+            lib_records = sheet_library_details.get_all_values()
+            
+            if len(lib_records) > 1:
+                # Central Accession (Col F)
+                central_val = lib_records[1][5] if len(lib_records[1]) > 5 else "1001"
+                
+                # 1. Central Accession Number Card
+                st.markdown("---")
+                st.markdown("### 🏷️ 1. Last Central Accession Number")
+                c1, c2 = st.columns([2, 3])
+                with c1:
+                    st.metric("தற்போதைய எண்கள் (F2)", central_val)
+                with c2:
+                    new_central = st.number_input("புதிய Central Accession Number அமைக்கவும்:", min_value=1, value=int(central_val) if central_val.isdigit() else 1001)
+                    if st.button("💾 Central Accession எண்ணைப் புதுப்பி", key="btn_update_central"):
+                        sheet_library_details.update_cell(2, 6, new_central) # F2 புதுப்பிப்பு
+                        st.success(f"✅ Last Central Accession Number successfully updated to {new_central}")
+                        st.rerun()
+
+                st.markdown("---")
+                st.markdown("### 🏛️ 2. நூலகங்கள் வாரியான Last Accession Number (DCL / FTB / BL / VL)")
+                
+                # Lib Details DataFrame
+                df_lib = pd.DataFrame(lib_records[1:], columns=lib_records[0] if lib_records[0] else None)
+                
+                # Filter DCL / FTB / BL / VL
+                code_col = df_lib.columns[1] if len(df_lib.columns) > 1 else None
+                name_col = df_lib.columns[2] if len(df_lib.columns) > 2 else None
+                acc_col = df_lib.columns[6] if len(df_lib.columns) > 6 else None # Col G
+                
+                # Category Filter Buttons/Select
+                type_filter = st.radio("நூலக வகையைத் தேர்ந்தெடுக்கவும் (Category Filter):", ["அனைத்தும் (All 103)", "DCL", "FTB", "BL", "VL"], horizontal=True)
+                
+                filtered_df = df_lib.copy()
+                if type_filter != "அனைத்தும் (All 103)" and code_col:
+                    filtered_df = filtered_df[filtered_df[code_col].astype(str).str.startswith(type_filter, na=False)]
+                
+                st.dataframe(filtered_df[[code_col, name_col, acc_col]], use_container_width=True)
+
+                # Individual Update Section
+                st.markdown("### ✏️ குறிப்பிட்ட நூலகத்தின் எண்களை நேரடியாக மாற்ற:")
+                col_sel, col_val, col_btn = st.columns([3, 2, 2])
+                
+                lib_options = [f"{row[code_col]} - {row[name_col]}" for idx, row in filtered_df.iterrows() if row[code_col]]
+                
+                with col_sel:
+                    selected_lib_opt = st.selectbox("நூலகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- தேர்ந்தெடுக்கவும் --"] + lib_options)
+                
+                if selected_lib_opt and selected_lib_opt != "-- தேர்ந்தெடுக்கவும் --":
+                    sel_code = selected_lib_opt.split(" - ")[0].strip()
+                    curr_acc = 1000
+                    target_row_idx = None
+                    
+                    for idx, r in enumerate(lib_records[1:], start=2):
+                        if len(r) > 1 and r[1].strip() == sel_code:
+                            target_row_idx = idx
+                            curr_acc = int(r[6]) if len(r) > 6 and r[6].isdigit() else 1000
+                            break
+                    
+                    with col_val:
+                        new_lib_acc = st.number_input(f"{sel_code} - புதிய Acc No:", min_value=1, value=curr_acc)
+                    
+                    with col_btn:
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        if st.button("💾 எண்களைப் புதுப்பி", key="btn_update_lib"):
+                            if target_row_idx:
+                                sheet_library_details.update_cell(target_row_idx, 7, new_lib_acc) # Col G update
+                                st.success(f"✅ {sel_code} நூலகத்தின் Last Accession Number {new_lib_acc} என மாற்றப்பட்டது!")
+                                st.rerun()
