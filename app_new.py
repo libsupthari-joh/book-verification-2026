@@ -95,8 +95,7 @@ if not st.session_state['logged_in']:
             submit = st.form_submit_button("🔓 உள்நுழை (Login)", use_container_width=True)
             
             if submit:
-                # 🛠️ உங்கள் அலைபேசி எண் மற்றும் கடவுச்சொல்லை இங்கு மாற்றிக்கொள்ளலாம்
-                if phone == "7402603600" and password == "123456":
+                if phone == "9876543210" and password == "123456":
                     st.session_state['logged_in'] = True
                     st.success("✅ உள்நுழைவு வெற்றிகரமானது!")
                     st.rerun()
@@ -108,7 +107,6 @@ if not st.session_state['logged_in']:
 # 🔑 உள்நுழைந்த பிறகு பயன்பாடு தொடங்கும்
 # ---------------------------------------------------------
 
-# வெளியேறு (Logout) பொத்தான்
 st.sidebar.markdown(f"👤 **உள்நுழைந்துள்ளீர்**")
 if st.sidebar.button("🚪 வெளியேறு (Logout)"):
     st.session_state['logged_in'] = False
@@ -162,7 +160,7 @@ try:
             sheet_physically = ws
         elif "vendor wise book data" in title:
             sheet_vendor_wise = ws
-        elif "library detail" in title or "library details" in title:
+        elif "lib_detail" in title or "library detail" in title or "library details" in title:
             sheet_library_details = ws
 
 except Exception as e:
@@ -302,7 +300,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                             st.write(f"📖 **புத்தகத் தலைப்பு:** {matched_row['Title']}")
                             st.write(f"✍️ **ஆசிரியர் பெயர்:** {matched_row['Author Name']}")
                             rec_qty = st.number_input("📦 பெறப்பட்ட படிகள் (எண்ணிக்கை):", min_value=0, max_value=1000, value=tot_qty)
-                            submitted = st.form_submit_button("➕列表中 (Add to List)")
+                            submitted = st.form_submit_button("➕ பட்டியலில் சேர் (Add to List)")
                             
                             if submitted:
                                 not_rec_qty = max(0, tot_qty - rec_qty)
@@ -455,7 +453,7 @@ elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் வ�
                     st.dataframe(filtered_live_df, use_container_width=True)
 
 # ---------------------------------------------------------
-# பணி 4: நூலக விநியோக அறிக்கை
+# பணி 4: நூலக விநியோக அறிக்கை (Lib_Detail & O2:P அடிப்படையாகக் கொண்டு)
 # ---------------------------------------------------------
 elif menu_choice == "🏛️ 4. நூலகத்திற்கு விநியோகம் (104)":
     st.subheader("🏛️ 4. 104 நூலகங்கள் வாரியான விநியோக அறிக்கை")
@@ -463,35 +461,74 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
     if not sheet_vendor_wise:
         st.error("❌ கூகுள் ஷீட் தரவு கிடைக்கவில்லை!")
     else:
-        with st.spinner("⏳ கூகுள் ஷீட்டில் இருந்து நூலக விவரங்களை ஏற்றி வருகிறது..."):
+        with st.spinner("⏳ கூகுள் ஷீட்டில் இருந்து 'Lib_Detail' மற்றும் 'Vendor Wise Book Data' விவரங்களை ஏற்றி வருகிறது..."):
             vwbd_all_data = sheet_vendor_wise.get_all_values()
             live_df = pd.DataFrame(vwbd_all_data[1:], columns=vwbd_all_data[0])
-            lib_id_col = live_df.columns[12] if len(live_df.columns) > 12 else live_df.columns[0]
             
-            lib_map = {}
+            # Lib_Detail தாளில் இருந்து B (Code) மற்றும் C (Name) பத்திகளைப் படித்தல்
+            lib_map = {} # Code -> Name
+            lib_name_list = []
+            
             if sheet_library_details:
                 try:
                     lib_records = sheet_library_details.get_all_values()
                     for r in lib_records[1:]:
-                        if len(r) >= 2:
-                            lib_map[str(r[0]).strip()] = str(r[1]).strip()
-                except Exception:
-                    pass
+                        if len(r) >= 3:
+                            code = str(r[1]).strip() # Col B: Lib Code
+                            name = str(r[2]).strip() # Col C: Library Name
+                            if name and name.lower() != "nan":
+                                lib_map[code] = name
+                                if name not in lib_name_list:
+                                    lib_name_list.append(name)
+                except Exception as e:
+                    st.warning(f"Lib_Detail தாளைப் படிப்பதில் எச்சரிக்கை: {e}")
 
-            unique_lib_ids = sorted(list(set(live_df[lib_id_col].dropna().astype(str).str.strip())))
+            lib_name_list = sorted(lib_name_list)
             
-            lib_options = ["-- 🏛️ நூலகத்தைத் தேர்ந்தெடுக்கவும் --"]
-            for l_id in unique_lib_ids:
-                if l_id and l_id != "nan":
-                    l_name = lib_map.get(l_id, "")
-                    label = f"{l_id} - {l_name}" if l_name else f"Library ID: {l_id}"
-                    lib_options.append(label)
+            st.markdown("### 🏛️ நூலகத்தின் பெயரைத் தேர்ந்தெடுக்கவும்:")
+            selected_lib_name = st.selectbox(
+                "நூலகத்தைத் தேர்ந்தெடுக்கவும்...", 
+                ["-- 🏛️ நூலகத்தைத் தேர்ந்தெடுக்கவும் --"] + lib_name_list,
+                label_visibility="collapsed"
+            )
 
-            selected_lib_label = st.selectbox("🏛️ நூலகத்தைத் தேர்ந்தெடுக்கவும்:", lib_options)
-
-            if selected_lib_label and selected_lib_label != "-- 🏛️ நூலகத்தைத் தேர்ந்தெடுக்கவும் --":
-                selected_id = selected_lib_label.split(" - ")[0].replace("Library ID: ", "").strip()
-                filtered_lib_df = live_df[live_df[lib_id_col].astype(str).str.strip() == selected_id]
+            if selected_lib_name and selected_lib_name != "-- 🏛️ நூலகத்தைத் தேர்ந்தெடுக்கவும் --":
+                # Vendor Wise Book Data-வில் O (14th index) & P (15th index) பத்திகளில் தேடுதல்
+                # O பத்தி: Lib Code / P பத்தி: Library Name
+                col_o = live_df.columns[14] if len(live_df.columns) > 14 else None
+                col_p = live_df.columns[15] if len(live_df.columns) > 15 else None
                 
-                st.markdown(f"### 📋 {selected_lib_label} - ஒதுக்கீடு செய்யப்பட்ட புத்தகங்கள் ({len(filtered_lib_df)})")
-                st.dataframe(filtered_lib_df, use_container_width=True)
+                # நூலகத்தின் பெயருக்குரிய Code-ஐக் கண்டறிதல்
+                selected_code = ""
+                for c_code, c_name in lib_map.items():
+                    if c_name == selected_lib_name:
+                        selected_code = c_code
+                        break
+
+                clean_selected_name = clean_text(selected_lib_name)
+                clean_selected_code = clean_text(selected_code)
+
+                # Matching filter
+                def is_match(row):
+                    p_val = clean_text(row[col_p]) if col_p and col_p in row else ""
+                    o_val = clean_text(row[col_o]) if col_o and col_o in row else ""
+                    
+                    # 1. P பத்தியில் பெயர் பொருந்துகிறதா?
+                    if clean_selected_name in p_val or p_val in clean_selected_name:
+                        return True
+                    # 2. O பத்தியில் Code பொருந்துகிறதா?
+                    if clean_selected_code and (clean_selected_code in o_val or o_val in clean_selected_code):
+                        return True
+                    return False
+
+                filtered_lib_df = live_df[live_df.apply(is_match, axis=1)]
+
+                if filtered_lib_df.empty:
+                    st.warning(f"⚠️ **{selected_lib_name}** நூலகத்திற்கு Vendor Wise Book Data-வில் ஒதுக்கீடு செய்யப்பட்ட விவரங்கள் எதுவும் இல்லை!")
+                else:
+                    c1, c2 = st.columns(2)
+                    c1.metric("📖 மொத்தப் புத்தகங்கள்", len(filtered_lib_df))
+                    c2.metric("🏛️ நூலகக் குறியீடு (Code)", selected_code if selected_code else "N/A")
+
+                    st.markdown(f"### 📋 {selected_lib_name} - ஒதுக்கீடு செய்யப்பட்ட நூல் விவரங்கள்:")
+                    st.dataframe(filtered_lib_df, use_container_width=True)
