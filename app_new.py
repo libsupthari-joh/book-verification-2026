@@ -9,19 +9,24 @@ import re
 # 1. Streamlit பக்க அமைப்பு
 st.set_page_config(page_title="2026 புதிய நூல்கள் விநியோகம்", layout="wide")
 
-# CSS - Dropdown மற்றும் பொத்தானை ஒரே சீரான உயரத்தில் அமைக்க
+# CSS - பொத்தான்களை சிறியதாகவும், சிவப்ப வண்ணத்திலும் மாற்ற
 st.markdown("""
     <style>
-    /* Dropdown மற்றும் பொத்தானை ஒரே உயரத்தில் நேர்கோட்டில் அமைக்க */
-    .inline-row {
-        display: flex;
-        align-items: center;
-        gap: 10px;
+    /* மாற்றுக பொத்தான்களை சிறியதாகவும் சிவப்ப நிறத்திலும் அமைக்க */
+    div[data-testid="stButton"] button {
+        background-color: #ff4b4b !important;
+        color: white !important;
+        border: none !important;
+        height: 38px !important;
+        font-size: 13px !important;
+        font-weight: bold !important;
+        padding: 4px 10px !important;
+        border-radius: 6px !important;
+        white-space: nowrap !important;
     }
-    .stButton button {
-        height: 42px !important;
-        margin-top: 0px !important;
-        white-space: nowrap;
+    div[data-testid="stButton"] button:hover {
+        background-color: #d32f2f !important;
+        color: white !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -144,8 +149,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
     # ==========================================
     st.markdown("### 🏢 1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:")
     
-    # 80% Dropdown, 20% Button நேர்கோட்டில்
-    col_v_select, col_v_btn = st.columns([4, 1])
+    col_v_select, col_v_btn = st.columns([5, 1])
 
     with col_v_select:
         selected_vendor_raw = st.selectbox(
@@ -156,7 +160,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         )
 
     with col_v_btn:
-        if st.button("🔄 பதிப்பகத்தை மாற்றுக", key="btn_v_change", type="primary", use_container_width=True):
+        if st.button("🔄 பதிப்பகத்தை மாற்றுக", key="btn_v_change", use_container_width=True):
             st.session_state['selected_vendor'] = None
             st.session_state['vendor_key'] += 1
             st.rerun()
@@ -208,7 +212,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
             else:
                 st.markdown("### 📖 2. புத்தகத் தலைப்பதைத் தேர்ந்தெடுக்கவும்:")
                 
-                col_b_select, col_b_btn = st.columns([4, 1])
+                col_b_select, col_b_btn = st.columns([5, 1])
 
                 with col_b_select:
                     selected_title_disp = st.selectbox(
