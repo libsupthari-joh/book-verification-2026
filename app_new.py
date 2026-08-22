@@ -10,7 +10,7 @@ import streamlit.components.v1 as components
 # 1. Streamlit பக்க அமைப்பு
 st.set_page_config(page_title="2026 புதிய நூல்கள் விநியோகம்", layout="wide")
 
-# JavaScript மூலம் நேரடி DOM Style Inject செய்யும் முறை (100% Работа செய்யக்கூடியது)
+# JavaScript மூலம் நேரடி DOM Style Inject செய்யும் முறை
 components.html("""
     <script>
     function styleButtons() {
@@ -18,7 +18,6 @@ components.html("""
         buttons.forEach(btn => {
             const text = btn.innerText || btn.textContent;
             
-            // 1. பதிப்பகத்தை மாற்றுக / தலைப்பை மாற்றுக (ஆரஞ்சு)
             if (text.includes("பதிப்பகத்தை மாற்றுக") || text.includes("தலைப்பை மாற்றுக")) {
                 btn.style.setProperty('background-color', '#ff9800', 'important');
                 btn.style.setProperty('background-image', 'linear-gradient(180deg, #ff9800 0%, #e65100 100%)', 'important');
@@ -27,12 +26,9 @@ components.html("""
                 btn.style.setProperty('box-shadow', '0px 4px 0px #b55d00, 0px 4px 6px rgba(0,0,0,0.2)', 'important');
                 btn.style.setProperty('border-radius', '8px', 'important');
                 btn.style.setProperty('font-weight', 'bold', 'important');
-                
                 const p = btn.querySelector('p');
                 if (p) p.style.setProperty('color', 'white', 'important');
             }
-            
-            // 2. கூகுள் ஷீட்டில் சேமி (பச்சை)
             if (text.includes("கூகுள் ஷீட்டில் சேமி")) {
                 btn.style.setProperty('background-color', '#28a745', 'important');
                 btn.style.setProperty('background-image', 'linear-gradient(180deg, #28a745 0%, #218838 100%)', 'important');
@@ -41,12 +37,9 @@ components.html("""
                 btn.style.setProperty('box-shadow', '0px 4px 0px #1e7e34, 0px 4px 6px rgba(0,0,0,0.2)', 'important');
                 btn.style.setProperty('border-radius', '8px', 'important');
                 btn.style.setProperty('font-weight', 'bold', 'important');
-                
                 const p = btn.querySelector('p');
                 if (p) p.style.setProperty('color', 'white', 'important');
             }
-
-            // 3. பட்டியலை அழி (சிவப்பு)
             if (text.includes("பட்டியலை அழி")) {
                 btn.style.setProperty('background-color', '#dc3545', 'important');
                 btn.style.setProperty('background-image', 'linear-gradient(180deg, #dc3545 0%, #bd2130 100%)', 'important');
@@ -55,13 +48,10 @@ components.html("""
                 btn.style.setProperty('box-shadow', '0px 4px 0px #721c24, 0px 4px 6px rgba(0,0,0,0.2)', 'important');
                 btn.style.setProperty('border-radius', '8px', 'important');
                 btn.style.setProperty('font-weight', 'bold', 'important');
-                
                 const p = btn.querySelector('p');
                 if (p) p.style.setProperty('color', 'white', 'important');
             }
-
-            // 4. பட்டியலில் சேர் (பச்சை Form Button)
-            if (text.includes("பட்டியலில் சேர்")) {
+            if (text.includes("பட்டியலில் சேர்") || text.includes("உள்நுழை")) {
                 btn.style.setProperty('background-color', '#28a745', 'important');
                 btn.style.setProperty('background-image', 'linear-gradient(180deg, #28a745 0%, #218838 100%)', 'important');
                 btn.style.setProperty('color', 'white', 'important');
@@ -69,12 +59,9 @@ components.html("""
                 btn.style.setProperty('box-shadow', '0px 4px 0px #1e7e34, 0px 4px 6px rgba(0,0,0,0.2)', 'important');
                 btn.style.setProperty('border-radius', '8px', 'important');
                 btn.style.setProperty('font-weight', 'bold', 'important');
-                
                 const p = btn.querySelector('p');
                 if (p) p.style.setProperty('color', 'white', 'important');
             }
-
-            // 5. Sync Now (நீலம்)
             if (text.includes("Sync Now")) {
                 btn.style.setProperty('background-color', '#007bff', 'important');
                 btn.style.setProperty('background-image', 'linear-gradient(180deg, #007bff 0%, #0056b3 100%)', 'important');
@@ -83,17 +70,49 @@ components.html("""
                 btn.style.setProperty('box-shadow', '0px 4px 0px #004085, 0px 4px 6px rgba(0,0,0,0.2)', 'important');
                 btn.style.setProperty('border-radius', '8px', 'important');
                 btn.style.setProperty('font-weight', 'bold', 'important');
-                
                 const p = btn.querySelector('p');
                 if (p) p.style.setProperty('color', 'white', 'important');
             }
         });
     }
-
-    // பக்க மாற்றம் ஏற்படும் போது தொடர்ந்து வண்ணங்களை அமைக்கும்
     setInterval(styleButtons, 300);
     </script>
 """, height=0, width=0)
+
+# Session State பாதுகாப்பிற்கான அமைப்புகள்
+if 'logged_in' not in st.session_state:
+    st.session_state['logged_in'] = False
+
+# 🔒 உள்நுழைவுப் பக்கம் (Login System)
+if not st.session_state['logged_in']:
+    st.markdown("<h2 style='text-align: center;'>🔐 பணி போர்ட்டல் - உள்நுழைவு (Login)</h2>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        with st.form("login_form"):
+            phone = st.text_input("📱 அலைபேசி எண் (Mobile Number):")
+            password = st.text_input("🔑 கடவுச்சொல் (Password):", type="password")
+            submit = st.form_submit_button("🔓 உள்நுழை (Login)", use_container_width=True)
+            
+            if submit:
+                # 🛠️ உங்கள் அலைபேசி எண் மற்றும் கடவுச்சொல்லை இங்கு மாற்றிக்கொள்ளலாம்
+                if phone == "7402603600" and password == "123456":
+                    st.session_state['logged_in'] = True
+                    st.success("✅ உள்நுழைவு வெற்றிகரமானது!")
+                    st.rerun()
+                else:
+                    st.error("❌ தவறான அலைபேசி எண் அல்லது கடவுச்சொல்!")
+    st.stop()
+
+# ---------------------------------------------------------
+# 🔑 உள்நுழைந்த பிறகு பயன்பாடு தொடங்கும்
+# ---------------------------------------------------------
+
+# வெளியேறு (Logout) பொத்தான்
+st.sidebar.markdown(f"👤 **உள்நுழைந்துள்ளீர்**")
+if st.sidebar.button("🚪 வெளியேறு (Logout)"):
+    st.session_state['logged_in'] = False
+    st.rerun()
 
 st.title("📚 2026 புதிய நூல்கள் விநியோகம் - பணி போர்ட்டல்")
 
@@ -283,7 +302,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                             st.write(f"📖 **புத்தகத் தலைப்பு:** {matched_row['Title']}")
                             st.write(f"✍️ **ஆசிரியர் பெயர்:** {matched_row['Author Name']}")
                             rec_qty = st.number_input("📦 பெறப்பட்ட படிகள் (எண்ணிக்கை):", min_value=0, max_value=1000, value=tot_qty)
-                            submitted = st.form_submit_button("➕ பட்டியலில் சேர் (Add to List)")
+                            submitted = st.form_submit_button("➕列表中 (Add to List)")
                             
                             if submitted:
                                 not_rec_qty = max(0, tot_qty - rec_qty)
