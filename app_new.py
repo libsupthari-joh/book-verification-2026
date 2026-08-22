@@ -29,17 +29,19 @@ def load_data(file_path):
 
 vendor_df, book_df = load_data(EXCEL_FILE)
 
-# பெயர் எந்த அமைப்பில் இருந்தாலும் வார்த்தைகளை மட்டும் பிரித்தெடுக்கும் சார்பு
-def extract_text_tokens(val):
-    if pd.isna(val) or val is None:
-        return set()
-    # எழுத்துக்களை (Text Tokens) மட்டும் பிரித்தல் - எண்களையும் புள்ளிகளையும் பொருட்படுத்தாது
-    words = re.findall(r'[\u0B80-\u0BFFa-zA-Z]+', str(val).lower())
-    return set(words)
-
-def clean_for_match(val):
+# எண்களையும் தேவையில்லாத குறியீடுகளையும் நீக்கி சுத்தமான பெயராக மாற்றும் சார்பு
+def get_clean_name(val):
     if pd.isna(val) or val is None:
         return ""
+    s = str(val).strip()
+    # முன்னால் உள்ள எண்கள் மற்றும் புள்ளிகளை நீக்குதல் (எ.கா: '340.Graphic Network' -> 'Graphic Network')
+    s = re.sub(r'^\d+[\.\s\-]*', '', s)
+    return s.strip()
+
+def normalize_text(val):
+    if pd.isna(val) or val is None:
+        return ""
+    # ஒப்பீட்டிற்காக அனைத்து எழுத்துக்களையும் lowercase செய்து குறியீடுகளை நீக்குதல்
     return re.sub(r'[^a-zA-Z0-9\u0B80-\u0BFF]', '', str(val)).lower()
 
 # 3. கூகுள் ஷீட் இணைப்பு
@@ -106,42 +108,43 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
         try:
             existing_records = sheet_physically.get_all_values()
             if len(existing_records) > 1:
-                verified_vendors = set(clean_for_match(row[0]) for row in existing_records[1:] if row and row[0])
+                verified_vendors = set(normalize_text(row[0]) for row in existing_records[1:] if row and row[0])
         except Exception:
             pass
 
-    # B பத்தியில் உள்ள பெயர்களையே Dropdown பட்டியலுக்குத் தயார் செய்தல்
-    vendor_list = []
+    # எண்களை நீக்கி சுத்தமான பெயர்களை மட்டும் Dropdown பட்டியலுக்குத் தயார் செய்தல்
+    vendor_clean_list = []
     if not vendor_df.empty:
         for idx, row in vendor_df.iterrows():
-            col_b = str(row.iloc[1]).strip() if len(row) > 1 and pd.notna(row.iloc[1]) else ""
-            col_c = str(row.iloc[2]).strip() if len(row) > 2 and pd.notna(row.iloc[2]) else ""
+            col_b = str(row.iloc[1]) if len(row) > 1 and pd.notna(row.iloc[1]) else ""
+            col_c = str(row.iloc[2]) if len(row) > 2 and pd.notna(row.iloc[2]) else ""
             
-            label = col_b if col_b else col_c
-            if label and label.lower() != "nan" and label not in vendor_list:
-                vendor_list.append(label)
+            clean_b = get_clean_name(col_b)
+            clean_c = get_clean_name(col_c)
+            
+            chosen_name = clean_c if clean_c else clean_b
+            if chosen_name and chosen_name.lower() != "nan" and chosen_name not in vendor_clean_list:
+                vendor_clean_list.append(chosen_name)
                 
     st.subheader("1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:")
     
-    selected_vendor_raw = st.selectbox(
+    selected_vendor = st.selectbox(
         "பதிப்பகப் பெயரைத் தேர்ந்தெடுக்கவும்...", 
-        ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + vendor_list, 
+        ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + sorted(vendor_clean_list), 
         key=f"vendor_select_{st.session_state['vendor_key']}",
         label_visibility="collapsed"
     )
     
-    if selected_vendor_raw and selected_vendor_raw != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+    if selected_vendor and selected_vendor != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
         
-        # தேர்ந்தெடுத்த பெயரின் முக்கிய வார்த்தைகளை மட்டும் எடுத்தல் (எ.கா: Graphic Network)
-        vendor_tokens = extract_text_tokens(selected_vendor_raw)
+        target_vendor_norm = normalize_text(selected_vendor)
         
-        if clean_for_match(selected_vendor_raw) in verified_vendors:
+        if target_vendor_norm in verified_vendors:
             st.warning("⚠️ இந்த பதிப்பகத்தின் விவரங்கள் ஏற்கனவே கூகுள் ஷீட்டில் சேமிக்கப்பட்டுவிட்டது!")
         else:
-            # எக்செல் தரவில் இருந்து புத்தகங்களைப் பிரித்தெடுத்தல்
+            # எக்செல் தரவில் இருந்து எண்களைத் தவிர்த்துப் பெயர்களைப் பொருத்துதல்
             def is_vendor_match(row_val):
-                row_tokens = extract_text_tokens(row_val)
-                return vendor_tokens.issubset(row_tokens) or len(vendor_tokens.intersection(row_tokens)) >= len(vendor_tokens)
+                return normalize_text(get_clean_name(row_val)) == target_vendor_norm
 
             mask = book_df.iloc[:, 9].apply(is_vendor_match) | book_df.iloc[:, 10].apply(is_vendor_match)
             filtered_books = book_df[mask]
@@ -166,21 +169,21 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                 
                 st.subheader("2. புத்தகத் தலைப்பதைத் தேர்ந்தெடுக்கவும்:")
                 
-                added_titles_clean = [clean_for_match(x['Title']) for x in st.session_state['verified_list']]
+                added_titles_clean = [normalize_text(x['Title']) for x in st.session_state['verified_list']]
                 
                 title_options = ["-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"]
                 remaining_books_count = 0
                 
                 for idx, row in grouped.iterrows():
                     t_str = str(row['Title']).strip()
-                    if clean_for_match(t_str) not in added_titles_clean:
+                    if normalize_text(t_str) not in added_titles_clean:
                         a_str = str(row['Author Name']).strip() if pd.notna(row['Author Name']) else ""
                         disp = f"{t_str} - {a_str}" if a_str else t_str
                         title_options.append(disp)
                         remaining_books_count += 1
                 
                 if remaining_books_count == 0 and len(st.session_state['verified_list']) > 0:
-                    st.success("🎉 இந்த பதிப்பகத்தின் அனைத்துப் புத்தகங்களும்列表中 சேர்க்கப்பட்டுவிட்டன!")
+                    st.success("🎉 இந்த பதிப்பகத்தின் அனைத்துப் புத்தகங்களும் பட்டியலில் சேர்க்கப்பட்டுவிட்டன!")
                 else:
                     selected_title_disp = st.selectbox(
                         "புத்தகத்தைத் தேர்ந்தெடுக்கவும்...", 
@@ -230,21 +233,18 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                                             vwbd_data = sheet_vendor_wise.get_all_values()
                                             if len(vwbd_data) > 1:
                                                 cell_updates = []
-                                                target_t_match = clean_for_match(matched_row['Title'])
+                                                target_t_norm = normalize_text(matched_row['Title'])
                                                 
                                                 matching_row_indices = []
                                                 for r_idx, r_data in enumerate(vwbd_data[1:], start=2):
                                                     if len(r_data) > 10:
-                                                        row_title = clean_for_match(r_data[1])  # Col B: Title
-                                                        colJ_tokens = extract_text_tokens(r_data[9])   # Col J
-                                                        colK_tokens = extract_text_tokens(r_data[10])  # Col K
+                                                        row_title = normalize_text(r_data[1])  # Col B: Title
+                                                        row_colJ = normalize_text(get_clean_name(r_data[9]))   # Col J
+                                                        row_colK = normalize_text(get_clean_name(r_data[10]))  # Col K
                                                         
-                                                        v_matched = (vendor_tokens.issubset(colJ_tokens) or 
-                                                                     vendor_tokens.issubset(colK_tokens) or 
-                                                                     len(vendor_tokens.intersection(colJ_tokens)) > 0 or 
-                                                                     len(vendor_tokens.intersection(colK_tokens)) > 0)
+                                                        v_matched = (row_colJ == target_vendor_norm or row_colK == target_vendor_norm)
                                                         
-                                                        if row_title == target_t_match and v_matched:
+                                                        if row_title == target_t_norm and v_matched:
                                                             matching_row_indices.append(r_idx)
                                                 
                                                 current_rec = 0
@@ -301,9 +301,9 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                         physically_rows = []
                         for item in st.session_state['verified_list']:
                             physically_rows.append([
-                                selected_vendor_raw,
+                                selected_vendor,
                                 item['Title'], item['language'], item['Author'],
-                                selected_vendor_raw,
+                                selected_vendor,
                                 item['TotalQty'], item['ReceivedQty'], item['NotReceivedQty'],
                                 curr_date, st.session_state.get('user_phone', '')
                             ])
