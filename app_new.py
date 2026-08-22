@@ -163,7 +163,6 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         str_lit.error("❌ 'Book Supply-2026.xlsx' கோப்பு காணப்படவில்லை!")
         str_lit.stop()
 
-    # ஏற்கனவே Google Sheet-ல் (Physically verified) சேமிக்கப்பட்ட பதிப்பகங்களைச் சேகரித்தல்
     saved_vendors = set()
     if sheet_physically:
         try:
@@ -180,7 +179,6 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
             col_b = str(row.iloc[1]).strip() if len(row) > 1 and pd.notna(row.iloc[1]) else ""
             col_c = str(row.iloc[2]).strip() if len(row) > 2 and pd.notna(row.iloc[2]) else ""
             label = col_b if col_b else col_c
-            # ஏற்கனவே சேமிக்கப்பட்ட பதிப்பகங்களை தேர்வில் இருந்து நீக்குதல்
             if label and label.lower() != "nan" and clean_text(label) not in saved_vendors:
                 if label not in vendor_list:
                     vendor_list.append(label)
@@ -311,7 +309,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                     str_lit.balloons()
                     str_lit.success("🎉 வெற்றி! அனைத்துத் தரவுகளும் கூகுள் ஷீட்டில் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
                     str_lit.session_state['verified_list'] = []
-                    str_lit.session_state['selected_vendor'] = None  # சேமித்தவுடன் பதிப்பகத் தேர்வை நீக்கிவிடும்
+                    str_lit.session_state['selected_vendor'] = None
                     str_lit.session_state['vendor_key'] += 1
                     str_lit.rerun()
                 except Exception as e:
@@ -323,7 +321,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                 str_lit.rerun()
 
 # ---------------------------------------------------------
-# பணி 2: Google Sheet தரவு ஒத்திசைவு (Sync)
+# பணி 2: Google Sheet தரவு ஒத்திசைவு (Sync) - திருத்தப்பட்டது
 # ---------------------------------------------------------
 elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)":
     str_lit.subheader("🔄 **2. பதிப்பகம் வாரியாக பெறப்பட்ட நூல்களின் பட்டியல் & ஒத்திசைவு**")
@@ -335,22 +333,28 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
             p_records = sheet_physically.get_all_values()
             vwbd_all_data = sheet_vendor_wise.get_all_values()
             
+            # ஏற்கனவே ஒத்திசைவு செய்யப்பட்ட பதிப்பகங்களைக் கண்டறிதல் (Column S [index 18] அல்லது T [index 19] சரிபார்ப்பு)
             synced_vendors = set()
             if len(vwbd_all_data) > 1:
                 for r in vwbd_all_data[1:]:
-                    if len(r) > 18 and str(r[18]).strip() == "1":
-                        synced_vendors.add(clean_text(r[10]))
+                    # சம்மந்தப்பட்ட வரிசையில் ஏற்கனவே மதிப்பு உள்ளதா எனச் சரிபார்க்கிறது
+                    if len(r) > 18 and (str(r[18]).strip() == "1" or str(r[19]).strip() == "1"):
+                        if len(r) > 10 and r[10]:
+                            synced_vendors.add(clean_text(r[10]))
+                        elif len(r) > 9 and r[9]:
+                            synced_vendors.add(clean_text(r[9]))
 
             p_vendors = []
             if len(p_records) > 1:
                 for row in p_records[1:]:
                     if len(row) >= 1:
                         v_raw = row[0]
-                        if v_raw and clean_text(v_raw) not in synced_vendors and v_raw not in p_vendors:
+                        # ஒருவேளை ஷீட்டில் ஏற்கனவே பதிவாகியிருந்தாலும், இங்கு ஒத்திசைவுக்குக் காட்டுமாறு திருத்தப்பட்டுள்ளது
+                        if v_raw and v_raw not in p_vendors:
                             p_vendors.append(v_raw)
 
             if not p_vendors:
-                str_lit.success("🟢 அனைத்துப் பதிப்பகங்களின் தரவுகளும் ஏற்கனவே ஒத்திசைவு செய்யப்பட்டுவிட்டன!")
+                str_lit.warning("⚠️ Physically Verified ஷீட்டில் பதிப்பகங்கள் எதுவும் இல்லை!")
             else:
                 selected_sync_vendor = str_lit.selectbox("ஒத்திசைவு செய்ய வேண்டிய பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + p_vendors)
 
@@ -377,7 +381,7 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
                                         s_pub = clean_text(r_data[9])
                                         s_vendor = clean_text(r_data[10])
 
-                                        if (sync_vendor_clean == s_pub or sync_vendor_clean == s_vendor) and (target_title == s_title):
+                                        if (sync_vendor_clean == s_pub or sync_vendor_clean == s_vendor) and (target_title in s_title or s_title in target_title):
                                             if matched_count < r_qty:
                                                 batch_updates.append({'range': f'S{r_idx}:T{r_idx}', 'values': [[1, 0]]})
                                                 matched_count += 1
