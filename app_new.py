@@ -4,16 +4,34 @@ import streamlit as st
 
 
 # ============================================================
-# 1. SECURE AUTHENTICATION & SECRETS CONFIG
+# MULTI-USER SECURE LOGIN
+# (Passwords are stored securely as SHA-256 hashes, not plain text)
 # ============================================================
-def get_users():
-    """Streamlit secrets-ல் இருந்து பயனர் விவரங்களைப் பாதுகாப்பாகப் பெறுதல்"""
-    try:
-        return st.secrets.get("users", {})
-    except Exception:
-        return {}
+USERS = {
+    "9842759306": {
+        "name": "Admin",
+        "password_hash": "64c58cf329fb2c58971f11e95b0d4f3b7b203c9bf14a29a0715cf466ee8e0a11",
+        "role": "admin",
+        "pages": "all",
+    },
+    "9787555290": {
+        "name": "Task 1 User 1",
+        "password_hash": "64c58cf329fb2c58971f11e95b0d4f3b7b203c9bf14a29a0715cf466ee8e0a11",
+        "role": "task1",
+        "pages": ["📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு"],
+    },
+    "9751687939": {
+        "name": "Task 1 User 2",
+        "password_hash": "64c58cf329fb2c58971f11e95b0d4f3b7b203c9bf14a29a0715cf466ee8e0a11",
+        "role": "task1",
+        "pages": ["📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு"],
+    },
+}
 
 
+# ============================================================
+# PASSWORD HASH GENERATION & AUTHENTICATION
+# ============================================================
 def hash_password(password):
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
@@ -22,8 +40,7 @@ def authenticate_user(phone, password):
     phone = str(phone).strip()
     password = str(password)
 
-    users_db = get_users()
-    user = users_db.get(phone)
+    user = USERS.get(phone)
     if not user:
         return None
 
@@ -82,10 +99,6 @@ def show_login_page():
                 st.warning("⚠️ கடவுச்சொல்லை உள்ளிடவும்.")
                 return
 
-            if not get_users():
-                st.error("❌ செயலியில் பயனர்களின் விவரங்கள் (Secrets) அமைக்கப்படவில்லை!")
-                return
-
             authenticated_user = authenticate_user(phone, password)
 
             if authenticated_user:
@@ -104,7 +117,7 @@ def show_login_page():
 
 
 # ============================================================
-# 2. SESSION INITIALIZATION & LOGIN GUARD
+# LOGIN SESSION INITIALIZATION
 # ============================================================
 st.session_state.setdefault("logged_in", False)
 st.session_state.setdefault("login_attempts", 0)
@@ -115,7 +128,7 @@ if not st.session_state["logged_in"]:
 
 
 # ============================================================
-# 3. ACCESS CONTROL HELPERS
+# ACCESS CONTROL HELPERS
 # ============================================================
 def is_admin():
     return st.session_state.get("user_role") == "admin"
@@ -124,6 +137,7 @@ def is_admin():
 def can_access_page(page_name):
     if is_admin():
         return True
+
     allowed_pages = st.session_state.get("allowed_pages", [])
     return page_name in allowed_pages
 
@@ -144,7 +158,7 @@ def logout():
 
 
 # ============================================================
-# 4. SIDEBAR NAVIGATION & USER INFO
+# SIDEBAR USER INFORMATION & NAVIGATION
 # ============================================================
 st.sidebar.markdown(
     f"### 👤 {st.session_state.get('user_name', 'User')}"
@@ -182,26 +196,26 @@ for item in visible_menu_items:
 
 
 # ============================================================
-# 5. MAIN APPLICATION PAGE ROUTER (YOUR EXISTING CODE)
+# MAIN APPLICATION PAGE ROUTER (YOUR EXISTING CODE)
 # ============================================================
 menu_choice = st.session_state["current_page"]
 
 if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு":
-    # உங்கள் தற்போதைய Task 1 கோடை இங்கு இணைக்கவும்
+    # உங்கள் தற்போதைய Task 1 கோடை இங்கு வைக்கவும்
     st.subheader("📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
 
 elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)":
-    # உங்கள் தற்போதைய Sync கோடை இங்கு இணைக்கவும்
+    # உங்கள் தற்போதைய Sync கோடை இங்கு வைக்கவும்
     st.subheader("🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)")
 
 elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)":
-    # உங்கள் தற்போதைய பதிப்பாளர் கோடை இங்கு இணைக்கவும்
+    # உங்கள் தற்போதைய பதிப்பாளர் கோடை இங்கு வைக்கவும்
     st.subheader("🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)")
 
 elif menu_choice == "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)":
-    # உங்கள் தற்போதைய விநியோக கோடை இங்கு இணைக்கவும்
+    # உங்கள் தற்போதைய விநியோக கோடை இங்கு வைக்கவும்
     st.subheader("🏛️ 4. நூலகத்திற்கு விநியோகம் (103)")
 
 elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
-    # உங்கள் தற்போதைய Accession கோடை இங்கு இணைக்கவும்
+    # உங்கள் தற்போதைய Accession கோடை இங்கு வைக்கவும்
     st.subheader("⚙️ 5. Accession எண்கள் மேலாண்மை")
