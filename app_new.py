@@ -9,19 +9,19 @@ import re
 # 1. Streamlit பக்க அமைப்பு
 st.set_page_config(page_title="2026 புதிய நூல்கள் விநியோகம்", layout="wide")
 
-# CSS - பொத்தான்களை நேர்கோட்டில் கச்சிதமாக அமைக்க மற்றும் அட்டவணை வடிவமைப்பு
+# CSS - Dropdown மற்றும் பொத்தானை ஒரே சீரான உயரத்தில் அமைக்க
 st.markdown("""
     <style>
-    /* Button Vertically Aligned with Selectbox */
-    div[data-testid="column"] {
+    /* Dropdown மற்றும் பொத்தானை ஒரே உயரத்தில் நேர்கோட்டில் அமைக்க */
+    .inline-row {
         display: flex;
-        align-items: flex-end;
+        align-items: center;
+        gap: 10px;
     }
     .stButton button {
-        margin-bottom: 2px;
-        padding: 6px 12px;
-        font-size: 13px;
-        font-weight: bold;
+        height: 42px !important;
+        margin-top: 0px !important;
+        white-space: nowrap;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -140,12 +140,14 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
     st.markdown("---")
 
     # ==========================================
-    # வரிசை 1: பதிப்பகம் தேர்வு + மாற்றுக பொத்தான்
+    # பகுதி 1: பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்
     # ==========================================
-    col_v_select, col_v_btn = st.columns([5, 2])
+    st.markdown("### 🏢 1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:")
+    
+    # 80% Dropdown, 20% Button நேர்கோட்டில்
+    col_v_select, col_v_btn = st.columns([4, 1])
 
     with col_v_select:
-        st.markdown("### 🏢 1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:")
         selected_vendor_raw = st.selectbox(
             "பதிப்பகப் பெயரைத் தேர்ந்தெடுக்கவும்...", 
             ["-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + vendor_list, 
@@ -154,7 +156,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         )
 
     with col_v_btn:
-        if st.button("🔄 பதிப்பகத்தை மாற்றுக", key="btn_v_change", type="primary"):
+        if st.button("🔄 பதிப்பகத்தை மாற்றுக", key="btn_v_change", type="primary", use_container_width=True):
             st.session_state['selected_vendor'] = None
             st.session_state['vendor_key'] += 1
             st.rerun()
@@ -163,7 +165,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         st.session_state['selected_vendor'] = selected_vendor_raw
 
     # ==========================================
-    # வரிசை 2: தலைப்பு தேர்வு + மாற்றுக பொத்தான்
+    # பகுதி 2: புத்தகத் தலைப்பதைத் தேர்ந்தெடுக்கவும்
     # ==========================================
     if st.session_state['selected_vendor']:
         target_vendor_clean = clean_text(st.session_state['selected_vendor'])
@@ -204,10 +206,11 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
             if len(title_options) == 1:
                 st.success("🎉 இந்த பதிப்பகத்தின் அனைத்துப் புத்தகங்களும் ஏற்கனவே சரிபார்க்கப்பட்டுவிட்டன!")
             else:
-                col_b_select, col_b_btn = st.columns([5, 2])
+                st.markdown("### 📖 2. புத்தகத் தலைப்பதைத் தேர்ந்தெடுக்கவும்:")
+                
+                col_b_select, col_b_btn = st.columns([4, 1])
 
                 with col_b_select:
-                    st.markdown("### 📖 2. புத்தகத் தலைப்பதைத் தேர்ந்தெடுக்கவும்:")
                     selected_title_disp = st.selectbox(
                         "புத்தகத்தைத் தேர்ந்தெடுக்கவும்...", 
                         title_options, 
@@ -216,12 +219,12 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                     )
 
                 with col_b_btn:
-                    if st.button("🔄 தலைப்பை மாற்றுக", key="btn_b_change"):
+                    if st.button("🔄 தலைப்பை மாற்றுக", key="btn_b_change", use_container_width=True):
                         st.session_state['book_key'] += 1
                         st.rerun()
 
                 # ==========================================
-                # சரிபார்ப்பு படிவம் (Form)
+                # பகுதி 3: சரிபார்ப்புப் படிவம் (Form)
                 # ==========================================
                 if selected_title_disp and selected_title_disp != "-- 📖 புத்தகத்தைத் தேர்ந்தெடுக்கவும் --":
                     matched_row = None
@@ -257,7 +260,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                 st.rerun()
 
     # ==========================================
-    # தற்காலிகப் பட்டியல் (Bold Header & Centered Quantities)
+    # பகுதி 4: தற்காலிகப் பட்டியல்
     # ==========================================
     if st.session_state['verified_list']:
         st.markdown("---")
@@ -265,23 +268,17 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         
         v_df = pd.DataFrame(st.session_state['verified_list'])
         v_df.index = range(1, len(v_df) + 1)
-        
-        # காலம் பெயர்கள் தடிமனாக மாற்றுதல்
-        v_df = v_df.rename(columns={
-            "Vendor": "Vendor",
-            "Title": "Title",
-            "Language": "Language",
-            "Author": "Author",
-            "TotalQty": "TotalQty",
-            "ReceivedQty": "ReceivedQty"
-        })
 
         st.dataframe(
             v_df[['Vendor', 'Title', 'Language', 'Author', 'TotalQty', 'ReceivedQty']], 
             use_container_width=True,
             column_config={
-                "TotalQty": st.column_config.NumberColumn("TotalQty", format="%d", help="Total Quantity"),
-                "ReceivedQty": st.column_config.NumberColumn("ReceivedQty", format="%d", help="Received Quantity")
+                "Vendor": st.column_config.TextColumn("Vendor"),
+                "Title": st.column_config.TextColumn("Title"),
+                "Language": st.column_config.TextColumn("Language"),
+                "Author": st.column_config.TextColumn("Author"),
+                "TotalQty": st.column_config.NumberColumn("TotalQty", format="%d"),
+                "ReceivedQty": st.column_config.NumberColumn("ReceivedQty", format="%d")
             }
         )
         
