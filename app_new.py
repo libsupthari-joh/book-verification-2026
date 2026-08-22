@@ -11,7 +11,7 @@ import streamlit.components.v1 as components
 # 1. Streamlit பக்க அமைப்பு
 st.set_page_config(page_title="2026 புதிய நூல்கள் விநியோகம்", layout="wide", initial_sidebar_state="expanded")
 
-# 🎨 பக்கவாட்டு மெனு Styling (CSS)
+# 🎨 பக்கவாட்டு மெனு மற்றும் பட்டன்களுக்கான Styling (CSS)
 st.markdown("""
     <style>
     div.stButton > button[key^="nav_"] {
@@ -30,7 +30,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 🎨 தற்போது எந்தப் பக்கத்தில் இருக்கிறோமோ அதற்கு மட்டும் நீல நிறமும், மற்றவற்றுக்கு சாம்பல் நிறமும் தரும் ஜாவாஸ்கிரிப்ட்
+# 🎨 பக்கவாட்டு மெனு பொத்தான்களுக்கு வண்ணங்களை மாற்றும் ஜாவாஸ்கிரிப்ட்
 active_page_name = st.session_state.get('current_page', "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
 
 components.html(f"""
@@ -68,13 +68,13 @@ components.html(f"""
                 btn.style.setProperty('border', 'none', 'important');
                 btn.style.setProperty('border-radius', '8px', 'important');
             }}
-            if (text.includes("கூகுள் ஷீட்டில் சேமி") || text.includes("உள்நுழை") || text.includes("புதுப்பி") || text.includes("Sync to Sheet")) {{
+            if (text.includes("கூகுள் ஷீட்டில் சேமி") || text.includes("உள்நுழை") || text.includes("புதுப்பி") || text.includes("ஒத்திசைவு செய்") || text.includes("Sync")) {{
                 btn.style.setProperty('background-color', '#28a745', 'important');
                 btn.style.setProperty('color', 'white', 'important');
                 btn.style.setProperty('border', 'none', 'important');
                 btn.style.setProperty('border-radius', '8px', 'important');
             }}
-            if (text.includes("பட்டியலை அழி")) {{
+            if (text.includes("பட்டியலை அழி") || text.includes("வெளியேறு")) {{
                 btn.style.setProperty('background-color', '#dc3545', 'important');
                 btn.style.setProperty('color', 'white', 'important');
                 btn.style.setProperty('border', 'none', 'important');
@@ -110,7 +110,7 @@ if not st.session_state['logged_in']:
                     st.error("❌ தவறான அலைபேசி எண் அல்லது கடவுச்சொல்!")
     st.stop()
 
-# 📌 Sidebar Navigation
+# 📌 Sidebar Navigation (ஐகான்களுடன் கூடிய பக்கவாட்டு மெனு)
 st.sidebar.markdown("### 👤 **பயனர் கணக்கு**")
 if st.sidebar.button("🚪 வெளியேறு (Logout)", key="logout_btn"):
     st.session_state['logged_in'] = False
@@ -361,7 +361,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                 st.rerun()
 
 # ---------------------------------------------------------
-# பணி 2: Google Sheet தரவு ஒத்திசைவு (Sync)
+# பணி 2: Google Sheet தரவு ஒத்திசைவு (Sync) - (தனிப்பட்ட பதிப்பாளர் வாரியாக மட்டும்)
 # ---------------------------------------------------------
 elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)":
     st.subheader("🔄 2. பதிப்பகம் வாரியாக பெறப்பட்ட நூல்களின் பட்டியல் & ஒத்திசைவு")
@@ -371,16 +371,15 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
     else:
         try:
             p_records = sheet_physically.get_all_values()
-            
-            # ஏற்கனவே Sync செய்யப்பட்ட பதிப்பகங்களை மட்டும் கண்டறிதல்
             vwbd_all_data = sheet_vendor_wise.get_all_values()
+            
+            # ஏற்கனவே S மற்றும் T காலம்களில் 1 என Sync செய்யப்பட்ட பதிப்பகங்களைக் கண்டறிதல்
             synced_vendors = set()
             if len(vwbd_all_data) > 1:
                 for r in vwbd_all_data[1:]:
-                    if len(r) > 18 and str(r[18]).strip() == "1": # Column S-ல் 1 இருந்தால்
-                        synced_vendors.add(clean_text(r[10])) # பதிப்பாளர் பெயர்
+                    if len(r) > 18 and str(r[18]).strip() == "1":
+                        synced_vendors.add(clean_text(r[10]))
 
-            # மீதமுள்ள பதிப்பகங்களை மட்டும் தேர்வு செய்ய
             p_vendors = []
             if len(p_records) > 1:
                 for row in p_records[1:]:
@@ -396,17 +395,16 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
 
                 if selected_sync_vendor and selected_sync_vendor != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
                     sync_vendor_clean = clean_text(selected_sync_vendor)
-                    st.write(f"### 📋 {selected_sync_vendor} - விவரங்கள்:")
+                    st.markdown(f"### 📋 {selected_sync_vendor} - விவரங்கள்:")
                     
-                    # அந்தப் பதிப்பகத்தின் தரவுகளை மட்டும் வடிகட்டவும்
                     vendor_books = [r for r in p_records[1:] if clean_text(r[0]) == sync_vendor_clean]
                     df_v = pd.DataFrame(vendor_books, columns=["Vendor", "Title", "Lang", "Auth", "V2", "Total", "Rec", "NotRec", "Date"])
                     st.dataframe(df_v[['Title', 'Total', 'Rec']], use_container_width=True)
 
                     if st.button(f"🚀 {selected_sync_vendor} தரவை மட்டும் ஒத்திசைவு செய்", key="btn_sync_single"):
-                        with st.spinner("⏳ ஒத்திசைவு செய்கிறது..."):
+                        with st.spinner("⏳ தேர்ந்தெடுக்கப்பட்ட பதிப்பகத்தின் தரவுகள் மட்டும் துல்லியமாக ஒத்திசைவு செய்யப்படுகின்றன..."):
                             batch_updates = []
-                            # அந்த குறிப்பிட்ட பதிப்பகத்தின் ஒவ்வொரு வரிசையாக எடுத்து ஒப்பிடுதல்
+                            
                             for rec in vendor_books:
                                 target_title = clean_text(rec[1])
                                 r_qty = int(rec[6]) if str(rec[6]).isdigit() else 0
@@ -418,7 +416,6 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
                                         s_pub = clean_text(r_data[9])
                                         s_vendor = clean_text(r_data[10])
 
-                                        # பதிப்பாளர் மற்றும் தலைப்பு இரண்டும் பொருந்தினால் மட்டும்
                                         if (sync_vendor_clean == s_pub or sync_vendor_clean == s_vendor) and (target_title == s_title):
                                             if matched_count < r_qty:
                                                 batch_updates.append({'range': f'S{r_idx}:T{r_idx}', 'values': [[1, 0]]})
@@ -428,14 +425,15 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
                             
                             if batch_updates:
                                 sheet_vendor_wise.batch_update(batch_updates)
-                                st.success("✅ வெற்றிகரமாக ஒத்திசைக்கப்பட்டது!")
+                                st.success(f"✅ {selected_sync_vendor} தரவுகள் வெற்றிகரமாக ஒத்திசைக்கப்பட்டன!")
                                 time.sleep(1)
                                 st.rerun()
                             else:
-                                st.warning("⚠️ தரவுகள் பொருந்தவில்லை, சரிபார்க்கவும்.")
+                                st.warning("⚠️ தரவுகள் ஷீட்டுடன் பொருந்தவில்லை, சரிபார்க்கவும்.")
 
         except Exception as e:
             st.error(f"❌ பிழை: {e}")
+
 # ---------------------------------------------------------
 # பணி 3: 480 பதிப்பாளர் விவரங்கள்
 # ---------------------------------------------------------
@@ -579,7 +577,7 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                 st.warning("⚠️ இந்த பொத்தானை அழுத்தினால், இதுவரை சரிபார்க்கப்பட்ட அனைத்துப் புத்தகங்களுக்கும் Central மற்றும் நூலக Accession எண்கள் கணக்கிட்டு Google Sheet-ல் பதியப்படும்.")
                 
                 if st.button("⚡ அனைத்துப் பதிப்பகங்களுக்கும் Accession எண்களை ஒதுக்கு (Final Allocation)", key="btn_final_sync", use_container_width=True):
-                    with st.spinner("⏳ இறுதி Accession எண்கள் ஒதுக்கீடு செய்யப்படுகின்றன... कृपया காத்திருக்கவும்..."):
+                    with st.spinner("⏳ இறுதி Accession எண்கள் ஒதுக்கீடு செய்யப்படுகின்றன..."):
                         last_central_acc = int(central_val) if str(central_val).isdigit() else 1001
                         
                         lib_acc_map = {}
