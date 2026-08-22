@@ -9,7 +9,7 @@ import re
 # 1. Streamlit பக்க அமைப்பு
 st.set_page_config(page_title="2026 புதிய நூல்கள் விநியோகம்", layout="wide")
 
-# CSS - அனைத்து பொத்தான்களுக்கும் நேரடி 3D வடிவமைப்பு
+# CSS - 3D பொத்தான்கள் மற்றும் வண்ண அமைப்புகள்
 st.markdown("""
     <style>
     /* பொதுவான பொத்தான் 3D தோற்றம் */
@@ -21,7 +21,7 @@ st.markdown("""
         transition: all 0.1s ease-in-out !important;
     }
     
-    /* 1. பதிப்பகத்தை மாற்றுக (ஆரஞ்சு 3D) */
+    /* 1. பதிப்பகத்தை / தலைப்பை மாற்றுக (ஆரஞ்சு 3D) */
     div[data-testid="stColumn"]:nth-child(2) .stButton > button {
         background: linear-gradient(to bottom, #ff9800, #f57c00) !important;
         box-shadow: 0px 4px 0px #b55d00, 0px 5px 8px rgba(0,0,0,0.3) !important;
@@ -292,25 +292,27 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                 st.rerun()
 
     # ==========================================
-    # பகுதி 4: தற்காலிகப் பட்டியல்
+    # பகுதி 4: சரிபார்க்கப்பட்ட தற்காலிகப் பட்டியல்
     # ==========================================
     if st.session_state['verified_list']:
         st.markdown("---")
-        st.subheader("📋 சரிபார்க்கப்பட்ட தற்காலிகப் பட்டியல்")
+        # தலைப்பு Bold மற்றும் Icon உடன்
+        st.markdown("### 📋 சரிபார்க்கப்பட்ட தற்காலிகப் பட்டியல்:")
         
         v_df = pd.DataFrame(st.session_state['verified_list'])
         v_df.index = range(1, len(v_df) + 1)
 
+        # சீரான Icon-கள் மற்றும் Bold தலைப்புகளுடன் கூடிய அட்டவணை
         st.dataframe(
             v_df[['Vendor', 'Title', 'Language', 'Author', 'TotalQty', 'ReceivedQty']], 
             use_container_width=True,
             column_config={
-                "Vendor": st.column_config.TextColumn("Vendor"),
-                "Title": st.column_config.TextColumn("Title"),
-                "Language": st.column_config.TextColumn("Language"),
-                "Author": st.column_config.TextColumn("Author"),
-                "TotalQty": st.column_config.NumberColumn("TotalQty", format="%d"),
-                "ReceivedQty": st.column_config.NumberColumn("ReceivedQty", format="%d")
+                "Vendor": st.column_config.TextColumn("🏢 பதிப்பகம்"),
+                "Title": st.column_config.TextColumn("📖 புத்தகத் தலைப்பு"),
+                "Language": st.column_config.TextColumn("🗣️ மொழி"),
+                "Author": st.column_config.TextColumn("✍️ ஆசிரியர்"),
+                "TotalQty": st.column_config.NumberColumn("📦 மொத்த படிகள்", format="%d"),
+                "ReceivedQty": st.column_config.NumberColumn("✅ பெறப்பட்ட படிகள்", format="%d")
             }
         )
         
@@ -397,7 +399,7 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
                             })
 
                     if filtered_records:
-                        st.write(f"### 📋 {selected_sync_vendor} - ஒத்திசைக்கப்பட வேண்டிய புத்தகங்கள்:")
+                        st.markdown(f"### 📋 {selected_sync_vendor} - ஒத்திசைக்கப்பட வேண்டிய புத்தகங்கள்:")
                         st.dataframe(pd.DataFrame(filtered_records), use_container_width=True)
 
                         if st.button(f"🚀 {selected_sync_vendor} - தரவை கூகுள் ஷீட்டில் புதுப்பி (Sync Now)", key="btn_sync_now", use_container_width=True):
