@@ -29,12 +29,12 @@ def load_data(file_path):
 
 vendor_df, book_df = load_data(EXCEL_FILE)
 
-# தமிழ் மற்றும் ஆங்கில எழுத்துக்களை மட்டும் சுத்தப்படுத்தும் சார்பு
+# உரை சுத்தப்படுத்தும் சார்பு
 def clean_text(val):
     if pd.isna(val) or val is None:
         return ""
     s = str(val).strip()
-    s = re.sub(r'^\d+[\.\s\-]*', '', s) # எண்களை நீக்குதல்
+    s = re.sub(r'^\d+[\.\s\-]*', '', s)
     return re.sub(r'[^a-zA-Z0-9\u0B80-\u0BFF]', '', s).lower()
 
 # 3. கூகுள் ஷீட் இணைப்பு
@@ -64,7 +64,7 @@ try:
 except Exception as e:
     st.error(f"Google Sheet இணைப்புப் பிழை: {e}")
 
-# Session State Setup
+# Session State
 if 'verified_list' not in st.session_state:
     st.session_state['verified_list'] = []
 
@@ -226,7 +226,7 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                     st.error(f"❌ பிழை: {e}")
 
 # ---------------------------------------------------------
-# பணி 2: Google Sheet தரவு ஒத்திசைவு (Sync) - மேட்சிங் பிழை திருத்தப்பட்டது
+# பணி 2: Google Sheet தரவு ஒத்திசைவு (Sync) - நேரடி செல் புதுப்பிப்பு
 # ---------------------------------------------------------
 elif menu_choice == "2. 🔄 Google Sheet தரவு ஒத்திசைவு (Sync)":
     st.subheader("🔄 பதிப்பகம் வாரியாக தரவு ஒத்திசைவு (Vendor Wise Sync)")
@@ -273,12 +273,11 @@ elif menu_choice == "2. 🔄 Google Sheet தரவு ஒத்திசைவ�
                         st.dataframe(pd.DataFrame(filtered_records), use_container_width=True)
 
                         if st.button(f"🚀 {selected_sync_vendor} - தரவை Vendor Wise Sheet-ல் புதுப்பி (Sync Now)", use_container_width=True):
-                            with st.spinner("⏳ தரவுகள் புதுப்பிக்கப்படுகின்றன... தயவுசெய்து காத்திருக்கவும்..."):
+                            with st.spinner("⏳ கூகுள் ஷீட்டில் Received & Not Received காலம்களில் நேரடியாக எழுதப்படுகிறது..."):
                                 
                                 vwbd_data = sheet_vendor_wise.get_all_values()
-                                cell_updates = []
+                                updated_count = 0
 
-                                # பெறப்பட்ட ஒவ்வொரு புத்தகத்தையும் Vendor Wise Sheet-ல் பொருத்துதல்
                                 for rec in filtered_records:
                                     target_title_clean = clean_text(rec["புத்தகத் தலைப்பு"])
                                     try:
@@ -292,19 +291,21 @@ elif menu_choice == "2. 🔄 Google Sheet தரவு ஒத்திசைவ�
                                         if len(r_data) > 1:
                                             sheet_title_clean = clean_text(r_data[1]) # Col B (Title)
                                             
-                                            # தலைப்பு முழுமையாகவோ அல்லது பகுதி அளவிலோ பொருந்துகிறதா எனக் காணுதல்
-                                            if (target_title_clean in sheet_title_clean or sheet_title_clean in target_title_clean or target_title_clean[:10] == sheet_title_clean[:10]):
+                                            # தலைப்பு பொருத்தம்
+                                            if (target_title_clean in sheet_title_clean or sheet_title_clean in target_title_clean or target_title_clean[:8] == sheet_title_clean[:8]):
                                                 if matched_count < needed_qty:
-                                                    cell_updates.append(gspread.Cell(r_idx, 19, 1)) # Col S (Received = 1)
-                                                    cell_updates.append(gspread.Cell(r_idx, 20, 0)) # Col T (Not Received = 0)
+                                                    # Col S (19th Column) -> Received = 1
+                                                    # Col T (20th Column) -> Not Received = 0
+                                                    sheet_vendor_wise.update_cell(r_idx, 19, 1)
+                                                    sheet_vendor_wise.update_cell(r_idx, 20, 0)
                                                     matched_count += 1
+                                                    updated_count += 1
 
-                                if cell_updates:
-                                    sheet_vendor_wise.update_cells(cell_updates)
+                                if updated_count > 0:
                                     st.balloons()
-                                    st.success(f"✅ வெற்றி! Graphic Network பதிப்பகத்தின் 9 புத்தக வரிகளும் 'Vendor Wise Book Data' தாளில் Received = 1 என வெற்றிபெற்றுவிட்டன!")
+                                    st.success(f"✅ வெற்றி! 'Vendor Wise Book Data' தாளில் {updated_count} வரிகளுக்கு Received = 1 மற்றும் Not Received = 0 என நேரடியாக கூகுள் ஷீட்டில் எழுதப்பட்டுவிட்டது!")
                                 else:
-                                    st.error("❌ புத்தகத் தலைப்புகள் Vendor Wise தாளில் உள்ள தலைப்புகளுடன் பொருந்தவில்லை!")
+                                    st.error("❌ புத்தகத் தலைப்புகள் கூகுள் ஷீட்டில் சரியாகப் பொருந்தவில்லை!")
 
         except Exception as e:
             st.error(f"❌ பிழை ஏற்பட்டது: {e}")
