@@ -5,24 +5,26 @@ import streamlit as st
 
 # ============================================================
 # MULTI-USER SECURE LOGIN
-# (Passwords are stored securely as SHA-256 hashes, not plain text)
 # ============================================================
+# இங்கு கடவுச்சொல் ஸ்பேஸ் இல்லாமல் "Basswood123456" என அமைக்கப்பட்டுள்ளது.
+BASSWOOD_HASH = hashlib.sha256("Basswood123456".encode("utf-8")).hexdigest()
+
 USERS = {
     "9842759306": {
         "name": "Admin",
-        "password_hash": "64c58cf329fb2c58971f11e95b0d4f3b7b203c9bf14a29a0715cf466ee8e0a11",
+        "password_hash": BASSWOOD_HASH,
         "role": "admin",
         "pages": "all",
     },
     "9787555290": {
         "name": "Task 1 User 1",
-        "password_hash": "64c58cf329fb2c58971f11e95b0d4f3b7b203c9bf14a29a0715cf466ee8e0a11",
+        "password_hash": BASSWOOD_HASH,
         "role": "task1",
         "pages": ["📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு"],
     },
     "9751687939": {
         "name": "Task 1 User 2",
-        "password_hash": "64c58cf329fb2c58971f11e95b0d4f3b7b203c9bf14a29a0715cf466ee8e0a11",
+        "password_hash": BASSWOOD_HASH,
         "role": "task1",
         "pages": ["📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு"],
     },
