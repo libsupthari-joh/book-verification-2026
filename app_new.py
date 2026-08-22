@@ -28,7 +28,7 @@ def load_data(file_path):
 
 vendor_df, book_df = load_data(EXCEL_FILE)
 
-# 3. கூகுள் ஷீட் இணைப்பு
+# 3. கூகுள் ஷீட் இணைப்பு (பாதுகாப்பான சீட் கண்டறிதல்)
 @st.cache_resource
 def init_gspread():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -37,11 +37,27 @@ def init_gspread():
     client = gspread.authorize(creds)
     return client
 
+sheet_physically = None
+sheet_vendor_wise = None
+
 try:
     client = init_gspread()
     spreadsheet = client.open_by_key("1LNogKaLvdqkoITSLE971jTBIy9QO4s90j1WDxY1cDrc")
-    sheet_physically = spreadsheet.worksheet("Physically verified")
-    sheet_vendor_wise = spreadsheet.worksheet("Vendor Wise Book Data")
+    
+    all_worksheets = {ws.title.strip().lower(): ws for ws in spreadsheet.worksheets()}
+    
+    # Physically verified சீட் கண்டறிதல்
+    for title, ws in all_worksheets.items():
+        if "physically verified" in title:
+            sheet_physically = ws
+            break
+            
+    # Vendor Wise Book Data சீட் கண்டறிதல்
+    for title, ws in all_worksheets.items():
+        if "vendor wise book data" in title:
+            sheet_vendor_wise = ws
+            break
+            
 except Exception as e:
     st.error(f"Google Sheet இணைப்புப் பிழை: {e}")
 
@@ -78,12 +94,13 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
 
     # ஏற்கனவே கூகுள் ஷீட்டில் உள்ள பதிப்பகங்களைப் படித்தல்
     verified_vendors = []
-    try:
-        existing_records = sheet_physically.get_all_values()
-        if len(existing_records) > 1:
-            verified_vendors = set(row[0].strip() for row in existing_records[1:] if row and row[0])
-    except Exception:
-        pass
+    if sheet_physically:
+        try:
+            existing_records = sheet_physically.get_all_values()
+            if len(existing_records) > 1:
+                verified_vendors = set(row[0].strip() for row in existing_records[1:] if row and row[0])
+        except Exception:
+            pass
 
     vendors = []
     if not vendor_df.empty:
@@ -222,59 +239,59 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                 try:
                     curr_date = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     
-                    # 1. Physically verified சீட்டில் சேமித்தல்
-                    physically_rows = []
-                    for item in st.session_state['verified_list']:
-                        physically_rows.append([
-                            selected_vendor_full if 'selected_vendor_full' in locals() else '',
-                            item['Title'], item['language'], item['Author'],
-                            actual_vendor if 'actual_vendor' in locals() else '',
-                            item['TotalQty'], item['ReceivedQty'], item['NotReceivedQty'],
-                            curr_date, st.session_state.get('user_phone', '')
-                        ])
-                    sheet_physically.append_rows(physically_rows)
-                    
-                    # 2. Vendor Wise Book Data சீட்டை புதுப்பித்தல் (S & T Columns)
-                    vwbd_data = sheet_vendor_wise.get_all_values()
-                    
-                    if len(vwbd_data) > 1:
-                        # Col B (Title): Index 1, Col E (Vendor): Index 4
-                        cell_updates = []
-                        
+                    # 1. Physically verified சேமிப்பு
+                    if sheet_physically:
+                        physically_rows = []
                         for item in st.session_state['verified_list']:
-                            target_title = str(item['Title']).strip().lower()
-                            rec_count = item['ReceivedQty']
-                            
-                            matching_row_indices = []
-                            for r_idx, r_data in enumerate(vwbd_data[1:], start=2):
-                                if len(r_data) > 4:
-                                    row_title = str(r_data[1]).strip().lower()
-                                    row_vendor = str(r_data[4]).strip().lower()
-                                    target_v = str(actual_vendor).strip().lower()
+                            physically_rows.append([
+                                selected_vendor_full if 'selected_vendor_full' in locals() else '',
+                                item['Title'], item['language'], item['Author'],
+                                actual_vendor if 'actual_vendor' in locals() else '',
+                                item['TotalQty'], item['ReceivedQty'], item['NotReceivedQty'],
+                                curr_date, st.session_state.get('user_phone', '')
+                            ])
+                        sheet_physically.append_rows(physically_rows)
+                    
+                    # 2. Vendor Wise Book Data சீட்டைப் புதுப்பித்தல்
+                    if sheet_vendor_wise:
+                        try:
+                            vwbd_data = sheet_vendor_wise.get_all_values()
+                            if len(vwbd_data) > 1:
+                                cell_updates = []
+                                for item in st.session_state['verified_list']:
+                                    target_title = str(item['Title']).strip().lower()
+                                    rec_count = item['ReceivedQty']
                                     
-                                    if row_title == target_title and target_v in row_vendor:
-                                        matching_row_indices.append(r_idx)
-                            
-                            # வரிசையாக S மற்றும் T பத்திகளை நிரப்புதல்
-                            current_rec = 0
-                            for row_num in matching_row_indices:
-                                if current_rec < rec_count:
-                                    s_val = 1
-                                    t_val = 0
-                                    current_rec += 1
-                                else:
-                                    s_val = 0
-                                    t_val = 1
+                                    matching_row_indices = []
+                                    for r_idx, r_data in enumerate(vwbd_data[1:], start=2):
+                                        if len(r_data) > 4:
+                                            row_title = str(r_data[1]).strip().lower()
+                                            row_vendor = str(r_data[4]).strip().lower()
+                                            target_v = str(actual_vendor).strip().lower()
+                                            
+                                            if row_title == target_title and target_v in row_vendor:
+                                                matching_row_indices.append(r_idx)
+                                    
+                                    current_rec = 0
+                                    for row_num in matching_row_indices:
+                                        if current_rec < rec_count:
+                                            s_val = 1
+                                            t_val = 0
+                                            current_rec += 1
+                                        else:
+                                            s_val = 0
+                                            t_val = 1
+                                        
+                                        cell_updates.append(gspread.Cell(row_num, 19, s_val))
+                                        cell_updates.append(gspread.Cell(row_num, 20, t_val))
                                 
-                                # Row updates for S (19) and T (20) columns
-                                cell_updates.append(gspread.Cell(row_num, 19, s_val))
-                                cell_updates.append(gspread.Cell(row_num, 20, t_val))
-                        
-                        if cell_updates:
-                            sheet_vendor_wise.update_cells(cell_updates)
+                                if cell_updates:
+                                    sheet_vendor_wise.update_cells(cell_updates)
+                        except Exception as sec_e:
+                            st.warning(f"⚠️ 'Vendor Wise Book Data' புதுப்பிப்பில் எச்சரிக்கை: {sec_e}")
 
                     st.balloons()
-                    st.success("🎉 'Physically verified' மற்றும் 'Vendor Wise Book Data' ஆகிய இரண்டு சீட்களிலும் தகவல்கள் துல்லியமாக புதுப்பிக்கப்பட்டன!")
+                    st.success("🎉 'Physically verified' பக்கத்தில் தகவல்கள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
                     
                     st.session_state['verified_list'] = []
                     st.session_state['vendor_key'] += 1
