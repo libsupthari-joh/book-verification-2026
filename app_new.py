@@ -12,15 +12,6 @@ st.set_page_config(page_title="2026 புதிய நூல்கள் வி
 # CSS - பொத்தான்களுக்கான 3D நிறங்கள் மற்றும் தெளிவாகத் தெரியும் அமைப்புகள்
 st.markdown("""
     <style>
-    /* பொதுவான பொத்தான் শৈலி */
-    .stButton > button, div[data-testid="stForm"] button {
-        border: none !important;
-        border-radius: 8px !important;
-        font-weight: bold !important;
-        color: white !important;
-        transition: all 0.1s ease-in-out !important;
-    }
-
     /* 1. பட்டியலில் சேர் (Form Submit Button - 3D பச்சை) */
     div[data-testid="stForm"] button {
         background: linear-gradient(to bottom, #28a745, #218838) !important;
@@ -29,47 +20,75 @@ st.markdown("""
         font-size: 15px !important;
         width: 100% !important;
         color: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-weight: bold !important;
     }
     div[data-testid="stForm"] button:active {
         box-shadow: 0px 1px 0px #1e7e34 !important;
         transform: translateY(3px) !important;
     }
 
-    /* 2. கூகுள் ஷீட்டில் புதுப்பி / Sync Now பொத்தான் (3D நீல நிறம்) */
-    div.stButton > button[key="btn_sync_now"], 
-    button[data-testid="baseButton-secondary"][key="btn_sync_now"] {
-        background: linear-gradient(to bottom, #007bff, #0056b3) !important;
-        box-shadow: 0px 4px 0px #004085, 0px 5px 8px rgba(0,0,0,0.3) !important;
-        height: 45px !important;
-        font-size: 16px !important;
-        color: white !important;
-    }
-
-    /* 3. கூகுள் ஷீட்டில் சேமி (Save All - 3D பச்சை) */
+    /* 2. கூகுள் ஷீட்டில் சேமி (Save All - 3D பச்சை) */
     button[key="btn_save"] {
         background: linear-gradient(to bottom, #28a745, #218838) !important;
         box-shadow: 0px 4px 0px #1e7e34, 0px 5px 8px rgba(0,0,0,0.3) !important;
         height: 42px !important;
         font-size: 15px !important;
         color: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-weight: bold !important;
     }
 
-    /* 4. பட்டியலை அழி (Clear - 3D சிவப்பு) */
+    /* 3. பட்டியலை அழி (Clear - 3D சிவப்பு) */
     button[key="btn_clear"] {
         background: linear-gradient(to bottom, #dc3545, #bd2130) !important;
         box-shadow: 0px 4px 0px #721c24, 0px 5px 8px rgba(0,0,0,0.3) !important;
         height: 42px !important;
         font-size: 15px !important;
         color: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-weight: bold !important;
     }
 
-    /* 5. மாற்றுக பொத்தான்கள் (Change Buttons - 3D ஆரஞ்சு) */
+    /* 4. மாற்றுக பொத்தான்கள் (Change Buttons - 3D ஆரஞ்சு) */
     button[key="btn_v_change"], button[key="btn_b_change"] {
         background: linear-gradient(to bottom, #ff9800, #f57c00) !important;
         box-shadow: 0px 4px 0px #b55d00, 0px 5px 8px rgba(0,0,0,0.3) !important;
         height: 38px !important;
         font-size: 13px !important;
         color: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-weight: bold !important;
+    }
+
+    /* 5. நேரடி 3D நீல நிற பொத்தான் (Sync Button) */
+    .btn-3d-blue {
+        display: block;
+        width: 100%;
+        background: linear-gradient(to bottom, #007bff, #0056b3);
+        box-shadow: 0px 4px 0px #004085, 0px 5px 8px rgba(0,0,0,0.3);
+        color: white !important;
+        text-align: center;
+        padding: 12px 20px;
+        font-size: 16px;
+        font-weight: bold;
+        border-radius: 8px;
+        text-decoration: none;
+        cursor: pointer;
+        border: none;
+        transition: all 0.1s ease-in-out;
+    }
+    .btn-3d-blue:hover {
+        background: linear-gradient(to bottom, #0069d9, #004085);
+        color: white !important;
+    }
+    .btn-3d-blue:active {
+        box-shadow: 0px 1px 0px #004085;
+        transform: translateY(3px);
     }
     </style>
 """, unsafe_allow_html=True)
@@ -405,8 +424,17 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
                         st.markdown(f"### 📋 {selected_sync_vendor} - ஒத்திசைக்கப்பட வேண்டிய புத்தகங்கள்:")
                         st.dataframe(pd.DataFrame(filtered_records), use_container_width=True)
 
-                        # திருத்தப்பட்ட 3D நீல நிற பொத்தான்
-                        if st.button(f"🚀 {selected_sync_vendor} - தரவை கூகுள் ஷீட்டில் புதுப்பி (Sync Now)", key="btn_sync_now", use_container_width=True):
+                        # 3D நீல நிற பொத்தானை நேரடியாக HTML மூலம் உருவாக்குதல்
+                        st.markdown(f"""
+                            <form action="" method="post">
+                                <button type="submit" name="sync_click" value="1" class="btn-3d-blue">
+                                    🚀 {selected_sync_vendor} - தரவை கூகுள் ஷீட்டில் புதுப்பி (Sync Now)
+                                </button>
+                            </form>
+                        """, unsafe_allow_html=True)
+
+                        # பொத்தான் அழுத்தப்பட்டதா எனச் சரிபார்த்தல்
+                        if st.session_state.get('sync_click') or st.checkbox("உறுதி செய்க (Confirm Sync)", key="chk_sync", label_visibility="collapsed"):
                             with st.spinner("⏳ சரியான பதிப்பகத்தை சரிபார்த்து புதுப்பிக்கிறது..."):
                                 updated_count = 0
 
