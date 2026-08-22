@@ -10,11 +10,10 @@ import time
 # 1. Streamlit பக்க அமைப்பு
 str_lit.set_page_config(page_title="2026 புதிய நூல்கள் விநியோகம்", layout="wide", initial_sidebar_state="expanded")
 
-# 🎨 பக்கவாட்டு மெனு பட்டன்களுக்கு மட்டும் தனித்துவமான வண்ணங்கள் (இதர பட்டன்கள் பாதிக்கப்படாது)
+# 🎨 பக்கவாட்டு மெனு பட்டன்களுக்கு மட்டும் தனித்துவமான வண்ணங்கள்
 def get_custom_css():
     return """
     <style>
-    /* பக்கவாட்டு மெனுவில் உள்ள பட்டன்கள் மட்டும் */
     div[data-testid="stSidebar"] button {
         width: 100% !important;
         text-align: left !important;
@@ -94,7 +93,7 @@ if str_lit.sidebar.button("⚙️ 5. Accession எண்கள் மேலா�
     str_lit.session_state['current_page'] = "⚙️ 5. Accession எண்கள் மேலாண்மை"
     str_lit.rerun()
 
-str_lit.title("📚 2026 புதிய நூல்கள் விநியோகம் - பணி போர்ட்டல்")
+str_lit.title("📚 **2026 புதிய நூல்கள் விநியோகம் - பணி போர்ட்டல்**")
 
 EXCEL_FILE = "Book Supply-2026.xlsx"
 
@@ -159,7 +158,7 @@ menu_choice = str_lit.session_state['current_page']
 # பணி 1: பெறப்பட்ட நூல்கள் சரிபார்ப்பு
 # ---------------------------------------------------------
 if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு":
-    str_lit.subheader("📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு போர்ட்டல்")
+    str_lit.subheader("📥 **1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு போர்ட்டல்**")
     if vendor_df is None or book_df is None:
         str_lit.error("❌ 'Book Supply-2026.xlsx' கோப்பு காணப்படவில்லை!")
         str_lit.stop()
@@ -184,7 +183,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                 vendor_list.append(label)
 
     str_lit.markdown("---")
-    str_lit.markdown("### 🏢 1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:")
+    str_lit.markdown("### 🏢 **1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:**")
     col_v_select, col_v_btn = str_lit.columns([5, 1])
 
     with col_v_select:
@@ -198,11 +197,14 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
     with col_v_btn:
         if str_lit.button("🔄 பதிப்பகத்தை மாற்றுக", key="btn_v_change", use_container_width=True):
             str_lit.session_state['selected_vendor'] = None
+            str_lit.session_state['verified_list'] = []  # பதிப்பகத்தை மாற்றும்போது பட்டியலைத் தூய்மைப்படுத்த
             str_lit.session_state['vendor_key'] += 1
             str_lit.rerun()
 
     if selected_vendor_raw and selected_vendor_raw != "-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
-        str_lit.session_state['selected_vendor'] = selected_vendor_raw
+        if str_lit.session_state['selected_vendor'] != selected_vendor_raw:
+            str_lit.session_state['selected_vendor'] = selected_vendor_raw
+            str_lit.session_state['verified_list'] = []  # புதிய பதிப்பகம் தேர்ந்தெடுக்கும்போது பட்டியல் ரீசெட்
 
     if str_lit.session_state['selected_vendor']:
         target_vendor_clean = clean_text(str_lit.session_state['selected_vendor'])
@@ -231,61 +233,62 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                     disp = f"{t_str} - {a_str}" if a_str else t_str
                     title_options.append(disp)
             
-            if len(title_options) == 1:
+            if len(title_options) == 1 and len(str_lit.session_state['verified_list']) == 0:
                 str_lit.success("🎉 இந்த பதிப்பகத்தின் அனைத்துப் புத்தகங்களும் ஏற்கனவே சரிபார்க்கப்பட்டுவிட்டன!")
             else:
-                str_lit.markdown("### 📖 2. புத்தகத் தலைப்பதைத் தேர்ந்தெடுக்கவும்:")
-                col_b_select, col_b_btn = str_lit.columns([5, 1])
+                if len(title_options) > 1:
+                    str_lit.markdown("### 📖 **2. புத்தகத் தலைப்பதைத் தேர்ந்தெடுக்கவும்:**")
+                    col_b_select, col_b_btn = str_lit.columns([5, 1])
 
-                with col_b_select:
-                    selected_title_disp = str_lit.selectbox(
-                        "புத்தகத்தைத் தேர்ந்தெடுக்கவும்...", 
-                        title_options, 
-                        key=f"book_select_{str_lit.session_state['book_key']}",
-                        label_visibility="collapsed"
-                    )
+                    with col_b_select:
+                        selected_title_disp = str_lit.selectbox(
+                            "புத்தகத்தைத் தேர்ந்தெடுக்கவும்...", 
+                            title_options, 
+                            key=f"book_select_{str_lit.session_state['book_key']}",
+                            label_visibility="collapsed"
+                        )
 
-                with col_b_btn:
-                    if str_lit.button("🔄 தலைப்பை மாற்றுக", key="btn_b_change", use_container_width=True):
-                        str_lit.session_state['book_key'] += 1
-                        str_lit.rerun()
+                    with col_b_btn:
+                        if str_lit.button("🔄 தலைப்பை மாற்றுக", key="btn_b_change", use_container_width=True):
+                            str_lit.session_state['book_key'] += 1
+                            str_lit.rerun()
 
-                if selected_title_disp and selected_title_disp != "-- 📖 புத்தகத்தைத் தேர்ந்தெடுக்கவும் --":
-                    matched_row = None
-                    for idx, row in grouped.iterrows():
-                        t_str = str(row['Title']).strip()
-                        a_str = str(row['Author Name']).strip() if pd.notna(row['Author Name']) else ""
-                        disp = f"{t_str} - {a_str}" if a_str else t_str
-                        if disp == selected_title_disp:
-                            matched_row = row
-                            break
-                            
-                    if matched_row is not None:
-                        tot_qty = int(matched_row['Quantity'])
-                        with str_lit.form("verify_form"):
-                            str_lit.write(f"📖 **புத்தகத் தலைப்பு:** {matched_row['Title']}")
-                            str_lit.write(f"✍️ **ஆசிரியர் பெயர்:** {matched_row['Author Name']}")
-                            rec_qty = str_lit.number_input("📦 பெறப்பட்ட படிகள் (எண்ணிக்கை):", min_value=0, max_value=1000, value=tot_qty)
-                            submitted = str_lit.form_submit_button("➕ பட்டியலில் சேர் (Add to List)")
-                            
-                            if submitted:
-                                not_rec_qty = max(0, tot_qty - rec_qty)
-                                item = {
-                                    "Vendor": str_lit.session_state['selected_vendor'],
-                                    "Title": matched_row['Title'],
-                                    "Language": matched_row['Language'],
-                                    "Author": matched_row['Author Name'],
-                                    "TotalQty": tot_qty,
-                                    "ReceivedQty": rec_qty,
-                                    "NotReceivedQty": not_rec_qty
-                                }
-                                str_lit.session_state['verified_list'].append(item)
-                                str_lit.session_state['book_key'] += 1
-                                str_lit.rerun()
+                    if selected_title_disp and selected_title_disp != "-- 📖 புத்தகத்தைத் தேர்ந்தெடுக்கவும் --":
+                        matched_row = None
+                        for idx, row in grouped.iterrows():
+                            t_str = str(row['Title']).strip()
+                            a_str = str(row['Author Name']).strip() if pd.notna(row['Author Name']) else ""
+                            disp = f"{t_str} - {a_str}" if a_str else t_str
+                            if disp == selected_title_disp:
+                                matched_row = row
+                                break
+                                
+                        if matched_row is not None:
+                            tot_qty = int(matched_row['Quantity'])
+                            with str_lit.form("verify_form"):
+                                str_lit.write(f"📖 **புத்தகத் தலைப்பு:** {matched_row['Title']}")
+                                str_lit.write(f"✍️ **ஆசிரியர் பெயர்:** {matched_row['Author Name']}")
+                                rec_qty = str_lit.number_input("📦 பெறப்பட்ட படிகள் (எண்ணிக்கை):", min_value=0, max_value=1000, value=tot_qty)
+                                submitted = str_lit.form_submit_button("➕ பட்டியலில் சேர் (Add to List)")
+                                
+                                if submitted:
+                                    not_rec_qty = max(0, tot_qty - rec_qty)
+                                    item = {
+                                        "Vendor": str_lit.session_state['selected_vendor'],
+                                        "Title": matched_row['Title'],
+                                        "Language": matched_row['Language'],
+                                        "Author": matched_row['Author Name'],
+                                        "TotalQty": tot_qty,
+                                        "ReceivedQty": rec_qty,
+                                        "NotReceivedQty": not_rec_qty
+                                    }
+                                    str_lit.session_state['verified_list'].append(item)
+                                    str_lit.session_state['book_key'] += 1
+                                    str_lit.rerun()
 
     if str_lit.session_state['verified_list']:
         str_lit.markdown("---")
-        str_lit.markdown("### 📋 சரிபார்க்கப்பட்ட தற்காலிகப் பட்டியல்:")
+        str_lit.markdown("### 📋 **சரிபார்க்கப்பட்ட தற்காலிகப் பட்டியல்:**")
         v_df = pd.DataFrame(str_lit.session_state['verified_list'])
         v_df.index = range(1, len(v_df) + 1)
         str_lit.dataframe(v_df[['Vendor', 'Title', 'Language', 'Author', 'TotalQty', 'ReceivedQty', 'NotReceivedQty']], use_container_width=True)
@@ -304,7 +307,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                             ])
                         sheet_physically.append_rows(rows_to_add)
                     str_lit.balloons()
-                    str_lit.success("🎉 வெற்றி! தரவுகள் கூகுள் ஷீட்டில் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
+                    str_lit.success("🎉 வெற்றி! அனைத்துத் தரவுகளும் கூகுள் ஷீட்டில் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
                     str_lit.session_state['verified_list'] = []
                     str_lit.rerun()
                 except Exception as e:
@@ -319,7 +322,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
 # பணி 2: Google Sheet தரவு ஒத்திசைவு (Sync)
 # ---------------------------------------------------------
 elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)":
-    str_lit.subheader("🔄 2. பதிப்பகம் வாரியாக பெறப்பட்ட நூல்களின் பட்டியல் & ஒத்திசைவு")
+    str_lit.subheader("🔄 **2. பதிப்பகம் வாரியாக பெறப்பட்ட நூல்களின் பட்டியல் & ஒத்திசைவு**")
 
     if not sheet_physically or not sheet_vendor_wise:
         str_lit.error("❌ கூகுள் ஷீட் இணைப்புகள் சரியாக இல்லை!")
@@ -349,7 +352,7 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
 
                 if selected_sync_vendor and selected_sync_vendor != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
                     sync_vendor_clean = clean_text(selected_sync_vendor)
-                    str_lit.markdown(f"### 📋 {selected_sync_vendor} - விவரங்கள்:")
+                    str_lit.markdown(f"### 📋 **{selected_sync_vendor} - விவரங்கள்:**")
                     
                     vendor_books = [r for r in p_records[1:] if clean_text(r[0]) == sync_vendor_clean]
                     df_v = pd.DataFrame(vendor_books, columns=["Vendor", "Title", "Lang", "Auth", "V2", "Total", "Rec", "NotRec", "Date"])
@@ -392,7 +395,7 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
 # பணி 3: 480 பதிப்பாளர் விவரங்கள்
 # ---------------------------------------------------------
 elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)":
-    str_lit.subheader("🏢 3. 480 பதிப்பாளர் வாரியான நூல் விவரங்கள் (Live Google Sheet)")
+    str_lit.subheader("🏢 **3. 480 பதிப்பாளர் வாரியான நூல் விவரங்கள் (Live Google Sheet)**")
     if not sheet_vendor_wise:
         str_lit.error("❌ கூகுள் ஷீட் 'Vendor Wise Book Data' கிடைக்கவில்லை!")
     else:
@@ -406,14 +409,14 @@ elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் வ�
                 selected_v = str_lit.selectbox("🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + live_vendors)
                 if selected_v and selected_v != "-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
                     filtered_live_df = live_df[live_df[vendor_col].astype(str).str.strip() == selected_v]
-                    str_lit.markdown(f"### 📋 {selected_v} - மொத்தப் புத்தகங்கள் ({len(filtered_live_df)})")
+                    str_lit.markdown(f"### 📋 **{selected_v} - மொத்தப் புத்தகங்கள் ({len(filtered_live_df)})**")
                     str_lit.dataframe(filtered_live_df, use_container_width=True)
 
 # ---------------------------------------------------------
 # பணி 4: நூலகத்திற்கு விநியோகம் (103)
 # ---------------------------------------------------------
 elif menu_choice == "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)":
-    str_lit.subheader("🏛️ 4. 103 நூலகங்கள் வாரியான விநியோக அறிக்கை (Report Generator)")
+    str_lit.subheader("🏛️ **4. 103 நூலகங்கள் வாரியான விநியோக அறிக்கை (Report Generator)**")
     if not sheet_vendor_wise or not sheet_library_details:
         str_lit.error("❌ கூகுள் ஷீட் தரவுகள் கிடைக்கவில்லை!")
     else:
@@ -436,7 +439,7 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
 
             lib_name_list = sorted(lib_name_list)
             
-            str_lit.markdown("### 🏛️ நூலகத்தின் பெயரைத் தேர்ந்தெடுக்கவும்:")
+            str_lit.markdown("### 🏛️ **நூலகத்தின் பெயரைத் தேர்ந்தெடுக்கவும்:**")
             selected_lib_name = str_lit.selectbox(
                 "நூலகத்தைத் தேர்ந்தெடுக்கவும்...", 
                 ["-- 🏛️ நூலகத்தைத் தேர்ந்தெடுக்கவும் --"] + lib_name_list,
@@ -481,11 +484,11 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
                     c2.metric("✅ பெறப்பட்ட புத்தகங்கள்", len(rec_df))
                     c3.metric("🏛️ நூலகக் குறியீடு (Code)", selected_code if selected_code else "N/A")
 
-                    str_lit.markdown(f"### 📋 {selected_lib_name} - விநியோக அறிக்கை (Delivery Report)")
+                    str_lit.markdown(f"### 📋 **{selected_lib_name} - விநியோக அறிக்கை (Delivery Report)**")
                     str_lit.dataframe(filtered_lib_df, use_container_width=True)
 
                     str_lit.markdown("---")
-                    str_lit.markdown("### 📥 அறிக்கை பதிவிறக்கம் (Download Report):")
+                    str_lit.markdown("### 📥 **அறிக்கை பதிவிறக்கம் (Download Report):**")
                     
                     csv_data = filtered_lib_df.to_csv(index=False).encode('utf-8-sig')
                     str_lit.download_button(
@@ -500,7 +503,7 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
 # பணி 5: Accession எண்கள் மேலாண்மை
 # ---------------------------------------------------------
 elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
-    str_lit.subheader("⚙️ 5. இறுதிக்கட்டப் பணி: Accession எண்கள் மற்றும் Batch ஒதுக்கீடு மேலாண்மை")
+    str_lit.subheader("⚙️ **5. இறுதிக்கட்டப் பணி: Accession எண்கள் மற்றும் Batch ஒதுக்கீடு மேலாண்மை**")
     str_lit.info("💡 **குறிப்பு:** அனைத்துப் பதிப்பகங்களின் நூலகங்களும் முழுமையாகச் சரிபார்க்கப்பட்டு, Vendor Wise Book Data ஷீட்டிற்கு ஒத்திசைவு செய்யப்பட்ட பிறகே இந்தப் பணியைச் செய்ய வேண்டும்.")
 
     if not sheet_library_details or not sheet_vendor_wise or not sheet_physically:
@@ -515,7 +518,7 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                 central_val = lib_records[1][5] if len(lib_records[1]) > 5 and str(lib_records[1][5]).strip() != "" else "1001"
 
                 str_lit.markdown("---")
-                str_lit.markdown("### 🏷️ 1. Last Central Accession Number")
+                str_lit.markdown("### 🏷️ **1. Last Central Accession Number**")
                 c1, c2 = str_lit.columns([2, 3])
                 with c1:
                     str_lit.metric("தற்போதைய எண்கள் (F2)", central_val)
@@ -527,7 +530,7 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                         str_lit.rerun()
 
                 str_lit.markdown("---")
-                str_lit.markdown("### 🚀 2. அனைத்துப் பதிப்பகங்களுக்கும் இறுதி Accession எண்களை ஒட்டுமொத்தமாக வழங்குதல் (Batch Sync)")
+                str_lit.markdown("### 🚀 **2. அனைத்துப் பதிப்பகங்களுக்கும் இறுதி Accession எண்களை ஒட்டுமொத்தமாக வழங்குதல் (Batch Sync)**")
                 str_lit.warning("⚠️ இந்த பொத்தானை அழுத்தினால், இதுவரை சரிபார்க்கப்பட்ட அனைத்துப் புத்தகங்களுக்கும் Central மற்றும் நூலக Accession எண்கள் கணக்கிட்டு Google Sheet-ல் பதியப்படும்.")
                 
                 if str_lit.button("⚡ அனைத்துப் பதிப்பகங்களுக்கும் Accession எண்களை ஒதுக்கு (Final Allocation)", key="btn_final_sync", use_container_width=True):
@@ -602,7 +605,7 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                         str_lit.rerun()
 
                 str_lit.markdown("---")
-                str_lit.markdown("### 🏛️ 3. நூலகங்கள் வாரியான Last Accession Number மேலாண்மை (DCL / FTB / BL / VL)")
+                str_lit.markdown("### 🏛️ **3. நூலகங்கள் வாரியான Last Accession Number மேலாண்மை (DCL / FTB / BL / VL)**")
                 
                 extracted_data = []
                 for idx, r in enumerate(lib_records[1:], start=2):
@@ -628,7 +631,7 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                 str_lit.dataframe(filtered_df[['Lib Code', 'Library Name', 'DCL /FTB /BL / VL LAST ACCESION NUMBER']], use_container_width=True)
 
                 str_lit.markdown("---")
-                str_lit.markdown("### ✏️ குறிப்பிட்ட நூலகத்தின் எண்களை நேரடியாக மாற்ற:")
+                str_lit.markdown("### ✏️ **குறிப்பிட்ட நூலகத்தின் எண்களை நேரடியாக மாற்ற:**")
                 
                 lib_options = []
                 for idx, row in filtered_df.iterrows():
