@@ -264,12 +264,12 @@ def show_login_page():
             phone = st.text_input(
                 "📱 அலைபேசி எண்",
                 max_chars=10,
-                placeholder="10 இலக்க அலைபேசி எண்",
+                placeholder="9842759306",
             )
             password = st.text_input(
                 "🔑 கடவுச்சொல்",
                 type="password",
-                placeholder="கடவுச்சொல்லை உள்ளிடவும்",
+                placeholder="123456",
             )
             submitted = st.form_submit_button(
                 "🔓 பாதுகாப்பாக உள்நுழைக",
