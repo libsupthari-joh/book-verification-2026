@@ -28,7 +28,7 @@ def load_data(file_path):
 
 vendor_df, book_df = load_data(EXCEL_FILE)
 
-# 3. கூகுள் ஷீட் இணைப்பு (பாதுகாப்பான சீட் கண்டறிதல்)
+# 3. கூகுள் ஷீட் இணைப்பு
 @st.cache_resource
 def init_gspread():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -46,18 +46,12 @@ try:
     
     all_worksheets = {ws.title.strip().lower(): ws for ws in spreadsheet.worksheets()}
     
-    # Physically verified சீட் கண்டறிதல்
     for title, ws in all_worksheets.items():
         if "physically verified" in title:
             sheet_physically = ws
-            break
-            
-    # Vendor Wise Book Data சீட் கண்டறிதல்
-    for title, ws in all_worksheets.items():
-        if "vendor wise book data" in title:
+        elif "vendor wise book data" in title:
             sheet_vendor_wise = ws
-            break
-            
+
 except Exception as e:
     st.error(f"Google Sheet இணைப்புப் பிழை: {e}")
 
@@ -93,7 +87,7 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
         st.stop()
 
     # ஏற்கனவே கூகுள் ஷீட்டில் உள்ள பதிப்பகங்களைப் படித்தல்
-    verified_vendors = []
+    verified_vendors = set()
     if sheet_physically:
         try:
             existing_records = sheet_physically.get_all_values()
@@ -108,25 +102,27 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
             v_id = str(row.iloc[1]).strip() if pd.notna(row.iloc[1]) else ""
             v_name = str(row.iloc[2]).strip() if pd.notna(row.iloc[2]) else ""
             if v_name and v_name.lower() != "nan":
-                full_name = f"{v_id}.{v_name}" if v_id and v_id.lower() != "nan" else v_name
-                vendors.append((full_name, v_name))
+                disp_name = f"{v_id}. {v_name}" if v_id and v_id.lower() != "nan" else v_name
+                vendors.append((disp_name, v_name))
                 
     st.subheader("1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:")
-    vendor_options = [v[0] for v in vendors]
+    vendor_disp_options = [v[0] for v in vendors]
     
-    selected_vendor_full = st.selectbox(
+    selected_vendor_disp = st.selectbox(
         "பதிப்பகப் பெயரைத் தேர்ந்தெடுக்கவும்...", 
-        ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + vendor_options, 
+        ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + vendor_disp_options, 
         key=f"vendor_select_{st.session_state['vendor_key']}",
         label_visibility="collapsed"
     )
     
-    if selected_vendor_full and selected_vendor_full != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+    if selected_vendor_disp and selected_vendor_disp != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
         
-        if selected_vendor_full in verified_vendors:
+        # உண்மையான பதிப்பகப் பெயர் (எ.கா: GRAPHIC NETWORK)
+        actual_vendor = next((v[1] for v in vendors if v[0] == selected_vendor_disp), selected_vendor_disp)
+        
+        if selected_vendor_disp in verified_vendors or actual_vendor in verified_vendors:
             st.warning("⚠️ இந்த பதிப்பகத்தின் விவரங்கள் ஏற்கனவே கூகுள் ஷீட்டில் சேமிக்கப்பட்டுவிட்டது!")
         else:
-            actual_vendor = next((v[1] for v in vendors if v[0] == selected_vendor_full), selected_vendor_full)
             target = str(actual_vendor).strip().lower()
             
             colJ = book_df.iloc[:, 9].astype(str).str.strip().str.lower()
@@ -244,7 +240,7 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                         physically_rows = []
                         for item in st.session_state['verified_list']:
                             physically_rows.append([
-                                selected_vendor_full if 'selected_vendor_full' in locals() else '',
+                                selected_vendor_disp if 'selected_vendor_disp' in locals() else '',
                                 item['Title'], item['language'], item['Author'],
                                 actual_vendor if 'actual_vendor' in locals() else '',
                                 item['TotalQty'], item['ReceivedQty'], item['NotReceivedQty'],
@@ -252,24 +248,26 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                             ])
                         sheet_physically.append_rows(physically_rows)
                     
-                    # 2. Vendor Wise Book Data சீட்டைப் புதுப்பித்தல்
+                    # 2. Vendor Wise Book Data சீட்டைத் துல்லியமாகப் புதுப்பித்தல்
                     if sheet_vendor_wise:
                         try:
                             vwbd_data = sheet_vendor_wise.get_all_values()
                             if len(vwbd_data) > 1:
                                 cell_updates = []
+                                target_vendor_clean = str(actual_vendor).strip().lower()
+                                
                                 for item in st.session_state['verified_list']:
                                     target_title = str(item['Title']).strip().lower()
                                     rec_count = item['ReceivedQty']
                                     
                                     matching_row_indices = []
                                     for r_idx, r_data in enumerate(vwbd_data[1:], start=2):
-                                        if len(r_data) > 4:
-                                            row_title = str(r_data[1]).strip().lower()
-                                            row_vendor = str(r_data[4]).strip().lower()
-                                            target_v = str(actual_vendor).strip().lower()
+                                        if len(r_data) > 10:
+                                            row_title = str(r_data[1]).strip().lower() # Col B: Title
+                                            colJ_v = str(r_data[9]).strip().lower()    # Col J: Publication/Vendor
+                                            colK_v = str(r_data[10]).strip().lower()   # Col K: Vendor Name
                                             
-                                            if row_title == target_title and target_v in row_vendor:
+                                            if row_title == target_title and (target_vendor_clean in colJ_v or target_vendor_clean in colK_v):
                                                 matching_row_indices.append(r_idx)
                                     
                                     current_rec = 0
@@ -282,6 +280,7 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                                             s_val = 0
                                             t_val = 1
                                         
+                                        # Column S (19) மற்றும் Column T (20)
                                         cell_updates.append(gspread.Cell(row_num, 19, s_val))
                                         cell_updates.append(gspread.Cell(row_num, 20, t_val))
                                 
@@ -291,7 +290,7 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                             st.warning(f"⚠️ 'Vendor Wise Book Data' புதுப்பிப்பில் எச்சரிக்கை: {sec_e}")
 
                     st.balloons()
-                    st.success("🎉 'Physically verified' பக்கத்தில் தகவல்கள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
+                    st.success("🎉 இரண்டு கூகுள் ஷீட்களிலும் விவரங்கள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
                     
                     st.session_state['verified_list'] = []
                     st.session_state['vendor_key'] += 1
