@@ -351,16 +351,33 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
     else:
         try:
             p_records = sheet_physically.get_all_values()
+            
+            # Vendor Wise Sheet-ல் ஏற்கனவே Sync ஆன பதிப்பகங்களைக் கண்டறிதல் (Col 10 / Col 11 அல்லது S, T நிரல்கள் அடிப்படையில்)
+            vwbd_all_data_check = sheet_vendor_wise.get_all_values()
+            synced_vendors = set()
+            if len(vwbd_all_data_check) > 1:
+                for r in vwbd_all_data_check[1:]:
+                    if len(r) > 19:
+                        # Col S (Index 18) அல்லது T (Index 19) இல் ஏதேனும் மதிப்பு இருந்தால் அது sync செய்யப்பட்டது என அர்த்தம்
+                        r_val = str(r[18]).strip()
+                        nr_val = str(r[19]).strip()
+                        if (r_val.isdigit() and int(r_val) > 0) or (nr_val.isdigit() and int(nr_val) > 0):
+                            if len(r) > 10 and str(r[10]).strip():
+                                synced_vendors.add(clean_text(r[10]))
+                            if len(r) > 9 and str(r[9]).strip():
+                                synced_vendors.add(clean_text(r[9]))
+
             p_vendors = []
             if len(p_records) > 1:
                 for row in p_records[1:]:
                     if len(row) >= 2:
                         v_raw = row[0]
-                        if v_raw and v_raw not in p_vendors:
+                        # ஏற்கனவே Sync செய்யப்படாத பதிப்பகங்களை மட்டும் பட்டியலிடுதல்
+                        if v_raw and clean_text(v_raw) not in synced_vendors and v_raw not in p_vendors:
                             p_vendors.append(v_raw)
 
             if not p_vendors:
-                st.success("🟢 பதிப்பகத் தரவுகள் எதுவும் இல்லை!")
+                st.success("🟢 அனைத்துப் பதிப்பகங்களின் தரவுகளும் வெற்றிகரமாக ஒத்திசைவு செய்யப்பட்டுவிட்டன!")
             else:
                 st.markdown("### 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:")
                 selected_sync_vendor = st.selectbox("பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்...", ["-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + p_vendors, label_visibility="collapsed")
@@ -405,7 +422,7 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
 
                 st.markdown("---")
                 st.markdown("### 🚀 முக்கிய செயல்பாடு: Vendor Wise Book Data ஷீட்டிற்குத் தரவுகளை ஒத்திசைத்தல்")
-                st.info("💡 இந்தப் பொத்தானை அழுத்தினால், பெறப்பட்ட மற்றும் பெறப்படாத நூல்களின் எண்ணிக்கைகள் **Vendor Wise Book Data** ஷீட்டின் உரிய நெடுவரிசைகளுக்கு மாற்றப்படும். இதன் பிறகே 3-வது பணியில் பதிப்பாளர் வாரியான அறிக்கைகள் சரியாக வரும்.")
+                st.info("💡 இந்தப் பொத்தானை அழுத்தினால், பெறப்பட்ட மற்றும் பெறப்படாத நூல்களின் எண்ணிக்கைகள் **Vendor Wise Book Data** ஷீட்டின் உரிய நெடுவரிசைகளுக்கு மாற்றப்படும். மேலும் இந்தப் பதிப்பாளர் இந்தப் பட்டியலிலிருந்து தானாகவே நீக்கப்பட்டுவிடும்.")
 
                 if st.button("🔄 Vendor Wise Book Data ஷீட்டிற்கு அனுப்பு (Sync to Sheet)", key="btn_sync_to_vendor_wise", use_container_width=True):
                     with st.spinner("⏳ தரவுகள் Vendor Wise Book Data ஷீட்டிற்கு ஒத்திசைவு செய்யப்படுகின்றன... कृपया காத்திருக்கவும்..."):
@@ -427,7 +444,6 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
                                         s_vendor = clean_text(r_data[10])
 
                                         if (pub_name == s_pub or pub_name == s_vendor) and (book_title in s_title or s_title in book_title):
-                                            # S and T columns (Col 19 & 20 - Indices 18 & 19) for Received & Not Received Status/Qty
                                             batch_updates.append({
                                                 'range': f'S{r_idx}:T{r_idx}',
                                                 'values': [[r_qty if r_qty > 0 else 0, nr_qty if nr_qty > 0 else 0]]
@@ -439,6 +455,8 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
                         
                         st.balloons()
                         st.success(f"🎉 வெற்றி! {update_count} பதிவுகள் Vendor Wise Book Data ஷீட்டிற்கு வெற்றிகரமாக ஒத்திசைவு செய்யப்பட்டன!")
+                        time.sleep(1.5)
+                        st.rerun()
 
         except Exception as e:
             st.error(f"❌ பிழை ஏற்பட்டது: {e}")
@@ -653,7 +671,7 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
 
                         st.balloons()
                         st.success(f"🎉 வெற்றி! அனைத்துப் புத்தகங்களுக்கும் {updated_count} Accession எண்கள் வெற்றிகரமாக ஒதுக்கப்பட்டுவிட்டன!")
-                        time.sleep(1)
+                        time.sleep(1.5)
                         st.rerun()
 
                 st.markdown("---")
