@@ -11,9 +11,9 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
 
-# ============================================================
-# 1. PAGE SETTINGS
-# ============================================================
+# =========================================================
+# 1. PAGE CONFIGURATION
+# =========================================================
 st.set_page_config(
     page_title="2026 புதிய நூல்கள் விநியோகம்",
     page_icon="📚",
@@ -22,9 +22,9 @@ st.set_page_config(
 )
 
 
-# ============================================================
-# 2. UI DESIGN
-# ============================================================
+# =========================================================
+# 2. CUSTOM DESIGN
+# =========================================================
 def get_custom_css():
     return """
     <style>
@@ -70,8 +70,7 @@ def get_custom_css():
 
     section[data-testid="stSidebar"] h3,
     section[data-testid="stSidebar"] p,
-    section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] .stCaption {
+    section[data-testid="stSidebar"] label {
         color: white !important;
     }
 
@@ -221,78 +220,34 @@ def get_custom_css():
 st.markdown(get_custom_css(), unsafe_allow_html=True)
 
 
-# ============================================================
-# 3. MULTI-USER LOGIN AND ACCESS CONTROL
-# ============================================================
-# Admin      : 9842759306 / Basswood Hari@1979/ All pages
-# User 1     : 9787555290 / Basswood 123456 / Task 1 only
-# User 2     : 9751687939 / Basswood 123456 / Task 1 only
-#
-# Password code-ல் நேரடியாக compare செய்யப்படாது.
-# SHA-256 hash + hmac.compare_digest பயன்படுத்தப்படுகிறது.
-
-ALL_PAGES = [
-    "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு",
-    "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)",
-    "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)",
-    "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)",
-    "⚙️ 5. Accession எண்கள் மேலாண்மை",
-]
-
-TASK_1_ONLY = [
-    "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு",
-]
+# =========================================================
+# 3. SECURE LOGIN
+# =========================================================
+def get_secret(name, default=""):
+    try:
+        return str(st.secrets[name]).strip()
+    except (KeyError, FileNotFoundError):
+        return default
 
 
 def hash_password(password):
-    return hashlib.sha256(
-        password.encode("utf-8")
-    ).hexdigest()
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
-# Password: Basswood 123456
-BASSWOOD_PASSWORD_HASH = hash_password(
-    "Basswood 123456"
-)
+def valid_login(phone, password):
+    saved_phone = get_secret("LOGIN_PHONE")
+    saved_password_hash = get_secret("LOGIN_PASSWORD_HASH")
 
-USERS = {
-    "9842759306": {
-        "name": "Admin",
-        "role": "admin",
-        "password_hash": BASSWOOD_PASSWORD_HASH,
-        "allowed_pages": ALL_PAGES,
-    },
-    "9787555290": {
-        "name": "Task 1 User 1",
-        "role": "task1",
-        "password_hash": BASSWOOD_PASSWORD_HASH,
-        "allowed_pages": TASK_1_ONLY,
-    },
-    "9751687939": {
-        "name": "Task 1 User 2",
-        "role": "task1",
-        "password_hash": BASSWOOD_PASSWORD_HASH,
-        "allowed_pages": TASK_1_ONLY,
-    },
-}
+    if not saved_phone or not saved_password_hash:
+        return False
 
-
-def authenticate_user(phone, password):
-    phone = str(phone).strip()
-    password = str(password)
-    user = USERS.get(phone)
-
-    if not user:
-        return None
-
-    entered_hash = hash_password(password)
-    if hmac.compare_digest(
-        entered_hash,
-        user["password_hash"],
-    ):
-        return user
-
-    return None
+    return (
+        hmac.compare_digest(phone.strip(), saved_phone)
+        and hmac.compare_digest(
+            hash_password(password),
+            saved_password_hash,
+        )
+    )
 
 
 def show_login_page():
@@ -301,92 +256,95 @@ def show_login_page():
         <div class="login-card">
             <div class="login-logo">📚</div>
             <div class="login-title">பணி போர்ட்டல்</div>
-            <div class="login-subtitle">
-                2026 புதிய நூல்கள் விநியோகம்
-            </div>
+            <div class="login-subtitle">2026 புதிய நூல்கள் விநியோகம்</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
     _, form_col, _ = st.columns([1, 2, 1])
-
     with form_col:
-        with st.form("secure_multi_user_login"):
+        with st.form("secure_login_form"):
             phone = st.text_input(
                 "📱 அலைபேசி எண்",
                 max_chars=10,
-                placeholder="10 இலக்க எண்ணை உள்ளிடவும்",
+                placeholder="10 இலக்க அலைபேசி எண்",
             )
-
             password = st.text_input(
                 "🔑 கடவுச்சொல்",
                 type="password",
                 placeholder="கடவுச்சொல்லை உள்ளிடவும்",
             )
-
             submitted = st.form_submit_button(
                 "🔓 பாதுகாப்பாக உள்நுழைக",
                 use_container_width=True,
             )
 
-        if not submitted:
-            return
-
-        clean_phone = phone.strip()
-
-        if not clean_phone:
-            st.warning("⚠️ அலைபேசி எண்ணை உள்ளிடவும்.")
-            return
-
-        if not clean_phone.isdigit() or len(clean_phone) != 10:
-            st.warning("⚠️ 10 இலக்க சரியான எண்ணை உள்ளிடவும்.")
-            return
-
-        if not password:
-            st.warning("⚠️ கடவுச்சொல்லை உள்ளிடவும்.")
-            return
-
-        user = authenticate_user(clean_phone, password)
-
-        if user:
-            st.session_state["logged_in"] = True
-            st.session_state["user_phone"] = clean_phone
-            st.session_state["user_name"] = user["name"]
-            st.session_state["user_role"] = user["role"]
-            st.session_state["allowed_pages"] = user["allowed_pages"]
-            st.session_state["login_attempts"] = 0
-            st.session_state["current_page"] = user["allowed_pages"][0]
-            st.rerun()
-        else:
-            st.session_state["login_attempts"] = (
-                st.session_state.get("login_attempts", 0) + 1
-            )
-            st.error("❌ தவறான அலைபேசி எண் அல்லது கடவுச்சொல்!")
+        if submitted:
+            if valid_login(phone, password):
+                st.session_state["logged_in"] = True
+                st.session_state["login_attempts"] = 0
+                st.rerun()
+            else:
+                st.session_state["login_attempts"] += 1
+                st.error("❌ தவறான அலைபேசி எண் அல்லது கடவுச்சொல்!")
 
 
-st.session_state.setdefault("logged_in", False)
-st.session_state.setdefault("login_attempts", 0)
+if "logged_in" not in st.session_state:
+    st.session_state["logged_in"] = False
+if "login_attempts" not in st.session_state:
+    st.session_state["login_attempts"] = 0
 
 if not st.session_state["logged_in"]:
     show_login_page()
     st.stop()
 
 
-# ============================================================
-# 4. DATA CONFIGURATION
-# ============================================================
+# =========================================================
+# 4. SIDEBAR NAVIGATION
+# =========================================================
+st.sidebar.markdown("### 👤 பயனர் கணக்கு")
+
+if st.sidebar.button("🚪 வெளியேறு (Logout)", use_container_width=True):
+    st.session_state["logged_in"] = False
+    st.session_state["login_attempts"] = 0
+    st.rerun()
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 📌 முதன்மைப் பணிகள்")
+
+if "current_page" not in st.session_state:
+    st.session_state["current_page"] = "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு"
+
+menu_items = [
+    "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு",
+    "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)",
+    "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)",
+    "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)",
+    "⚙️ 5. Accession எண்கள் மேலாண்மை",
+]
+
+for menu_item in menu_items:
+    if st.sidebar.button(menu_item, use_container_width=True):
+        st.session_state["current_page"] = menu_item
+        st.rerun()
+
+st.title("📚 2026 புதிய நூல்கள் விநியோகம் - பணி போர்ட்டல்")
+
+
+# =========================================================
+# 5. FILE DATA
+# =========================================================
 EXCEL_FILE = "Book Supply-2026.xlsx"
 SPREADSHEET_ID = "1LNogKaLvdqkoITSLE971jTBIy9QO4s90j1WDxY1cDrc"
 
 
 @st.cache_data
-def load_data(file_path):
+ def load_data(file_path):
     if not os.path.exists(file_path):
         return None, None
 
     excel_data = pd.ExcelFile(file_path)
-
     vendor_df = (
         pd.read_excel(file_path, sheet_name="Vendor Name")
         if "Vendor Name" in excel_data.sheet_names
@@ -399,10 +357,7 @@ def load_data(file_path):
     ]
 
     book_df = (
-        pd.read_excel(
-            file_path,
-            sheet_name=book_sheet_names[0],
-        )
+        pd.read_excel(file_path, sheet_name=book_sheet_names[0])
         if book_sheet_names
         else pd.DataFrame()
     )
@@ -410,42 +365,31 @@ def load_data(file_path):
     return vendor_df, book_df
 
 
-@st.cache_resource
-def init_gspread():
-    scope = [
-        "https://spreadsheets.google.com/feeds",
-        "https://www.googleapis.com/auth/drive",
-    ]
-
-    credentials_dict = dict(
-        st.secrets["gcp_service_account"]
-    )
-
-    credentials = (
-        ServiceAccountCredentials
-        .from_json_keyfile_dict(
-            credentials_dict,
-            scope,
-        )
-    )
-
-    return gspread.authorize(credentials)
+vendor_df, book_df = load_data(EXCEL_FILE)
 
 
 def clean_text(value):
     if pd.isna(value) or value is None:
         return ""
-
     value = str(value).strip()
     value = re.sub(r"^\d+[\.\s\-]*", "", value)
-    return re.sub(
-        r"[^a-zA-Z0-9\u0B80-\u0BFF]",
-        "",
-        value,
-    ).lower()
+    return re.sub(r"[^a-zA-Z0-9\u0B80-\u0BFF]", "", value).lower()
 
 
-vendor_df, book_df = load_data(EXCEL_FILE)
+@st.cache_resource
+ def init_gspread():
+    scope = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/drive",
+    ]
+    credentials_dict = dict(st.secrets["gcp_service_account"])
+    credentials = ServiceAccountCredentials.from_json_keyfile_dict(
+        credentials_dict,
+        scope,
+    )
+    return gspread.authorize(credentials)
+
+
 sheet_physically = None
 sheet_vendor_wise = None
 sheet_library_details = None
@@ -453,7 +397,6 @@ sheet_library_details = None
 try:
     client = init_gspread()
     spreadsheet = client.open_by_key(SPREADSHEET_ID)
-
     worksheets = {
         worksheet.title.strip().lower(): worksheet
         for worksheet in spreadsheet.worksheets()
@@ -465,74 +408,28 @@ try:
         elif "vendor wise book data" in title:
             sheet_vendor_wise = worksheet
         elif any(
-            keyword in title
-            for keyword in [
-                "lib_detail",
-                "library detail",
-                "library details",
-            ]
+            text in title
+            for text in ["lib_detail", "library detail", "library details"]
         ):
             sheet_library_details = worksheet
 except Exception as error:
     st.error(f"❌ Google Sheet இணைப்புப் பிழை: {error}")
 
 
-# ============================================================
-# 5. SIDEBAR
-# ============================================================
-st.session_state.setdefault(
-    "current_page",
-    ALL_PAGES[0],
-)
+# =========================================================
+# 6. SESSION STATE
+# =========================================================
 st.session_state.setdefault("verified_list", [])
 st.session_state.setdefault("vendor_key", 0)
 st.session_state.setdefault("book_key", 0)
 st.session_state.setdefault("selected_vendor", None)
 
-st.sidebar.markdown(
-    f"### 👤 {st.session_state.get('user_name', 'User')}"
-)
-st.sidebar.caption(
-    f"Role: {st.session_state.get('user_role', 'user')}"
-)
-
-if st.sidebar.button(
-    "🚪 வெளியேறு (Logout)",
-    use_container_width=True,
-):
-    for key in [
-        "logged_in",
-        "user_phone",
-        "user_name",
-        "user_role",
-        "allowed_pages",
-    ]:
-        st.session_state.pop(key, None)
-
-    st.session_state["logged_in"] = False
-    st.session_state["verified_list"] = []
-    st.rerun()
-
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 📌 முதன்மைப் பணிகள்")
-
-allowed_pages = st.session_state.get(
-    "allowed_pages",
-    TASK_1_ONLY,
-)
-
-for page in allowed_pages:
-    if st.sidebar.button(page, use_container_width=True):
-        st.session_state["current_page"] = page
-        st.rerun()
-
-st.title("📚 2026 புதிய நூல்கள் விநியோகம் - பணி போர்ட்டல்")
 menu_choice = st.session_state["current_page"]
 
 
-# ============================================================
-# 6. TASK 1 - PHYSICAL VERIFICATION
-# ============================================================
+# =========================================================
+# 7. TASK 1: PHYSICAL VERIFICATION
+# =========================================================
 if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு":
     st.subheader("📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு போர்ட்டல்")
 
@@ -541,18 +438,12 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         st.stop()
 
     saved_entries = set()
-
     if sheet_physically:
         try:
             records = sheet_physically.get_all_values()
             for row in records[1:]:
                 if len(row) >= 2:
-                    saved_entries.add(
-                        (
-                            clean_text(row[0]),
-                            clean_text(row[1]),
-                        )
-                    )
+                    saved_entries.add((clean_text(row[0]), clean_text(row[1])))
         except Exception:
             pass
 
@@ -569,18 +460,13 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                 if len(row) > 2 and pd.notna(row.iloc[2])
                 else ""
             )
-            vendor_name = col_b or col_c
-
-            if (
-                vendor_name
-                and vendor_name.lower() != "nan"
-                and vendor_name not in vendor_list
-            ):
-                vendor_list.append(vendor_name)
+            label = col_b or col_c
+            if label and label.lower() != "nan" and label not in vendor_list:
+                vendor_list.append(label)
 
     st.markdown("---")
     st.markdown("### 🏢 1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்")
-    col_vendor, col_change = st.columns([5, 1])
+    col_vendor, col_vendor_button = st.columns([5, 1])
 
     with col_vendor:
         selected_vendor_raw = st.selectbox(
@@ -590,7 +476,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
             label_visibility="collapsed",
         )
 
-    with col_change:
+    with col_vendor_button:
         if st.button(
             "🔄 மாற்றுக",
             key="btn_v_change",
@@ -607,10 +493,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
             st.session_state["verified_list"] = []
 
     if st.session_state["selected_vendor"]:
-        target_vendor_clean = clean_text(
-            st.session_state["selected_vendor"]
-        )
-
+        target_vendor_clean = clean_text(st.session_state["selected_vendor"])
         vendor_mask = (
             book_df.iloc[:, 9].apply(clean_text) == target_vendor_clean
         ) | (
@@ -632,31 +515,22 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                 "Book Id": "first",
             })
 
-            c1, c2 = st.columns(2)
-            c1.metric("📚 மொத்தத் தலைப்புகள்", len(grouped))
-            c2.metric(
-                "📦 மொத்தப் படிகள்",
-                int(grouped["Quantity"].sum()),
-            )
+            metric_col1, metric_col2 = st.columns(2)
+            metric_col1.metric("📚 மொத்தத் தலைப்புகள்", len(grouped))
+            metric_col2.metric("📦 மொத்தப் படிகள்", int(grouped["Quantity"].sum()))
 
             added_titles = [
                 clean_text(item["Title"])
                 for item in st.session_state["verified_list"]
             ]
-            title_options = [
-                "-- 📖 புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"
-            ]
+            title_options = ["-- 📖 புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"]
 
             for _, row in grouped.iterrows():
                 title = str(row["Title"]).strip()
                 title_clean = clean_text(title)
-
                 if (
                     title_clean not in added_titles
-                    and (
-                        target_vendor_clean,
-                        title_clean,
-                    ) not in saved_entries
+                    and (target_vendor_clean, title_clean) not in saved_entries
                 ):
                     author = (
                         str(row["Author Name"]).strip()
@@ -664,22 +538,14 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                         else ""
                     )
                     title_options.append(
-                        f"{title} - {author}"
-                        if author
-                        else title
+                        f"{title} - {author}" if author else title
                     )
 
-            if (
-                len(title_options) == 1
-                and not st.session_state["verified_list"]
-            ):
-                st.success(
-                    "🎉 இந்த பதிப்பகத்தின் அனைத்துப் புத்தகங்களும் "
-                    "சரிபார்க்கப்பட்டுவிட்டன!"
-                )
+            if len(title_options) == 1 and not st.session_state["verified_list"]:
+                st.success("🎉 அனைத்துப் புத்தகங்களும் ஏற்கனவே சரிபார்க்கப்பட்டுவிட்டன!")
             elif len(title_options) > 1:
                 st.markdown("### 📖 2. புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும்")
-                col_book, col_book_change = st.columns([5, 1])
+                col_book, col_book_button = st.columns([5, 1])
 
                 with col_book:
                     selected_title = st.selectbox(
@@ -689,7 +555,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                         label_visibility="collapsed",
                     )
 
-                with col_book_change:
+                with col_book_button:
                     if st.button(
                         "🔄 மாற்றுக",
                         key="btn_b_change",
@@ -700,7 +566,6 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
 
                 if selected_title != "-- 📖 புத்தகத்தைத் தேர்ந்தெடுக்கவும் --":
                     matched_row = None
-
                     for _, row in grouped.iterrows():
                         title = str(row["Title"]).strip()
                         author = (
@@ -708,64 +573,45 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                             if pd.notna(row["Author Name"])
                             else ""
                         )
-                        display = (
-                            f"{title} - {author}"
-                            if author
-                            else title
-                        )
-
+                        display = f"{title} - {author}" if author else title
                         if display == selected_title:
                             matched_row = row
                             break
 
                     if matched_row is not None:
                         total_quantity = int(matched_row["Quantity"])
-
                         with st.form("verify_form"):
-                            st.write(
-                                f"📖 **புத்தகத் தலைப்பு:** "
-                                f"{matched_row['Title']}"
-                            )
-                            st.write(
-                                f"✍️ **ஆசிரியர் பெயர்:** "
-                                f"{matched_row['Author Name']}"
-                            )
-
+                            st.write(f"📖 **புத்தகத் தலைப்பு:** {matched_row['Title']}")
+                            st.write(f"✍️ **ஆசிரியர் பெயர்:** {matched_row['Author Name']}")
                             received_quantity = st.number_input(
                                 "📦 பெறப்பட்ட படிகள்",
                                 min_value=0,
                                 max_value=1000,
                                 value=total_quantity,
                             )
-
                             submitted = st.form_submit_button(
                                 "➕ பட்டியலில் சேர்"
                             )
 
                         if submitted:
-                            st.session_state["verified_list"].append({
+                            item = {
                                 "Vendor": st.session_state["selected_vendor"],
                                 "Title": matched_row["Title"],
                                 "Language": matched_row["Language"],
                                 "Author": matched_row["Author Name"],
                                 "TotalQty": total_quantity,
                                 "ReceivedQty": received_quantity,
-                                "NotReceivedQty": max(
-                                    0,
-                                    total_quantity - received_quantity,
-                                ),
-                            })
+                                "NotReceivedQty": max(0, total_quantity - received_quantity),
+                            }
+                            st.session_state["verified_list"].append(item)
                             st.session_state["book_key"] += 1
                             st.rerun()
 
     if st.session_state["verified_list"]:
         st.markdown("---")
         st.markdown("### 📋 சரிபார்க்கப்பட்ட தற்காலிகப் பட்டியல்")
-        verified_df = pd.DataFrame(
-            st.session_state["verified_list"]
-        )
+        verified_df = pd.DataFrame(st.session_state["verified_list"])
         verified_df.index = range(1, len(verified_df) + 1)
-
         st.dataframe(
             verified_df[[
                 "Vendor", "Title", "Language", "Author",
@@ -775,7 +621,6 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         )
 
         col_save, col_clear = st.columns([3, 1])
-
         with col_save:
             if st.button(
                 "💾 Google Sheet-ல் சேமி",
@@ -784,33 +629,19 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
             ):
                 try:
                     if not sheet_physically:
-                        st.error(
-                            "❌ Physically Verified sheet கிடைக்கவில்லை!"
-                        )
+                        st.error("❌ Physically Verified sheet கிடைக்கவில்லை!")
                     else:
-                        current_date = datetime.now().strftime(
-                            "%d/%m/%Y %H:%M:%S"
-                        )
-
+                        current_date = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                         rows = [
                             [
-                                item["Vendor"],
-                                item["Title"],
-                                item["Language"],
-                                item["Author"],
-                                item["Vendor"],
-                                item["TotalQty"],
-                                item["ReceivedQty"],
-                                item["NotReceivedQty"],
-                                current_date,
+                                item["Vendor"], item["Title"], item["Language"],
+                                item["Author"], item["Vendor"], item["TotalQty"],
+                                item["ReceivedQty"], item["NotReceivedQty"], current_date,
                             ]
                             for item in st.session_state["verified_list"]
                         ]
-
                         sheet_physically.append_rows(rows)
-                        st.success(
-                            "🎉 தரவுகள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!"
-                        )
+                        st.success("🎉 தரவுகள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
                         st.session_state["verified_list"] = []
                         st.rerun()
                 except Exception as error:
@@ -826,9 +657,9 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                 st.rerun()
 
 
-# ============================================================
-# 7. TASK 2 - SYNC
-# ============================================================
+# =========================================================
+# 8. TASK 2: SYNC
+# =========================================================
 elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)":
     st.subheader("🔄 2. பதிப்பகம் வாரியாக பெறப்பட்ட நூல்கள் ஒத்திசைவு")
 
@@ -856,10 +687,7 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
                         physical_vendors.append(vendor)
 
             if not physical_vendors:
-                st.success(
-                    "🟢 அனைத்துப் பதிப்பகங்களும் ஏற்கனவே "
-                    "ஒத்திசைக்கப்பட்டுள்ளன!"
-                )
+                st.success("🟢 அனைத்துப் பதிப்பகங்களும் ஏற்கனவே ஒத்திசைக்கப்பட்டுள்ளன!")
             else:
                 selected_vendor = st.selectbox(
                     "ஒத்திசைவு செய்ய வேண்டிய பதிப்பகம்",
@@ -872,7 +700,6 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
                         row for row in physical_records[1:]
                         if clean_text(row[0]) == selected_clean
                     ]
-
                     display_df = pd.DataFrame(
                         vendor_books,
                         columns=[
@@ -891,30 +718,18 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
                         use_container_width=True,
                     ):
                         updates = []
-
                         for record in vendor_books:
                             target_title = clean_text(record[1])
-                            received_quantity = (
-                                int(record[6])
-                                if str(record[6]).isdigit()
-                                else 0
-                            )
+                            received_quantity = int(record[6]) if str(record[6]).isdigit() else 0
                             matched_count = 0
 
-                            for row_index, sheet_row in enumerate(
-                                vendor_data[1:],
-                                start=2,
-                            ):
+                            for row_index, sheet_row in enumerate(vendor_data[1:], start=2):
                                 if len(sheet_row) > 10:
                                     sheet_title = clean_text(sheet_row[4])
                                     sheet_publisher = clean_text(sheet_row[9])
                                     sheet_vendor = clean_text(sheet_row[10])
-
                                     if (
-                                        selected_clean in {
-                                            sheet_publisher,
-                                            sheet_vendor,
-                                        }
+                                        selected_clean in {sheet_publisher, sheet_vendor}
                                         and target_title == sheet_title
                                         and matched_count < received_quantity
                                     ):
@@ -926,23 +741,18 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
 
                         if updates:
                             sheet_vendor_wise.batch_update(updates)
-                            st.success(
-                                "✅ தேர்ந்தெடுக்கப்பட்ட பதிப்பகம் "
-                                "ஒத்திசைக்கப்பட்டது!"
-                            )
+                            st.success("✅ தேர்ந்தெடுக்கப்பட்ட பதிப்பகம் ஒத்திசைக்கப்பட்டது!")
                             time.sleep(1)
                             st.rerun()
                         else:
-                            st.warning(
-                                "⚠️ பொருந்தும் தரவுகள் கிடைக்கவில்லை!"
-                            )
+                            st.warning("⚠️ பொருந்தும் தரவுகள் கிடைக்கவில்லை!")
         except Exception as error:
             st.error(f"❌ ஒத்திசைவு பிழை: {error}")
 
 
-# ============================================================
-# 8. TASK 3 - VENDOR DETAILS
-# ============================================================
+# =========================================================
+# 9. TASK 3: VENDOR DETAILS
+# =========================================================
 elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)":
     st.subheader("🏢 3. 480 பதிப்பாளர் வாரியான நூல் விவரங்கள்")
 
@@ -954,19 +764,8 @@ elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் வ�
 
         if len(data) > 1:
             live_df = pd.DataFrame(data[1:], columns=data[0])
-            vendor_column = (
-                live_df.columns[10]
-                if len(live_df.columns) > 10
-                else live_df.columns[9]
-            )
-            vendors = sorted(
-                set(
-                    live_df[vendor_column]
-                    .astype(str)
-                    .str.strip()
-                )
-            )
-
+            vendor_column = live_df.columns[10] if len(live_df.columns) > 10 else live_df.columns[9]
+            vendors = sorted(set(live_df[vendor_column].astype(str).str.strip()))
             selected_vendor = st.selectbox(
                 "🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்",
                 ["-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + vendors,
@@ -974,21 +773,15 @@ elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் வ�
 
             if selected_vendor != "-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
                 filtered_df = live_df[
-                    live_df[vendor_column]
-                    .astype(str)
-                    .str.strip()
-                    == selected_vendor
+                    live_df[vendor_column].astype(str).str.strip() == selected_vendor
                 ]
-                st.markdown(
-                    f"### 📋 {selected_vendor} - "
-                    f"மொத்தப் புத்தகங்கள் ({len(filtered_df)})"
-                )
+                st.markdown(f"### 📋 {selected_vendor} - மொத்தப் புத்தகங்கள் ({len(filtered_df)})")
                 st.dataframe(filtered_df, use_container_width=True)
 
 
-# ============================================================
-# 9. TASK 4 - LIBRARY DELIVERY REPORT
-# ============================================================
+# =========================================================
+# 10. TASK 4: LIBRARY DELIVERY REPORT
+# =========================================================
 elif menu_choice == "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)":
     st.subheader("🏛️ 4. 103 நூலகங்கள் வாரியான விநியோக அறிக்கை")
 
@@ -1002,12 +795,10 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
 
         library_map = {}
         library_names = []
-
         for row in library_records[1:]:
             if len(row) >= 3:
                 code = str(row[1]).strip()
                 name = str(row[2]).strip()
-
                 if name and name.lower() != "nan":
                     library_map[code] = name
                     if name not in library_names:
@@ -1020,63 +811,31 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
 
         if selected_library != "-- 🏛️ நூலகத்தைத் தேர்ந்தெடுக்கவும் --":
             selected_code = next(
-                (
-                    code
-                    for code, name in library_map.items()
-                    if name == selected_library
-                ),
+                (code for code, name in library_map.items() if name == selected_library),
                 "",
             )
-
             name_clean = clean_text(selected_library)
             code_clean = clean_text(selected_code)
-            column_o = (
-                live_df.columns[14]
-                if len(live_df.columns) > 14
-                else None
-            )
-            column_p = (
-                live_df.columns[15]
-                if len(live_df.columns) > 15
-                else None
-            )
+            column_o = live_df.columns[14] if len(live_df.columns) > 14 else None
+            column_p = live_df.columns[15] if len(live_df.columns) > 15 else None
 
             def library_match(row):
                 p_value = clean_text(row[column_p]) if column_p else ""
                 o_value = clean_text(row[column_o]) if column_o else ""
-
                 return (
                     name_clean in p_value
                     or p_value in name_clean
-                    or (
-                        code_clean
-                        and (
-                            code_clean in o_value
-                            or o_value in code_clean
-                        )
-                    )
+                    or (code_clean and (code_clean in o_value or o_value in code_clean))
                 )
 
-            filtered_df = live_df[
-                live_df.apply(library_match, axis=1)
-            ]
+            filtered_df = live_df[live_df.apply(library_match, axis=1)]
 
             if filtered_df.empty:
                 st.warning("⚠️ இந்த நூலகத்திற்கு ஒதுக்கீடு இல்லை!")
             else:
-                received_column = (
-                    live_df.columns[18]
-                    if len(live_df.columns) > 18
-                    else None
-                )
-
+                received_column = live_df.columns[18] if len(live_df.columns) > 18 else None
                 received_df = (
-                    filtered_df[
-                        filtered_df[received_column]
-                        .astype(str)
-                        .str.strip()
-                        == "1"
-                    ]
+                    filtered_df[filtered_df[received_column].astype(str).str.strip() == "1"]
                     if received_column
                     else filtered_df
                 )
@@ -1084,20 +843,12 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
                 c1, c2, c3 = st.columns(3)
                 c1.metric("📖 மொத்த ஒதுக்கீடு", len(filtered_df))
                 c2.metric("✅ பெறப்பட்ட புத்தகங்கள்", len(received_df))
-                c3.metric(
-                    "🏛️ நூலகக் குறியீடு",
-                    selected_code or "N/A",
-                )
+                c3.metric("🏛️ நூலகக் குறியீடு", selected_code or "N/A")
 
-                st.markdown(
-                    f"### 📋 {selected_library} - விநியோக அறிக்கை"
-                )
+                st.markdown(f"### 📋 {selected_library} - விநியோக அறிக்கை")
                 st.dataframe(filtered_df, use_container_width=True)
 
-                csv_data = filtered_df.to_csv(
-                    index=False
-                ).encode("utf-8-sig")
-
+                csv_data = filtered_df.to_csv(index=False).encode("utf-8-sig")
                 st.download_button(
                     f"📄 {selected_library} - CSV பதிவிறக்கம்",
                     csv_data,
@@ -1107,15 +858,12 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
                 )
 
 
-# ============================================================
-# 10. TASK 5 - ACCESSION MANAGEMENT
-# ============================================================
+# =========================================================
+# 11. TASK 5: ACCESSION MANAGEMENT
+# =========================================================
 elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
     st.subheader("⚙️ 5. Accession எண்கள் மற்றும் Batch ஒதுக்கீடு மேலாண்மை")
-    st.info(
-        "💡 சரிபார்ப்பு மற்றும் ஒத்திசைவு பணிகள் முடிந்த பிறகு "
-        "இந்தப் பணியைச் செய்யவும்."
-    )
+    st.info("💡 அனைத்து சரிபார்ப்பு மற்றும் ஒத்திசைவு பணிகளும் முடிந்த பிறகு இந்தப் பணியைச் செய்யவும்.")
 
     if not sheet_library_details or not sheet_vendor_wise or not sheet_physically:
         st.error("❌ Google Sheet தரவுகள் முழுமையாகக் கிடைக்கவில்லை!")
@@ -1127,8 +875,7 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
         if len(library_records) > 1:
             central_value = (
                 library_records[1][5]
-                if len(library_records[1]) > 5
-                and str(library_records[1][5]).strip()
+                if len(library_records[1]) > 5 and str(library_records[1][5]).strip()
                 else "1001"
             )
 
@@ -1141,60 +888,30 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                 new_central = st.number_input(
                     "புதிய Central Accession Number",
                     min_value=1,
-                    value=(
-                        int(central_value)
-                        if str(central_value).isdigit()
-                        else 1001
-                    ),
+                    value=int(central_value) if str(central_value).isdigit() else 1001,
                 )
-
-                if st.button(
-                    "💾 Central Number புதுப்பி",
-                    key="btn_update_central",
-                ):
-                    sheet_library_details.update_cell(
-                        2,
-                        6,
-                        new_central,
-                    )
-                    st.success(
-                        "✅ Central Accession Number புதுப்பிக்கப்பட்டது!"
-                    )
+                if st.button("💾 Central Number புதுப்பி", key="btn_update_central"):
+                    sheet_library_details.update_cell(2, 6, new_central)
+                    st.success("✅ Central Accession Number புதுப்பிக்கப்பட்டது!")
                     st.rerun()
 
             st.markdown("---")
-            st.markdown("### 🚀 2. Final Accession Allocation")
-            st.warning(
-                "⚠️ இந்த செயல் Google Sheet-ல் நிரந்தரமாகத் தரவை மாற்றும்."
-            )
+            st.markdown("### 🚀 2. அனைத்துப் பதிப்பகங்களுக்கும் Final Accession Allocation")
+            st.warning("⚠️ இந்த செயல் Google Sheet-ல் நிரந்தரமாகத் தரவை மாற்றும்.")
 
             if st.button(
                 "⚡ Final Allocation தொடங்கு",
                 key="btn_final_sync",
                 use_container_width=True,
             ):
-                with st.spinner(
-                    "⏳ Accession எண்கள் ஒதுக்கப்படுகின்றன..."
-                ):
-                    current_central = (
-                        int(central_value)
-                        if str(central_value).isdigit()
-                        else 1001
-                    )
+                with st.spinner("⏳ Accession எண்கள் ஒதுக்கப்படுகின்றன..."):
+                    current_central = int(central_value) if str(central_value).isdigit() else 1001
                     library_accessions = {}
 
-                    for row_index, row in enumerate(
-                        library_records[1:،],
-                        start=2,
-                    ):
+                    for row_index, row in enumerate(library_records[1:], start=2):
                         if len(row) >= 7:
                             code = str(row[1]).strip()
-                            last_accession = (
-                                int(row[6])
-                                if str(row[6]).isdigit()
-                                else 1000
-                            )
-
+                            last_accession = int(row[6]) if str(row[6]).isdigit() else 1000
                             if code:
                                 library_accessions[code] = {
                                     "last_acc": last_accession,
@@ -1210,17 +927,10 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
 
                         vendor_clean = clean_text(physical[0])
                         title_clean = clean_text(physical[1])
-                        required_quantity = (
-                            int(physical[6])
-                            if str(physical[6]).isdigit()
-                            else 0
-                        )
+                        required_quantity = int(physical[6]) if str(physical[6]).isdigit() else 0
                         matched_count = 0
 
-                        for row_index, vendor_row in enumerate(
-                            vendor_data[1:],
-                            start=2,
-                        ):
+                        for row_index, vendor_row in enumerate(vendor_data[1:], start=2):
                             if len(vendor_row) <= 14:
                                 continue
 
@@ -1229,19 +939,12 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                             row_vendor = clean_text(vendor_row[10])
                             library_code = str(vendor_row[14]).strip()
 
-                            vendor_match = vendor_clean in {
-                                row_publisher,
-                                row_vendor,
-                            }
-                            title_match = (
-                                title_clean in row_title
-                                or row_title in title_clean
-                            )
+                            vendor_match = vendor_clean in {row_publisher, row_vendor}
+                            title_match = title_clean in row_title or row_title in title_clean
 
                             if vendor_match and title_match:
                                 if matched_count < required_quantity:
                                     current_central += 1
-
                                     if library_code in library_accessions:
                                         library_accessions[library_code]["last_acc"] += 1
                                         library_accession = library_accessions[library_code]["last_acc"]
@@ -1250,12 +953,7 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
 
                                     updates.append({
                                         "range": f"S{row_index}:V{row_index}",
-                                        "values": [[
-                                            1,
-                                            0,
-                                            current_central,
-                                            library_accession,
-                                        ]],
+                                        "values": [[1, 0, current_central, library_accession]],
                                     })
                                     matched_count += 1
                                     updated_count += 1
@@ -1272,7 +970,6 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                         "range": "F2",
                         "values": [[current_central]],
                     }]
-
                     for code, item in library_accessions.items():
                         library_updates.append({
                             "range": f"G{item['row_idx']}",
@@ -1280,10 +977,7 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                         })
 
                     sheet_library_details.batch_update(library_updates)
-                    st.success(
-                        f"🎉 {updated_count} புத்தகங்களுக்கு Accession "
-                        "எண்கள் ஒதுக்கப்பட்டன!"
-                    )
+                    st.success(f"🎉 {updated_count} புத்தகங்களுக்கு Accession எண்கள் ஒதுக்கப்பட்டன!")
                     time.sleep(1)
                     st.rerun()
 
@@ -1291,19 +985,11 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
             st.markdown("### 🏛️ 3. நூலக வாரியான Last Accession Number")
 
             extracted = []
-            for row_index, row in enumerate(
-                library_records[1:],
-                start=2,
-            ):
+            for row_index, row in enumerate(library_records[1:], start=2):
                 if len(row) >= 3:
                     code = str(row[1]).strip()
                     name = str(row[2]).strip()
-                    accession = (
-                        str(row[6]).strip()
-                        if len(row) > 6
-                        else ""
-                    )
-
+                    accession = str(row[6]).strip() if len(row) > 6 else ""
                     if code and code.lower() != "nan":
                         extracted.append({
                             "row_idx": row_index,
@@ -1315,34 +1001,20 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
             library_df = pd.DataFrame(extracted)
             category = st.radio(
                 "நூலக வகை",
-                [
-                    "அனைத்தும் (All 103)",
-                    "DCL",
-                    "FTB",
-                    "BL",
-                    "VL",
-                ],
+                ["அனைத்தும் (All 103)", "DCL", "FTB", "BL", "VL"],
                 horizontal=True,
             )
 
             filtered_df = library_df.copy()
             if category != "அனைத்தும் (All 103)":
                 filtered_df = filtered_df[
-                    filtered_df["Lib Code"]
-                    .astype(str)
-                    .str.upper()
-                    .str.contains(
-                        category.upper(),
-                        na=False,
+                    filtered_df["Lib Code"].astype(str).str.upper().str.contains(
+                        category.upper(), na=False
                     )
                 ]
 
             st.dataframe(
-                filtered_df[[
-                    "Lib Code",
-                    "Library Name",
-                    "Last Accession Number",
-                ]],
+                filtered_df[["Lib Code", "Library Name", "Last Accession Number"]],
                 use_container_width=True,
             )
 
@@ -1358,24 +1030,13 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                 )
 
                 if selected_option != "-- தேர்ந்தெடுக்கவும் --":
-                    selected_code = selected_option.split(
-                        " - ",
-                        1,
-                    )[0].strip()
-
+                    selected_code = selected_option.split(" - ", 1)[0].strip()
                     selected_row = filtered_df[
                         filtered_df["Lib Code"] == selected_code
                     ].iloc[0]
-
                     row_index = int(selected_row["row_idx"])
-                    current_accession = str(
-                        selected_row["Last Accession Number"]
-                    ).strip()
-                    current_accession = (
-                        int(current_accession)
-                        if current_accession.isdigit()
-                        else 1000
-                    )
+                    current_accession = str(selected_row["Last Accession Number"]).strip()
+                    current_accession = int(current_accession) if current_accession.isdigit() else 1000
 
                     new_accession = st.number_input(
                         f"{selected_code} - புதிய Accession Number",
@@ -1388,14 +1049,8 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                         key="btn_update_lib",
                         use_container_width=True,
                     ):
-                        sheet_library_details.update_cell(
-                            row_index,
-                            7,
-                            new_accession,
-                        )
-                        st.success(
-                            "✅ நூலக Accession Number புதுப்பிக்கப்பட்டது!"
-                        )
+                        sheet_library_details.update_cell(row_index, 7, new_accession)
+                        st.success("✅ நூலக Accession Number புதுப்பிக்கப்பட்டது!")
                         st.rerun()
             else:
                 st.warning("⚠️ இந்த வகையில் நூலகங்கள் கிடைக்கவில்லை!")
