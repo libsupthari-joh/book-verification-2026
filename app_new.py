@@ -115,8 +115,8 @@ if st.sidebar.button("🏛️ 4. நூலகத்திற்கு விந�
     st.session_state['current_page'] = "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)"
     st.rerun()
 
-if st.sidebar.button("⚙️ 5. Accession எண்கள் மேலாண்மை", key="nav_5", use_container_width=True):
-    st.session_state['current_page'] = "⚙️ 5. Accession எண்கள் மேலாண்மை"
+if st.sidebar.button("⚙️ 5. Accession எண்கள் மேலாண்மை (இறுதிக்கட்டப் பணி)", key="nav_5", use_container_width=True):
+    st.session_state['current_page'] = "⚙️ 5. Accession எண்கள் மேலாண்மை (இறுதிக்கட்டப் பணி)"
     st.rerun()
 
 st.title("📚 2026 புதிய நூல்கள் விநியோகம் - பணி போர்ட்டல்")
@@ -341,23 +341,16 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                 st.rerun()
 
 # ---------------------------------------------------------
-# பணி 2: Google Sheet தரவு ஒத்திசைவு (Sync) - ⚡ தனித்தனியாகப் பிரிக்கப்பட்ட பணி
+# பணி 2: Google Sheet தரவு ஒத்திசைவு (வெகு சுத்தமாக - பெறப்பட்ட/பெறப்படாத நூல்கள் மட்டும்)
 # ---------------------------------------------------------
 elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)":
-    st.subheader("🔄 2. பதிப்பகம் வாரியாக தரவு ஒத்திசைவு")
+    st.subheader("🔄 2. பதிப்பகம் வாரியாக பெறப்பட்ட மற்றும் பெறப்படாத நூல்களின் பட்டியல்")
 
-    if not sheet_physically or not sheet_vendor_wise or not sheet_library_details:
+    if not sheet_physically or not sheet_vendor_wise:
         st.error("❌ கூகுள் ஷீட் இணைப்புகள் சரியாக இல்லை!")
     else:
         try:
             p_records = sheet_physically.get_all_values()
-            vwbd_data = sheet_vendor_wise.get_all_values()
-
-            synced_pairs = set()
-            for r_data in vwbd_data[1:]:
-                if len(r_data) >= 19 and str(r_data[18]).strip() in ["0", "1"]:
-                    synced_pairs.add((clean_text(r_data[10]), clean_text(r_data[4])))
-
             p_vendors = []
             if len(p_records) > 1:
                 for row in p_records[1:]:
@@ -367,7 +360,7 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
                             p_vendors.append(v_raw)
 
             if not p_vendors:
-                st.success("🟢 அனைத்துப் பதிப்பகங்களின் தரவுகளும் ஒத்திசைக்கப்பட்டுவிட்டன!")
+                st.success("🟢 பதிப்பகத் தரவுகள் எதுவும் இல்லை!")
             else:
                 st.markdown("### 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:")
                 selected_sync_vendor = st.selectbox("பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்...", ["-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + p_vendors, label_visibility="collapsed")
@@ -383,102 +376,33 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
                             nr_qty = int(row[7]) if str(row[7]).isdigit() else 0
                             
                             if r_qty > 0:
-                                rec_books.append({"📖 புத்தகத் தலைப்பு": row[1], "🗣️ மொழி": row[2], "✅ பெறப்பட்ட படிகள்": r_qty})
+                                rec_books.append({"📖 புத்தகத் தலைப்பு": row[1], "🗣️ மொழி": row[2], "📦 பெறப்பட்ட படிகள்": r_qty})
                             if nr_qty > 0:
                                 not_rec_books.append({"📖 புத்தகத் தலைப்பு": row[1], "🗣️ மொழி": row[2], "❌ பெறப்படாத படிகள்": nr_qty})
 
-                    # Tab 1 & Tab 2 தனித்தனிப் பார்வைகள்
-                    tab1, tab2, tab3 = st.tabs(["✅ 1. பெறப்பட்ட நூல்கள்", "❌ 2. பெறப்படாத நூல்கள்", "🏷️ 3. Accession எண்கள் வழங்குதல்"])
+                    # முற்றிலும் பெறப்பட்ட மற்றும் பெறப்படாத நூல்களை மட்டும் காட்டும் 2 தனித்தனிப் பிரிவுகள் (Tabs)
+                    tab1, tab2 = st.tabs([
+                        "✅ 1. பெறப்பட்ட நூல்களின் விவரம் (Received List)", 
+                        "⚠️ 2. பெறப்படாத நூல்களின் விவரம் (Not Received List)"
+                    ])
 
                     with tab1:
-                        st.markdown(f"#### 📦 {selected_sync_vendor} - பெறப்பட்ட நூல்கள் விவரம்:")
+                        st.markdown(f"### 📦 {selected_sync_vendor} - பெறப்பட்ட நூல்கள் விவரம்:")
                         if rec_books:
-                            st.dataframe(pd.DataFrame(rec_books), use_container_width=True)
+                            df_rec = pd.DataFrame(rec_books)
+                            df_rec.index = range(1, len(df_rec) + 1)
+                            st.dataframe(df_rec, use_container_width=True)
                         else:
-                            st.info("பெறப்பட்ட நூல்கள் எதுவும் இல்லை.")
+                            st.info("இந்தப் பதிப்பகத்தில் பெறப்பட்ட நூல்கள் எதுவும் இல்லை.")
 
                     with tab2:
-                        st.markdown(f"#### ⚠️ {selected_sync_vendor} - பெறப்படாத நூல்கள் விவரம்:")
+                        st.markdown(f"### ⚠️ {selected_sync_vendor} - பெறப்படாத நூல்கள் விவரம்:")
                         if not_rec_books:
-                            st.dataframe(pd.DataFrame(not_rec_books), use_container_width=True)
+                            df_not_rec = pd.DataFrame(not_rec_books)
+                            df_not_rec.index = range(1, len(df_not_rec) + 1)
+                            st.dataframe(df_not_rec, use_container_width=True)
                         else:
-                            st.success("பெறப்படாத நூல்கள் எதுவுமில்லை!")
-
-                    with tab3:
-                        st.markdown(f"#### 🏷️ {selected_sync_vendor} - Accession எண்கள் ஒதுக்கீடு செய்ய:")
-                        st.info("குறிப்பு: நூல்கள் பெறப்பட்ட/பெறப்படாத விவரங்களைச் சரிபார்த்த பிறகு Accession எண்களை மட்டும் தனியாகப் புதுப்பிக்க இந்த பொத்தானைப் அழுத்தவும்.")
-                        
-                        if st.button(f"🚀 {selected_sync_vendor} - Accession எண்களை மட்டும் புதுப்பி (Batch Sync)", key="btn_sync_acc", use_container_width=True):
-                            with st.spinner("⚡ 1 Request-இல் Accession எண்கள் ஒதுக்கீடு செய்யப்படுகின்றன..."):
-                                lib_records = sheet_library_details.get_all_values()
-                                last_central_acc = int(lib_records[1][5]) if len(lib_records) > 1 and str(lib_records[1][5]).isdigit() else 1001
-                                
-                                lib_acc_map = {}
-                                for idx, r in enumerate(lib_records[1:], start=2):
-                                    if len(r) >= 7:
-                                        code = str(r[1]).strip()
-                                        g_val = str(r[6]).strip()
-                                        last_lib_acc = int(g_val) if g_val.isdigit() else 1000
-                                        if code:
-                                            lib_acc_map[code] = {'last_acc': last_lib_acc, 'row_idx': idx}
-
-                                curr_central_acc = last_central_acc
-                                updated_count = 0
-                                batch_updates_vendor = []
-
-                                all_p_filtered = [r for r in p_records[1:] if len(r) >= 7 and (clean_text(r[0]) == sync_vendor_clean or clean_text(r[4]) == sync_vendor_clean)]
-
-                                for rec in all_p_filtered:
-                                    target_title_clean = clean_text(rec[1])
-                                    needed_qty = int(rec[6]) if str(rec[6]).isdigit() else 0
-                                    matched_count = 0
-
-                                    for r_idx, r_data in enumerate(vwbd_data[1:], start=2):
-                                        if len(r_data) > 14:
-                                            sheet_title_clean = clean_text(r_data[4])
-                                            sheet_pub_clean = clean_text(r_data[9])
-                                            sheet_vendor_clean = clean_text(r_data[10])
-                                            lib_code = str(r_data[14]).strip()
-
-                                            is_vendor_matched = (sync_vendor_clean == sheet_pub_clean or sync_vendor_clean == sheet_vendor_clean)
-                                            is_title_matched = (target_title_clean in sheet_title_clean or sheet_title_clean in target_title_clean)
-
-                                            if is_vendor_matched and is_title_matched:
-                                                if matched_count < needed_qty:
-                                                    curr_central_acc += 1
-                                                    if lib_code in lib_acc_map:
-                                                        lib_acc_map[lib_code]['last_acc'] += 1
-                                                        next_lib_acc = lib_acc_map[lib_code]['last_acc']
-                                                    else:
-                                                        next_lib_acc = 1001
-
-                                                    batch_updates_vendor.append({
-                                                        'range': f'S{r_idx}:V{r_idx}',
-                                                        'values': [[1, 0, curr_central_acc, next_lib_acc]]
-                                                    })
-                                                    matched_count += 1
-                                                    updated_count += 1
-                                                else:
-                                                    batch_updates_vendor.append({
-                                                        'range': f'S{r_idx}:V{r_idx}',
-                                                        'values': [[0, 1, "", ""]]
-                                                    })
-
-                                if batch_updates_vendor:
-                                    sheet_vendor_wise.batch_update(batch_updates_vendor)
-
-                                batch_updates_lib = [{'range': 'F2', 'values': [[curr_central_acc]]}]
-                                for code, data in lib_acc_map.items():
-                                    batch_updates_lib.append({
-                                        'range': f'G{data["row_idx"]}',
-                                        'values': [[data['last_acc']]]
-                                    })
-                                sheet_library_details.batch_update(batch_updates_lib)
-
-                                st.balloons()
-                                st.success(f"🎉 வெற்றி! {updated_count} படிகளுக்கு Accession எண்கள் வெற்றிகரமாக ஒதுக்கப்பட்டுவிட்டன!")
-                                time.sleep(1)
-                                st.rerun()
+                            st.success("பெறப்படாத நூல்கள் எதுவுமில்லை! அனைத்து நூல்களும் பெறப்பட்டுவிட்டன.")
 
         except Exception as e:
             st.error(f"❌ பிழை ஏற்பட்டது: {e}")
@@ -592,15 +516,19 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
                     )
 
 # ---------------------------------------------------------
-# பணி 5: Accession எண்கள் மேலாண்மை
+# பணி 5: Accession எண்கள் மேலாண்மை (இறுதிக்கட்டப் பணி - தனிப்பகுதி)
 # ---------------------------------------------------------
-elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
-    st.subheader("⚙️ 5. Accession எண்கள் நேரலை மேலாண்மை (Lib_Detail Dashboard)")
-    if not sheet_library_details:
-        st.error("❌ 'Lib_Detail' கூகுள் ஷீட் கிடைக்கவில்லை!")
+elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை (இறுதிக்கட்டப் பணி)":
+    st.subheader("⚙️ 5. இறுதிக்கட்டப் பணி: Accession எண்கள் மற்றும் Batch ஒதுக்கீடு மேலாண்மை")
+    st.info("💡 **குறிப்பு:** அனைத்துப் பதிப்பகங்களின் நூல்களும் முழுமையாகச் சரிபார்க்கப்பட்டு உறுதி செய்யப்பட்ட பிறகே இந்தப் பணியைச் செய்ய வேண்டும்.")
+
+    if not sheet_library_details or not sheet_vendor_wise or not sheet_physically:
+        st.error("❌ கூகுள் ஷீட் தரவுகள் முழுமையாகக் கிடைக்கவில்லை!")
     else:
-        with st.spinner("⏳ Lib_Detail தாளில் இருந்து தரவுகள் பெறப்படுகின்றன..."):
+        with st.spinner("⏳ Lib_Detail மற்றும் Vendor தரவுகள் பெறப்படுகின்றன..."):
             lib_records = sheet_library_details.get_all_values()
+            vwbd_data = sheet_vendor_wise.get_all_values()
+            p_records = sheet_physically.get_all_values()
             
             if len(lib_records) > 1:
                 central_val = lib_records[1][5] if len(lib_records[1]) > 5 and str(lib_records[1][5]).strip() != "" else "1001"
@@ -618,7 +546,82 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                         st.rerun()
 
                 st.markdown("---")
-                st.markdown("### 🏛️ 2. நூலகங்கள் வாரியான Last Accession Number (DCL / FTB / BL / VL)")
+                st.markdown("### 🚀 2. அனைத்துப் பதிப்பகங்களுக்கும் இறுதி Accession எண்களை ஒட்டுமொத்தமாக வழங்குதல் (Batch Sync)")
+                st.warning("⚠️ இந்த பொத்தானை அழுத்தினால், இதுவரை சரிபார்க்கப்பட்ட அனைத்துப் புத்தகங்களுக்கும் Central மற்றும் நூலக Accession எண்கள் கணக்கிட்டு Google Sheet-ல் பதியப்படும்.")
+                
+                if st.button("⚡ அனைத்துப் பதிப்பகங்களுக்கும் Accession எண்களை ஒதுக்கு (Final Allocation)", key="btn_final_sync", use_container_width=True):
+                    with st.spinner("⏳ இறுதி Accession எண்கள் ஒதுக்கீடு செய்யப்படுகின்றன... कृपया காத்திருக்கவும்..."):
+                        last_central_acc = int(central_val) if str(central_val).isdigit() else 1001
+                        
+                        lib_acc_map = {}
+                        for idx, r in enumerate(lib_records[1:], start=2):
+                            if len(r) >= 7:
+                                code = str(r[1]).strip()
+                                g_val = str(r[6]).strip()
+                                last_lib_acc = int(g_val) if g_val.isdigit() else 1000
+                                if code:
+                                    lib_acc_map[code] = {'last_acc': last_lib_acc, 'row_idx': idx}
+
+                        curr_central_acc = last_central_acc
+                        updated_count = 0
+                        batch_updates_vendor = []
+
+                        for rec in p_records[1:]:
+                            if len(rec) >= 8:
+                                sync_vendor_clean = clean_text(rec[0])
+                                target_title_clean = clean_text(rec[1])
+                                needed_qty = int(rec[6]) if str(rec[6]).isdigit() else 0
+                                matched_count = 0
+
+                                for r_idx, r_data in enumerate(vwbd_data[1:], start=2):
+                                    if len(r_data) > 14:
+                                        sheet_title_clean = clean_text(r_data[4])
+                                        sheet_pub_clean = clean_text(r_data[9])
+                                        sheet_vendor_clean = clean_text(r_data[10])
+                                        lib_code = str(r_data[14]).strip()
+
+                                        is_vendor_matched = (sync_vendor_clean == sheet_pub_clean or sync_vendor_clean == sheet_vendor_clean)
+                                        is_title_matched = (target_title_clean in sheet_title_clean or sheet_title_clean in target_title_clean)
+
+                                        if is_vendor_matched and is_title_matched:
+                                            if matched_count < needed_qty:
+                                                curr_central_acc += 1
+                                                if lib_code in lib_acc_map:
+                                                    lib_acc_map[lib_code]['last_acc'] += 1
+                                                    next_lib_acc = lib_acc_map[lib_code]['last_acc']
+                                                else:
+                                                    next_lib_acc = 1001
+
+                                                batch_updates_vendor.append({
+                                                    'range': f'S{r_idx}:V{r_idx}',
+                                                    'values': [[1, 0, curr_central_acc, next_lib_acc]]
+                                                })
+                                                matched_count += 1
+                                                updated_count += 1
+                                            else:
+                                                batch_updates_vendor.append({
+                                                    'range': f'S{r_idx}:V{r_idx}',
+                                                    'values': [[0, 1, "", ""]]
+                                                })
+
+                        if batch_updates_vendor:
+                            sheet_vendor_wise.batch_update(batch_updates_vendor)
+
+                        batch_updates_lib = [{'range': 'F2', 'values': [[curr_central_acc]]}]
+                        for code, data in lib_acc_map.items():
+                            batch_updates_lib.append({
+                                'range': f'G{data["row_idx"]}',
+                                'values': [[data['last_acc']]]
+                            })
+                        sheet_library_details.batch_update(batch_updates_lib)
+
+                        st.balloons()
+                        st.success(f"🎉 வெற்றி! அனைத்துப் புத்தகங்களுக்கும் {updated_count} Accession எண்கள் வெற்றிகரமாக ஒதுக்கப்பட்டுவிட்டன!")
+                        time.sleep(1)
+                        st.rerun()
+
+                st.markdown("---")
+                st.markdown("### 🏛️ 3. நூலகங்கள் வாரியான Last Accession Number மேலாண்மை (DCL / FTB / BL / VL)")
                 
                 extracted_data = []
                 for idx, r in enumerate(lib_records[1:], start=2):
@@ -635,7 +638,6 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                             })
                 
                 df_lib_extracted = pd.DataFrame(extracted_data)
-
                 type_filter = st.radio("நூலக வகையைத் தேர்ந்தெடுக்கவும் (Category Filter):", ["அனைத்தும் (All 103)", "DCL", "FTB", "BL", "VL"], horizontal=True)
                 
                 filtered_df = df_lib_extracted.copy()
@@ -655,13 +657,11 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                     st.warning("⚠️ தேர்ந்தெடுக்கப்பட்ட பிரிவில் நூலகங்கள் எதுவும் கிடைக்கவில்லை!")
                 else:
                     col_sel, col_val = st.columns([3, 2])
-                    
                     with col_sel:
                         selected_lib_opt = st.selectbox("நூலகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- தேர்ந்தெடுக்கவும் --"] + lib_options)
                     
                     if selected_lib_opt and selected_lib_opt != "-- தேர்ந்தெடுக்கவும் --":
                         sel_code = selected_lib_opt.split(" - ")[0].strip()
-                        
                         target_row_info = filtered_df[filtered_df['Lib Code'] == sel_code].iloc[0]
                         target_row_idx = target_row_info['row_idx']
                         curr_acc_str = str(target_row_info['DCL /FTB /BL / VL LAST ACCESION NUMBER']).strip()
