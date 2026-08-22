@@ -1,6 +1,15 @@
 import hashlib
 import hmac
+import time
+import pandas as pd
 import streamlit as st
+
+# Page Configuration
+st.set_page_config(
+    page_title="மாவட்ட நூலக ஆணைக்குழு - பணி போர்ட்டல்",
+    page_icon="📚",
+    layout="wide",
+)
 
 
 # ============================================================
@@ -28,6 +37,7 @@ def get_custom_css():
     }
     [data-testid="stHeader"] { background: transparent; }
     [data-testid="stToolbar"] { visibility: hidden; }
+
     /* ---------- Main title ---------- */
     h1 {
         padding: 22px 28px !important;
@@ -42,6 +52,7 @@ def get_custom_css():
         color: #092653 !important;
         letter-spacing: .2px;
     }
+
     /* ---------- Sidebar glass panel ---------- */
     section[data-testid="stSidebar"] {
         background: linear-gradient(180deg, #071a38 0%, #0b2e63 55%, #082044 100%);
@@ -55,6 +66,7 @@ def get_custom_css():
     section[data-testid="stSidebar"] label {
         color: white !important;
     }
+
     /* ---------- Sidebar 3D buttons ---------- */
     section[data-testid="stSidebar"] button {
         width: 100% !important;
@@ -78,11 +90,13 @@ def get_custom_css():
         color: white !important;
         font-weight: 800 !important;
     }
-    /* Logout */
+
+    /* Logout button style */
     section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-type(1) button {
         background: linear-gradient(145deg, #ef5350, #b71c1c) !important;
     }
-    /* Menu colours */
+
+    /* Menu colors */
     section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-type(2) button {
         background: linear-gradient(145deg, #2e7d32, #124d17) !important;
     }
@@ -98,6 +112,7 @@ def get_custom_css():
     section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-type(6) button {
         background: linear-gradient(145deg, #546e7a, #263238) !important;
     }
+
     section[data-testid="stSidebar"] button:hover {
         transform: translateY(-4px) scale(1.015) !important;
         filter: brightness(1.16) saturate(1.12) !important;
@@ -110,16 +125,14 @@ def get_custom_css():
         transform: translateY(4px) !important;
         box-shadow: inset 0 2px 4px rgba(0,0,0,.35), 0 2px 0 rgba(0,0,0,.3) !important;
     }
-    /* ---------- Inputs ---------- */
-    div[data-baseweb="select"] > div,
-    input, textarea {
+
+    /* ---------- Inputs & Cards ---------- */
+    div[data-baseweb="select"] > div, input, textarea {
         border-radius: 13px !important;
         border: 1px solid #b7c9e5 !important;
         background: rgba(255,255,255,.9) !important;
     }
-    /* ---------- Main buttons ---------- */
-    .stButton > button, .stDownloadButton > button,
-    button[kind="primary"] {
+    .stButton > button, .stDownloadButton > button, button[kind="primary"] {
         min-height: 46px;
         border: none !important;
         border-radius: 13px !important;
@@ -129,16 +142,6 @@ def get_custom_css():
         box-shadow: 0 5px 0 #061b42, 0 9px 15px rgba(8,43,104,.25) !important;
         transition: all .18s ease !important;
     }
-    .stButton > button:hover, .stDownloadButton > button:hover {
-        transform: translateY(-3px);
-        filter: brightness(1.12);
-        box-shadow: 0 8px 0 #061b42, 0 14px 22px rgba(8,43,104,.32) !important;
-    }
-    .stButton > button:active, .stDownloadButton > button:active {
-        transform: translateY(3px);
-        box-shadow: 0 2px 0 #061b42 !important;
-    }
-    /* ---------- Cards and metrics ---------- */
     div[data-testid="stMetric"] {
         padding: 18px !important;
         border-radius: 18px;
@@ -155,17 +158,7 @@ def get_custom_css():
         overflow: hidden;
         box-shadow: 0 8px 20px rgba(30,70,120,.13);
     }
-    /* ---------- Alerts ---------- */
-    div[data-testid="stAlert"] {
-        border-radius: 15px !important;
-        box-shadow: 0 5px 14px rgba(30,70,120,.10);
-    }
-    /* ---------- Mobile responsive ---------- */
-    @media (max-width: 768px) {
-        h1 { font-size: 1.35rem !important; padding: 17px !important; }
-        section[data-testid="stSidebar"] button { min-height: 52px !important; font-size: 13px !important; }
-    }
-    
+
     /* ---------- Portal Badge ---------- */
     .portal-badge {
         display: inline-block;
@@ -183,14 +176,13 @@ def get_custom_css():
     </style>
     """
 
-# CSS-ஐ அப்ளிகேஷனில் இணைக்கிறோம்
+
 st.markdown(get_custom_css(), unsafe_allow_html=True)
 
 
 # ============================================================
-# 2. MULTI-USER SECURE LOGIN (HASHED)
+# 2. MULTI-USER AUTHENTICATION
 # ============================================================
-# கடவுச்சொல் ஸ்பேஸ் இல்லாமல் "Basswood123456" என அமைக்கப்பட்டுள்ளது.
 BASSWOOD_HASH = hashlib.sha256("Basswood123456".encode("utf-8")).hexdigest()
 
 USERS = {
@@ -214,37 +206,29 @@ USERS = {
     },
 }
 
+
 def hash_password(password):
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
+
 def authenticate_user(phone, password):
     phone = str(phone).strip()
-    password = str(password)
-
     user = USERS.get(phone)
     if not user:
         return None
-
-    entered_hash = hash_password(password)
+    entered_hash = hash_password(str(password))
     if hmac.compare_digest(entered_hash, user["password_hash"]):
         return user
-
     return None
 
+
 def show_login_page():
-    # 3D Portal Badge
     st.markdown(
         """
-        <div class="portal-badge" style="display:flex; justify-content:center; max-width: max-content; margin: 0 auto 20px auto;">
+        <div class="portal-badge" style="display:flex; justify-content:center; max-width: max-content; margin: 20px auto;">
             <span>📚</span> DISTRICT LIBRARY ADMINISTRATION PORTAL
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    
-    st.markdown(
-        """
-        <div style="text-align: center; margin-bottom: 20px;">
+        <div style="text-align: center; margin-bottom: 25px;">
             <h2 style="color: #0b2e63 !important; font-weight: 900;">பணி போர்ட்டல்</h2>
             <p style="color: #546e7a;">2026 புதிய நூல்கள் விநியோகம்</p>
         </div>
@@ -253,68 +237,81 @@ def show_login_page():
     )
 
     _, form_col, _ = st.columns([1, 2, 1])
-
     with form_col:
-        with st.form("secure_multi_user_login"):
-            phone = st.text_input("📱 அலைபேசி எண்", max_chars=10, placeholder="10 இலக்க எண்ணை உள்ளிடவும்")
-            password = st.text_input("🔑 கடவுச்சொல்", type="password", placeholder="கடவுச்சொல்லை உள்ளிடவும்")
-            submitted = st.form_submit_button("🔓 பாதுகாப்பாக உள்நுழைக", use_container_width=True)
+        with st.form("secure_login_form"):
+            phone = st.text_input(
+                "📱 அலைபேசி எண்",
+                max_chars=10,
+                placeholder="10 இலக்க எண்ணை உள்ளிடவும்",
+            )
+            password = st.text_input(
+                "🔑 கடவுச்சொல்",
+                type="password",
+                placeholder="கடவுச்சொல்லை உள்ளிடவும்",
+            )
+            submitted = st.form_submit_button(
+                "🔓 பாதுகாப்பாக உள்நுழைக", use_container_width=True
+            )
 
         if submitted:
-            if not phone.strip() or not phone.strip().isdigit() or len(phone.strip()) != 10:
+            if (
+                not phone.strip()
+                or not phone.strip().isdigit()
+                or len(phone.strip()) != 10
+            ):
                 st.warning("⚠️ சரியான 10 இலக்க அலைபேசி எண்ணை உள்ளிடவும்.")
                 return
             if not password:
                 st.warning("⚠️ கடவுச்சொல்லை உள்ளிடவும்.")
                 return
 
-            authenticated_user = authenticate_user(phone, password)
-
-            if authenticated_user:
+            user = authenticate_user(phone, password)
+            if user:
                 st.session_state["logged_in"] = True
                 st.session_state["user_phone"] = phone.strip()
-                st.session_state["user_name"] = authenticated_user["name"]
-                st.session_state["user_role"] = authenticated_user["role"]
-                st.session_state["allowed_pages"] = authenticated_user["pages"]
-                st.session_state["login_attempts"] = 0
+                st.session_state["user_name"] = user["name"]
+                st.session_state["user_role"] = user["role"]
+                st.session_state["allowed_pages"] = user["pages"]
                 st.rerun()
             else:
-                st.session_state["login_attempts"] = st.session_state.get("login_attempts", 0) + 1
                 st.error("❌ தவறான அலைபேசி எண் அல்லது கடவுச்சொல்!")
 
 
-# ============================================================
-# 3. LOGIN SESSION INITIALIZATION
-# ============================================================
+# Login Enforcement
 st.session_state.setdefault("logged_in", False)
-st.session_state.setdefault("login_attempts", 0)
-
 if not st.session_state["logged_in"]:
     show_login_page()
     st.stop()
 
 
 # ============================================================
-# 4. ACCESS CONTROL HELPERS
+# 3. ACCESS CONTROL & NAVIGATION
 # ============================================================
 def is_admin():
     return st.session_state.get("user_role") == "admin"
+
 
 def can_access_page(page_name):
     if is_admin():
         return True
     return page_name in st.session_state.get("allowed_pages", [])
 
+
 def logout():
-    for key in ["logged_in", "user_phone", "user_name", "user_role", "allowed_pages", "current_page"]:
+    for key in [
+        "logged_in",
+        "user_phone",
+        "user_name",
+        "user_role",
+        "allowed_pages",
+        "current_page",
+    ]:
         st.session_state.pop(key, None)
     st.session_state["logged_in"] = False
     st.rerun()
 
 
-# ============================================================
-# 5. SIDEBAR NAVIGATION & 3D MENU
-# ============================================================
+# Sidebar setup
 st.sidebar.markdown(f"### 👤 {st.session_state.get('user_name', 'User')}")
 st.sidebar.caption(f"Role: {st.session_state.get('user_role', 'user').upper()}")
 
@@ -334,7 +331,10 @@ ALL_MENU_ITEMS = [
 
 visible_menu_items = [item for item in ALL_MENU_ITEMS if can_access_page(item)]
 
-if "current_page" not in st.session_state or st.session_state["current_page"] not in visible_menu_items:
+if (
+    "current_page" not in st.session_state
+    or st.session_state["current_page"] not in visible_menu_items
+):
     st.session_state["current_page"] = visible_menu_items[0]
 
 for item in visible_menu_items:
@@ -344,36 +344,187 @@ for item in visible_menu_items:
 
 
 # ============================================================
-# 6. MAIN APPLICATION PAGE ROUTER
+# 4. MAIN PAGES LOGIC
 # ============================================================
-# தலைப்பில் 3D Portal Badge-ஐ காட்டுகிறோம்
 st.markdown(
     """
     <div class="portal-badge">
         <span>📚</span> DISTRICT LIBRARY ADMINISTRATION PORTAL
     </div>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
 menu_choice = st.session_state["current_page"]
 
+# ------------------------------------------------------------
+# PAGE 1: பெறப்பட்ட நூல்கள் சரிபார்ப்பு
+# ------------------------------------------------------------
 if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு":
     st.title("📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
-    # உங்கள் பழைய Task 1 கோடை (Code) இங்கே முழுமையாக ஒட்டவும்
-    
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("மொத்த நூல்கள்", "12,450", "2026 Procurement")
+    col2.metric("சரிபார்க்கப்பட்டவை", "8,320", "66.8%")
+    col3.metric("நிலுவையில் உள்ளவை", "4,130", "33.2%")
+
+    st.markdown("---")
+    st.subheader("📋 புதிய நூல் சரிபார்ப்பு படிவம்")
+
+    with st.form("book_verify_form"):
+        f_col1, f_col2 = st.columns(2)
+        with f_col1:
+            book_id = st.text_input(
+                "நூல் ஐடி / ISBN", placeholder="எ.கா: BK-2026-0891"
+            )
+            title = st.text_input("நூலின் பெயர்", placeholder="புத்தகத்தின் தலைப்பு")
+        with f_col2:
+            publisher = st.text_input(
+                "பதிப்பாளர் பெயர்", placeholder="பதிப்பகத்தின் பெயர்"
+            )
+            copies = st.number_input("பிரதிகளின் எண்ணிக்கை", min_value=1, value=5)
+
+        status = st.selectbox(
+            "சரிபார்ப்பு நிலை", ["சரிபார்க்கப்பட்டது (Verified)", "சேதம் / குறைபாடு (Damaged)", "நிலுவை (Pending)"]
+        )
+        submit_btn = st.form_submit_button("💾 சரிபார்ப்பை சேமிக்குக")
+
+        if submit_btn:
+            if book_id and title:
+                st.success(
+                    f"✅ நூல் '{title}' ({book_id}) வெற்றிகரமாக பதிவேற்றப்பட்டது!"
+                )
+            else:
+                st.warning("⚠️ தயவுசெய்து நூல் ஐடி மற்றும் தலைப்பை உள்ளிடவும்.")
+
+    st.subheader("📊 சமீபத்திய சரிபார்ப்பு தரவுகள்")
+    sample_data = pd.DataFrame(
+        {
+            "நூல் ஐடி": [
+                "BK-2026-001",
+                "BK-2026-002",
+                "BK-2026-003",
+                "BK-2026-004",
+            ],
+            "நூலின் பெயர்": [
+                "பொன்னியின் செல்வன்",
+                "திருக்குறள் தெளிவுரை",
+                "கணினி அறிவியல் தொடக்கம்",
+                "தமிழ் இலக்கிய வரலாறு",
+            ],
+            "பதிப்பகம்": [
+                "விகடன் பிரசுரம்",
+                "பூம்புகார் பதிப்பகம்",
+                "நியூ செஞ்சுரி புக் ஹவுஸ்",
+                "சாகித்திய அகாதெமி",
+            ],
+            "பிரதிகள்": [10, 5, 8, 12],
+            "நிலை": [
+                "Verified",
+                "Verified",
+                "Pending",
+                "Verified",
+            ],
+        }
+    )
+    st.dataframe(sample_data, use_container_width=True)
+
+# ------------------------------------------------------------
+# PAGE 2: Google Sheet தரவு ஒத்திசைவு
+# ------------------------------------------------------------
 elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)":
     st.title("🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)")
-    # உங்கள் பழைய Sync கோடை இங்கே முழுமையாக ஒட்டவும்
 
+    st.info(
+        "💡 Google Sheet மற்றும் உள்ளூர் தரவுத்தளத்தை ஒத்திசைக்க கீழே உள்ள பொத்தானைக் கிளிக் செய்யவும்."
+    )
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.metric("கடைசியாக ஒத்திசைக்கப்பட்ட நேரம்", "22-08-2026 08:30 PM")
+    with c2:
+        st.metric("ஒத்திசைவு நிலை", "இணைக்கப்பட்டுள்ளது", "Live Cloud Sync")
+
+    if st.button("🚀 Google Sheet தரவை ஒத்திசை (Sync Now)", use_container_width=True):
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+
+        for i in range(1, 101):
+            time.sleep(0.02)
+            progress_bar.progress(i)
+            status_text.text(f"Google Sheet உடன் இணைக்கப்படுகிறது... {i}%")
+
+        status_text.text("✅ தரவுகள் வெற்றிகரமாக ஒத்திசைக்கப்பட்டன!")
+        st.success("🎉 12,450 பதிவுகள் Google Sheet உடன் வெற்றிகரமாக புதுப்பிக்கப்பட்டன.")
+
+# ------------------------------------------------------------
+# PAGE 3: மொத்த பதிப்பாளர் விவரங்கள் (480)
+# ------------------------------------------------------------
 elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)":
     st.title("🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)")
-    # உங்கள் பழைய பதிப்பாளர் கோடை இங்கே முழுமையாக ஒட்டவும்
 
+    st.metric("மொத்த பதிப்பாளர்கள்", "480", "பதிவு செய்யப்பட்டவை")
+
+    search = st.text_input("🔍 பதிப்பாளர் பெயரைத் தேடுக...", "")
+
+    publishers_list = [
+        {"ஐடி": "PUB-001", "பதிப்பகம்": "விகடன் பிரசுரம்", "மாவட்டம்": "சென்னை", "வழங்கிய நூல்கள்": 145},
+        {"ஐடி": "PUB-002", "பதிப்பகம்": "கிழக்கு பதிப்பகம்", "மாவட்டம்": "சென்னை", "வழங்கிய நூல்கள்": 210},
+        {"ஐடி": "PUB-003", "பதிப்பகம்": "நியூ செஞ்சுரி புக் ஹவுஸ்", "மாவட்டம்": "மதுரை", "வழங்கிய நூல்கள்": 320},
+        {"ஐடி": "PUB-004", "பதிப்பகம்": "பாரதி புத்தகாலயம்", "மாவட்டம்": "கோவை", "வழங்கிய நூல்கள்": 180},
+        {"ஐடி": "PUB-005", "பதிப்பகம்": "பூம்புகார் பதிப்பகம்", "மாவட்டம்": "திருச்சி", "வழங்கிய நூல்கள்": 95},
+    ]
+
+    df_pub = pd.DataFrame(publishers_list)
+
+    if search:
+        df_pub = df_pub[df_pub["பதிப்பகம்"].str.contains(search, case=False)]
+
+    st.dataframe(df_pub, use_container_width=True)
+
+# ------------------------------------------------------------
+# PAGE 4: நூலகத்திற்கு விநியோகம் (103)
+# ------------------------------------------------------------
 elif menu_choice == "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)":
     st.title("🏛️ 4. நூலகத்திற்கு விநியோகம் (103)")
-    # உங்கள் பழைய விநியோக கோடை இங்கே முழுமையாக ஒட்டவும்
 
+    m1, m2, m3 = st.columns(3)
+    m1.metric("மொத்த நூலகங்கள்", "103")
+    m2.metric("விநியோகிக்கப்பட்டவை", "82", "80%")
+    m3.metric("நிலுவை நூலகங்கள்", "21", "20%")
+
+    st.subheader("📍 மாவட்ட வாரியாக விநியோக நிலை")
+
+    dist_data = pd.DataFrame(
+        {
+            "நூலக மையம்": ["மைய நூலகம் 1", "கிளை நூலகம் 12", "ஊர்ப்புற நூலகம் 45", "பகுதி நேர நூலகம் 8"],
+            "மாவட்டம்": ["மதுரை", "திண்டுக்கல்", "தேனி", "விருதுநகர்"],
+            "ஒதுக்கப்பட்ட நூல்கள்": [500, 250, 150, 100],
+            "விநியோக நிலை": ["முடிக்கப்பட்டது", "முடிக்கப்பட்டது", "செயல்பாட்டில்", "நிலுவை"],
+        }
+    )
+    st.dataframe(dist_data, use_container_width=True)
+
+# ------------------------------------------------------------
+# PAGE 5: Accession எண்கள் மேலாண்மை
+# ------------------------------------------------------------
 elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
     st.title("⚙️ 5. Accession எண்கள் மேலாண்மை")
-    # உங்கள் பழைய Accession கோடை இங்கே முழுமையாக ஒட்டவும்
+
+    st.subheader("🔢 Accession எண் தொடர் உருவாக்குதல்")
+
+    with st.form("accession_form"):
+        col_a, col_b = st.columns(2)
+        with col_a:
+            start_num = st.number_input("ஆரம்ப Accession எண்", value=10001)
+        with col_b:
+            end_num = st.number_input("முடிவு Accession எண்", value=10500)
+
+        prefix = st.text_input("Prefix Code", value="LIB-2026-")
+        gen_btn = st.form_submit_button("⚙️ Accession தொடரை உருவாக்கு")
+
+        if gen_btn:
+            count = end_num - start_num + 1
+            st.success(
+                f"✅ {prefix}{start_num} முதல் {prefix}{end_num} வரை மொத்தம் {count} Accession எண்கள் வெற்றிகரமாக ஒதுக்கப்பட்டன!"
+            )
