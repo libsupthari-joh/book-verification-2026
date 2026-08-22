@@ -1184,7 +1184,7 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                     library_accessions = {}
 
                     for row_index, row in enumerate(
-                        library_records[1:،],
+                        library_records[1:]
                         start=2,
                     ):
                         if len(row) >= 7:
