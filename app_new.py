@@ -29,12 +29,12 @@ def load_data(file_path):
 
 vendor_df, book_df = load_data(EXCEL_FILE)
 
-# எண்களையும் குறியீடுகளையும் நீக்கி ஒப்பீட்டிற்கு மட்டும் சுத்தப்படுத்தும் சார்பு
+# தமிழ் மற்றும் ஆங்கில உரைகளை மட்டும் சுத்தப்படுத்தும் சார்பு
 def clean_for_match(val):
     if pd.isna(val) or val is None:
         return ""
     s = str(val).strip()
-    s = re.sub(r'^\d+[\.\s\-]*', '', s)  # முன்னால் உள்ள எண்களை நீக்குதல்
+    s = re.sub(r'^\d+[\.\s\-]*', '', s)
     return re.sub(r'[^a-zA-Z0-9\u0B80-\u0BFF]', '', s).lower()
 
 # 3. கூகுள் ஷீட் இணைப்பு
@@ -266,7 +266,7 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                     st.error(f"❌ பிழை: {e}")
 
 # ---------------------------------------------------------
-# பணி 2: Google Sheet தரவு ஒத்திசைவு (Sync)
+# பணி 2: Google Sheet தரவு ஒத்திசைவு (Sync) - துல்லியமாக திருத்தப்பட்டது
 # ---------------------------------------------------------
 elif menu_choice == "2. 🔄 Google Sheet தரவு ஒத்திசைவு (Sync)":
     st.subheader("🔄 Vendor Wise Sheet-ஐப் புதுப்பித்தல் (Sync Data)")
@@ -278,55 +278,41 @@ elif menu_choice == "2. 🔄 Google Sheet தரவு ஒத்திசைவ�
         else:
             try:
                 with st.spinner("⏳ கூகுள் ஷீட் தரவுகள் ஒத்திசைக்கப்படுகின்றன... தயவுசெய்து காத்திருக்கவும்..."):
-                    # 1. Physically Verified தாளில் இருந்து படிக்கிறது
                     p_records = sheet_physically.get_all_values()
                     
                     if len(p_records) <= 1:
                         st.warning("⚠️ 'Physically Verified' தாளில் தரவுகள் எதுவும் இல்லை!")
                     else:
-                        # (Cleaned Vendor Name, Cleaned Title Name) -> ReceivedQty வரைபடம்
-                        verified_map = {}
+                        # [Title Cleaned] -> ReceivedQty வரைபடம்
+                        title_received_map = {}
                         for row in p_records[1:]:
                             if len(row) >= 7:
-                                # Col A (Vendor) அல்லது Col E (Vendor) இரண்டையும் சுத்தமாக்கி சரிபார்த்தல்
-                                v_clean = clean_for_match(row[0]) if row[0] else clean_for_match(row[4])
-                                t_clean = clean_for_match(row[1])  # Col B (Title)
-                                
+                                t_clean = clean_for_match(row[1]) # Col B (Title)
                                 try:
-                                    rec_qty = int(row[6])  # Col G (Received Qty)
+                                    rec_qty = int(row[6]) # Col G (Received Qty)
                                 except ValueError:
                                     rec_qty = 0
                                 
-                                if v_clean and t_clean:
-                                    verified_map[(v_clean, t_clean)] = rec_qty
+                                if t_clean:
+                                    title_received_map[t_clean] = title_received_map.get(t_clean, 0) + rec_qty
 
-                        # 2. Vendor Wise Book Data தாளைப் படித்து updates தயார் செய்தல்
+                        # Vendor Wise Book Data தாளைப் படித்தல்
                         vwbd_data = sheet_vendor_wise.get_all_values()
                         cell_updates = []
-                        book_counter = {}
+                        title_counter = {}
 
                         for r_idx, r_data in enumerate(vwbd_data[1:], start=2):
-                            if len(r_data) > 10:
-                                row_title = clean_for_match(r_data[1])  # Col B
-                                row_colJ = clean_for_match(r_data[9])   # Col J
-                                row_colK = clean_for_match(r_data[10])  # Col K
+                            if len(r_data) > 1:
+                                row_title = clean_for_match(r_data[1])  # Col B (Title)
 
-                                matched_qty = None
-                                matched_key = None
-                                
-                                # பொருத்துதல்
-                                for (v_clean, t_clean), qty in verified_map.items():
-                                    if row_title == t_clean and (row_colJ == v_clean or row_colK == v_clean or v_clean in row_colJ or v_clean in row_colK):
-                                        matched_qty = qty
-                                        matched_key = (v_clean, t_clean)
-                                        break
+                                if row_title in title_received_map:
+                                    allowed_qty = title_received_map[row_title]
+                                    current_count = title_counter.get(row_title, 0)
 
-                                if matched_qty is not None and matched_key is not None:
-                                    current_count = book_counter.get(matched_key, 0)
-                                    if current_count < matched_qty:
+                                    if current_count < allowed_qty:
                                         s_val = 1
                                         t_val = 0
-                                        book_counter[matched_key] = current_count + 1
+                                        title_counter[row_title] = current_count + 1
                                     else:
                                         s_val = 0
                                         t_val = 1
@@ -340,7 +326,7 @@ elif menu_choice == "2. 🔄 Google Sheet தரவு ஒத்திசைவ�
                             st.balloons()
                             st.success(f"✅ வெற்றி! மொத்தம் {len(cell_updates)//2} வரிகள் 'Vendor Wise Book Data' தாளில் Received = 1 எனப் புதுப்பிக்கப்பட்டன!")
                         else:
-                            st.warning("⚠️ பொருந்துமாறு புதிய தரவுகள் எதுவும் கண்டுபிடிக்கப்படவில்லை. (Physically Verified தாளில் சரியாகச் சேமிக்கப்பட்டுள்ளதா எனச் சரிபார்க்கவும்).")
+                            st.warning("⚠️ 'Physically Verified' தாளில் உள்ள புத்தகங்கள் 'Vendor Wise Book Data' தாளுடன் பொருந்தவில்லை!")
 
             except Exception as e:
                 st.error(f"❌ ஒத்திசைவில் பிழை ஏற்பட்டது: {e}")
