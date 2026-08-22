@@ -11,31 +11,13 @@ import time
 str_lit.set_page_config(page_title="2026 புதிய நூல்கள் விநியோகம்", layout="wide", initial_sidebar_state="expanded")
 
 # 🎨 பக்கவாட்டு மெனு மற்றும் பட்டன்களுக்கான Styling (CSS)
-# எந்தப் பக்கம் აქტიவ்-ஆக இருக்கிறதோ அதற்குரிய பட்டனை மட்டும் நீல நிறமாகவும், மற்றவற்றை சாம்பல் நிறமாகவும் மாற்ற CSS வகுப்புகள்.
-def get_custom_css(active_page):
-    # பக்கங்களின் பெயர்கள் மற்றும் அவற்றின் கீ (Key) பெயர்கள்
-    p1_bg = "#007bff" if "1." in active_page else "#f0f2f6"
-    p1_fg = "white" if "1." in active_page else "#31333F"
-    
-    p2_bg = "#007bff" if "2." in active_page else "#f0f2f6"
-    p2_fg = "white" if "2." in active_page else "#31333F"
-    
-    p3_bg = "#007bff" if "3." in active_page else "#f0f2f6"
-    p3_fg = "white" if "3." in active_page else "#31333F"
-    
-    p4_bg = "#007bff" if "4." in active_page else "#f0f2f6"
-    p4_fg = "white" if "4." in active_page else "#31333F"
-    
-    p5_bg = "#007bff" if "5." in active_page else "#f0f2f6"
-    p5_fg = "white" if "5." in active_page else "#31333F"
-
-    return f"""
+def get_custom_css():
+    return """
     <style>
-    .stAppViewContainer {{
+    .stAppViewContainer {
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
-    /* தனிப்பட்ட பக்க பொத்தான்களின் வண்ணங்கள் ஸ்டைலிங் */
-    div[data-testid="stSidebar"] button[kind="secondary"] {{
+    div[data-testid="stSidebar"] button[kind="secondary"] {
         width: 100% !important;
         text-align: left !important;
         padding: 12px 16px !important;
@@ -43,7 +25,16 @@ def get_custom_css(active_page):
         border-radius: 8px !important;
         font-weight: bold !important;
         font-size: 15px !important;
-    }}
+    }
+    div[data-testid="stSidebar"] button[kind="primary"] {
+        width: 100% !important;
+        text-align: left !important;
+        padding: 12px 16px !important;
+        margin-bottom: 8px !important;
+        border-radius: 8px !important;
+        font-weight: bold !important;
+        font-size: 15px !important;
+    }
     </style>
     """
 
@@ -53,8 +44,8 @@ if 'logged_in' not in str_lit.session_state:
 if 'current_page' not in str_lit.session_state:
     str_lit.session_state['current_page'] = "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு"
 
-# நடப்புப் பக்கத்திற்கு ஏற்ப CSS-ஐ 적용
-str_lit.markdown(get_custom_css(str_lit.session_state['current_page']), unsafe_allow_html=True)
+# CSS-ஐ அப்ளை செய்தல்
+str_lit.markdown(get_custom_css(), unsafe_allow_html=True)
 
 # 🔒 Login Page
 if not str_lit.session_state['logged_in']:
@@ -83,7 +74,6 @@ if str_lit.sidebar.button("🚪 வெளியேறு (Logout)", key="logout_
 str_lit.sidebar.markdown("---")
 str_lit.sidebar.markdown("### 📌 **முதன்மைப் பணிகள்**")
 
-# ஒவ்வொரு பட்டனுக்கும் தனித்தனி நிறங்கள் மாற்றப்படுவதை உறுதி செய்ய வழிவகை
 active_page = str_lit.session_state['current_page']
 
 def style_button_active(page_num_str):
