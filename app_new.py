@@ -48,8 +48,8 @@ except Exception as e:
 if 'verified_list' not in st.session_state:
     st.session_state['verified_list'] = []
 
-if 'book_select_key' not in st.session_state:
-    st.session_state['book_select_key'] = 0
+if 'selected_title_idx' not in st.session_state:
+    st.session_state['selected_title_idx'] = "-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"
 
 # 4. இடதுபுற மெனு (Sidebar Menu)
 st.sidebar.header("📋 முதன்மை பணிகள்")
@@ -83,9 +83,9 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                 
     st.subheader("1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:")
     vendor_options = [v[0] for v in vendors]
-    selected_vendor_full = st.selectbox("பதிப்பகப் பெயரைத் தேர்ந்தெடுக்கவும்...", [""] + vendor_options, label_visibility="collapsed")
+    selected_vendor_full = st.selectbox("பதிப்பகப் பெயரைத் தேர்ந்தெடுக்கவும்...", ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + vendor_options, label_visibility="collapsed")
     
-    if selected_vendor_full:
+    if selected_vendor_full and selected_vendor_full != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
         actual_vendor = next((v[1] for v in vendors if v[0] == selected_vendor_full), selected_vendor_full)
         target = str(actual_vendor).strip().lower()
         
@@ -112,9 +112,9 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
             c1.metric("📋 மொத்த தலைப்புகள்", total_titles)
             c2.metric("📦 மொத்த படிகள்", int(total_copies))
             
-            st.subheader("2. புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும்:")
+            st.subheader("2. புத்தகத் தலைப்பதைத் தேர்ந்தெடுக்கவும்:")
             
-            title_options = ["Choose an option"]
+            title_options = ["-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"]
             for idx, row in grouped.iterrows():
                 t_str = str(row['Title']).strip()
                 a_str = str(row['Author Name']).strip() if pd.notna(row['Author Name']) else ""
@@ -124,11 +124,11 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
             selected_title_disp = st.selectbox(
                 "புத்தகத்தைத் தேர்ந்தெடுக்கவும்...", 
                 title_options, 
-                key=f"book_select_{st.session_state['book_select_key']}",
+                key="book_dropdown",
                 label_visibility="collapsed"
             )
             
-            if selected_title_disp and selected_title_disp != "Choose an option":
+            if selected_title_disp and selected_title_disp != "-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --":
                 matched_row = None
                 for idx, row in grouped.iterrows():
                     t_str = str(row['Title']).strip()
@@ -146,10 +146,10 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                         st.info("ℹ️ இந்தப் புத்தகம் ஏற்கனவே பட்டியலில் சேர்க்கப்பட்டுவிட்டது.")
                     else:
                         with st.form("verify_form"):
-                            st.write(f"**தலைப்பு:** {matched_row['Title']}")
-                            st.write(f"**ஆசிரியர்:** {matched_row['Author Name']}")
-                            rec_qty = st.number_input("பெறப்பட்ட படிகள் (Received Qty):", min_value=0, max_value=tot_qty, value=tot_qty)
-                            submitted = st.form_submit_button("பட்டியலில் சேர் (Add to List)")
+                            st.write(f"**புத்தகத் தலைப்பு:** {matched_row['Title']}")
+                            st.write(f"**ஆசிரியர் பெயர்:** {matched_row['Author Name']}")
+                            rec_qty = st.number_input("பெறப்பட்ட படிகள் (எண்ணிக்கை):", min_value=0, max_value=tot_qty, value=tot_qty)
+                            submitted = st.form_submit_button("➕ பட்டியலில் சேர்")
                             
                             if submitted:
                                 not_rec_qty = tot_qty - rec_qty
@@ -166,8 +166,7 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                                     "Isbn": matched_row.get('Isbn', '')
                                 }
                                 st.session_state['verified_list'].append(item)
-                                st.session_state['book_select_key'] += 1  # Reset selectbox
-                                st.success("✅ சேர்க்கப்பட்டது!")
+                                st.success("✅ பட்டியல் சேர்க்கப்பட்டது!")
                                 st.rerun()
 
     # Step 3: Verified Draft Table & Save to Google Sheet
@@ -177,16 +176,22 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
         
         v_df = pd.DataFrame(st.session_state['verified_list'])
         v_df.index = range(1, len(v_df) + 1)
-        st.dataframe(v_df[['Title', 'Author', 'TotalQty', 'ReceivedQty']], use_container_width=True)
+        v_df_tamil = v_df[['Title', 'Author', 'TotalQty', 'ReceivedQty']].rename(columns={
+            'Title': 'புத்தகத் தலைப்பு',
+            'Author': 'ஆசிரியர் பெயர்',
+            'TotalQty': 'மொத்தப் படிகள்',
+            'ReceivedQty': 'பெறப்பட்டவை'
+        })
+        st.dataframe(v_df_tamil, use_container_width=True)
         
         col_sub, col_del = st.columns([3, 1])
         with col_del:
-            if st.button("🗑️ பட்டியலை அழி (Reset List)", use_container_width=True):
+            if st.button("🗑️ பட்டியலை அழி", use_container_width=True):
                 st.session_state['verified_list'] = []
                 st.rerun()
                 
         with col_sub:
-            if st.button("💾 Final Submit (Save to Google Sheet)", use_container_width=True):
+            if st.button("💾 கூகுள் ஷீட்டில் சேமி (Final Submit)", use_container_width=True):
                 try:
                     curr_date = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     rows = []
@@ -200,7 +205,7 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                         ])
                     sheet.append_rows(rows)
                     st.balloons()
-                    st.success("🎉 அனைத்து விவரங்களும் Google Sheet-இல் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
+                    st.success("🎉 அனைத்து விவரங்களும் கூகுள் ஷீட்டில் சேமிக்கப்பட்டன!")
                     st.session_state['verified_list'] = []
                     st.rerun()
                 except Exception as e:
@@ -214,10 +219,10 @@ elif menu_choice == "2. மொத்த பதிப்பாளர் விவ
     
     if vendor_df is not None and not vendor_df.empty:
         vendors_list = vendor_df.iloc[:, 2].dropna().unique().tolist()
-        selected_vendor = st.selectbox("பதிப்பகத்தின் பெயரைத் தேர்ந்தெடுக்கவும்:", vendors_list)
+        selected_vendor = st.selectbox("பதிப்பகத்தின் பெயரைத் தேர்ந்தெடுக்கவும்:", ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + vendors_list)
         
         st.markdown("---")
-        if selected_vendor and book_df is not None and not book_df.empty:
+        if selected_vendor and selected_vendor != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --" and book_df is not None and not book_df.empty:
             filtered_books = book_df[book_df.iloc[:, 9].astype(str).str.strip() == str(selected_vendor).strip()]
             
             st.write(f"### 📄 {selected_vendor} - நூல் விவரங்கள் (மொத்தம்: {len(filtered_books)})")
@@ -236,17 +241,17 @@ elif menu_choice == "3. நூலகத்திற்கு விநியோ�
         lib_col_idx = 12 if book_df.shape[1] > 12 else 0
         libraries = book_df.iloc[:, lib_col_idx].dropna().unique().tolist()
         
-        selected_lib = st.selectbox("நூலகத்தைத் தேர்ந்தெடுக்கவும் (Library Name):", libraries)
+        selected_lib = st.selectbox("நூலகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --"] + libraries)
         
         st.markdown("---")
-        
-        filtered_lib_books = book_df[book_df.iloc[:, lib_col_idx].astype(str).str.strip() == str(selected_lib).strip()]
-        
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            st.write(f"### 📋 {selected_lib} - ஒதுக்கீடு செய்யப்பட்ட நூல்கள் பட்டியல்")
-        with col2:
-            csv_lib = filtered_lib_books.to_csv(index=False).encode('utf-8')
-            st.download_button("🖨️ அறிக்கை பதிவிறக்கம் (Save CSV)", csv_lib, f"{selected_lib}_Distribution.csv", "text/csv")
+        if selected_lib and selected_lib != "-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --":
+            filtered_lib_books = book_df[book_df.iloc[:, lib_col_idx].astype(str).str.strip() == str(selected_lib).strip()]
             
-        st.dataframe(filtered_lib_books, use_container_width=True)
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.write(f"### 📋 {selected_lib} - ஒதுக்கீடு செய்யப்பட்ட நூல்கள் பட்டியல்")
+            with col2:
+                csv_lib = filtered_lib_books.to_csv(index=False).encode('utf-8')
+                st.download_button("📥 அறிக்கை பதிவிறக்கம் (Save CSV)", csv_lib, f"{selected_lib}_Distribution.csv", "text/csv")
+                
+            st.dataframe(filtered_lib_books, use_container_width=True)
