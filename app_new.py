@@ -48,9 +48,6 @@ except Exception as e:
 if 'verified_list' not in st.session_state:
     st.session_state['verified_list'] = []
 
-if 'selected_title_idx' not in st.session_state:
-    st.session_state['selected_title_idx'] = "-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"
-
 # 4. இடதுபுற மெனு (Sidebar Menu)
 st.sidebar.header("📋 முதன்மை பணிகள்")
 menu_choice = st.sidebar.radio(
@@ -148,7 +145,9 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                         with st.form("verify_form"):
                             st.write(f"**புத்தகத் தலைப்பு:** {matched_row['Title']}")
                             st.write(f"**ஆசிரியர் பெயர்:** {matched_row['Author Name']}")
-                            rec_qty = st.number_input("பெறப்பட்ட படிகள் (எண்ணிக்கை):", min_value=0, max_value=tot_qty, value=tot_qty)
+                            
+                            # max_value உயர்த்தப்பட்டுள்ளது (கூடுதல் படிகளையும் பதிவு செய்ய இயலும்)
+                            rec_qty = st.number_input("பெறப்பட்ட படிகள் (எண்ணிக்கை):", min_value=0, max_value=1000, value=tot_qty)
                             submitted = st.form_submit_button("➕ பட்டியலில் சேர்")
                             
                             if submitted:
