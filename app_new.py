@@ -233,10 +233,15 @@ USERS_DATABASE = {
         "role": "Admin",
         "name": "முதன்மை நிர்வாகி (Admin)",
     },
-    "9000000000": {
+    "9787555290": {
         "password_hash": hash_password("123456"),
         "role": "User",
-        "name": "சரிபார்ப்பு பயனர் (User)",
+        "name": "சரிபார்ப்பு பயனர் 1 (User)",
+    },
+    "9751687939": {
+        "password_hash": hash_password("123456"),
+        "role": "User",
+        "name": "சரிபார்ப்பு பயனர் 2 (User)",
     },
 }
 
