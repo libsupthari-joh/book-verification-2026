@@ -226,7 +226,7 @@ if menu_choice == "1. பெறப்பட்ட நூல்கள் சர�
                     st.error(f"❌ பிழை: {e}")
 
 # ---------------------------------------------------------
-# பணி 2: Google Sheet தரவு ஒத்திசைவு (Sync) - நேரடி செல் புதுப்பிப்பு
+# பணி 2: Google Sheet தரவு ஒத்திசைவு (Vendor Name strictly matched)
 # ---------------------------------------------------------
 elif menu_choice == "2. 🔄 Google Sheet தரவு ஒத்திசைவு (Sync)":
     st.subheader("🔄 பதிப்பகம் வாரியாக தரவு ஒத்திசைவு (Vendor Wise Sync)")
@@ -273,13 +273,15 @@ elif menu_choice == "2. 🔄 Google Sheet தரவு ஒத்திசைவ�
                         st.dataframe(pd.DataFrame(filtered_records), use_container_width=True)
 
                         if st.button(f"🚀 {selected_sync_vendor} - தரவை Vendor Wise Sheet-ல் புதுப்பி (Sync Now)", use_container_width=True):
-                            with st.spinner("⏳ கூகுள் ஷீட்டில் Received & Not Received காலம்களில் நேரடியாக எழுதப்படுகிறது..."):
+                            with st.spinner("⏳ சரியான பதிப்பகத்தை சரிபார்த்து புதுப்பிக்கிறது..."):
                                 
                                 vwbd_data = sheet_vendor_wise.get_all_values()
                                 updated_count = 0
 
                                 for rec in filtered_records:
                                     target_title_clean = clean_text(rec["புத்தகத் தலைப்பு"])
+                                    target_vendor_clean = clean_text(rec["பதிப்பகம்"])
+                                    
                                     try:
                                         needed_qty = int(rec["பெறப்பட்ட படிகள்"])
                                     except ValueError:
@@ -288,11 +290,16 @@ elif menu_choice == "2. 🔄 Google Sheet தரவு ஒத்திசைவ�
                                     matched_count = 0
                                     
                                     for r_idx, r_data in enumerate(vwbd_data[1:], start=2):
-                                        if len(r_data) > 1:
-                                            sheet_title_clean = clean_text(r_data[1]) # Col B (Title)
+                                        if len(r_data) > 10:
+                                            sheet_title_clean = clean_text(r_data[4])   # Col E: Title
+                                            sheet_pub_clean = clean_text(r_data[9])     # Col J: Publication Name
+                                            sheet_vendor_clean = clean_text(r_data[10]) # Col K: Vendor Name
                                             
-                                            # தலைப்பு பொருத்தம்
-                                            if (target_title_clean in sheet_title_clean or sheet_title_clean in target_title_clean or target_title_clean[:8] == sheet_title_clean[:8]):
+                                            # பதிப்பகம் (Vendor) மற்றும் புத்தகம் (Title) இரண்டும் சரியாகப் பொருந்துகிறதா எனச் சரிபார்க்கிறது
+                                            is_vendor_matched = (target_vendor_clean == sheet_pub_clean or target_vendor_clean == sheet_vendor_clean)
+                                            is_title_matched = (target_title_clean in sheet_title_clean or sheet_title_clean in target_title_clean or target_title_clean[:8] == sheet_title_clean[:8])
+                                            
+                                            if is_vendor_matched and is_title_matched:
                                                 if matched_count < needed_qty:
                                                     # Col S (19th Column) -> Received = 1
                                                     # Col T (20th Column) -> Not Received = 0
@@ -303,9 +310,9 @@ elif menu_choice == "2. 🔄 Google Sheet தரவு ஒத்திசைவ�
 
                                 if updated_count > 0:
                                     st.balloons()
-                                    st.success(f"✅ வெற்றி! 'Vendor Wise Book Data' தாளில் {updated_count} வரிகளுக்கு Received = 1 மற்றும் Not Received = 0 என நேரடியாக கூகுள் ஷீட்டில் எழுதப்பட்டுவிட்டது!")
+                                    st.success(f"✅ வெற்றி! '{selected_sync_vendor}' பதிப்பகத்தின் சரியான {updated_count} வரிகளுக்கு Received = 1 மற்றும் Not Received = 0 எனப் புதுப்பிக்கப்பட்டுவிட்டது!")
                                 else:
-                                    st.error("❌ புத்தகத் தலைப்புகள் கூகுள் ஷீட்டில் சரியாகப் பொருந்தவில்லை!")
+                                    st.error("❌ தேர்ந்தெடுத்த பதிப்பகம் மற்றும் புத்தக தலைப்புகள் கூகுள் ஷீட்டில் சரியாகப் பொருந்தவில்லை!")
 
         except Exception as e:
             st.error(f"❌ பிழை ஏற்பட்டது: {e}")
