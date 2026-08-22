@@ -30,39 +30,64 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-components.html("""
+# 🎨 தற்போது எந்தப் பக்கத்தில் இருக்கிறோமோ அதற்கு மட்டும் நீல நிறமும், மற்றவற்றுக்கு சாம்பல் நிறமும் தரும் ஜாவாஸ்கிரிப்ட்
+active_page_name = st.session_state.get('current_page', "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
+
+components.html(f"""
     <script>
-    function styleButtons() {
+    function styleButtons() {{
         const buttons = window.parent.document.querySelectorAll('button');
-        buttons.forEach(btn => {
+        const activePage = "{active_page_name}";
+        
+        buttons.forEach(btn => {{
             const text = btn.innerText || btn.textContent;
-            if (text.includes("பதிப்பகத்தை மாற்றுக") || text.includes("தலைப்பை மாற்றுக")) {
+            
+            // பக்கவாட்டு மெனு பொத்தான்களை அடையாளம் காணுதல்
+            if (text.includes("1. பெறப்பட்ட நூல்கள்") || text.includes("2. Google Sheet தரவு") || text.includes("3. மொத்த பதிப்பாளர்") || text.includes("4. நூலகத்திற்கு விநியோகம்") || text.includes("5. Accession எண்கள்")) {{
+                
+                // தற்போதுள்ள பக்கமா என்பதைச் சோதித்தல்
+                let isCurrent = false;
+                if (activePage.includes("1.") && text.includes("1. பெறப்பட்ட நூல்கள்")) isCurrent = true;
+                if (activePage.includes("2.") && text.includes("2. Google Sheet தரவு")) isCurrent = true;
+                if (activePage.includes("3.") && text.includes("3. மொத்த பதிப்பாளர்")) isCurrent = true;
+                if (activePage.includes("4.") && text.includes("4. நூலகத்திற்கு விநியோகம்")) isCurrent = true;
+                if (activePage.includes("5.") && text.includes("5. Accession எண்கள்")) isCurrent = true;
+                
+                if (isCurrent) {{
+                    // active ஆன மெனுவிற்கு நீல நிறம் மற்றும் வெள்ளை எழுத்துக்கள்
+                    btn.style.setProperty('background-color', '#007bff', 'important');
+                    btn.style.setProperty('color', 'white', 'important');
+                    btn.style.setProperty('border', 'none', 'important');
+                }} else {{
+                    // மற்ற மெனுக்களுக்கு சாதாரண வெளிச்சம் / சாம்பல் நிறம்
+                    btn.style.setProperty('background-color', '#f0f2f6', 'important');
+                    btn.style.setProperty('color', '#31333F', 'important');
+                    btn.style.setProperty('border', '1px solid #d6d6d6', 'important');
+                }}
+            }}
+            
+            // இதர இயக்கப் பொத்தான்கள் (Action Buttons)
+            if (text.includes("பதிப்பகத்தை மாற்றுக") || text.includes("தலைப்பை மாற்றுக")) {{
                 btn.style.setProperty('background-color', '#ff9800', 'important');
                 btn.style.setProperty('color', 'white', 'important');
                 btn.style.setProperty('border', 'none', 'important');
                 btn.style.setProperty('border-radius', '8px', 'important');
-            }
-            if (text.includes("கூகுள் ஷீட்டில் சேமி") || text.includes("உள்நுழை") || text.includes("புதுப்பி") || text.includes("Sync to Sheet")) {
+            }}
+            if (text.includes("கூகுள் ஷீட்டில் சேமி") || text.includes("உள்நுழை") || text.includes("புதுப்பி") || text.includes("Sync to Sheet")) {{
                 btn.style.setProperty('background-color', '#28a745', 'important');
                 btn.style.setProperty('color', 'white', 'important');
                 btn.style.setProperty('border', 'none', 'important');
                 btn.style.setProperty('border-radius', '8px', 'important');
-            }
-            if (text.includes("பட்டியலை அழி")) {
+            }}
+            if (text.includes("பட்டியலை அழி")) {{
                 btn.style.setProperty('background-color', '#dc3545', 'important');
                 btn.style.setProperty('color', 'white', 'important');
                 btn.style.setProperty('border', 'none', 'important');
                 btn.style.setProperty('border-radius', '8px', 'important');
-            }
-            if (text.includes("Sync") || text.includes("ஒத்திசை")) {
-                btn.style.setProperty('background-color', '#007bff', 'important');
-                btn.style.setProperty('color', 'white', 'important');
-                btn.style.setProperty('border', 'none', 'important');
-                btn.style.setProperty('border-radius', '8px', 'important');
-            }
-        });
-    }
-    setInterval(styleButtons, 300);
+            }}
+        }});
+    }}
+    setInterval(styleButtons, 200);
     </script>
 """, height=0, width=0)
 
