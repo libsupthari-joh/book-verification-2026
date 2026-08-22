@@ -361,10 +361,10 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                 st.rerun()
 
 # ---------------------------------------------------------
-# பணி 2: Google Sheet தரவு ஒத்திசைவு மற்றும் Vendor Wise Book Data ஷீட்டிற்கு அனுப்புதல்
+# பணி 2: Google Sheet தரவு ஒத்திசைவு (Sync)
 # ---------------------------------------------------------
 elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)":
-    st.subheader("🔄 2. பதிப்பகம் வாரியாக பெறப்பட்ட மற்றும் பெறப்படாத நூல்களின் பட்டியல் & ஒத்திசைவு")
+    st.subheader("🔄 2. பதிப்பகம் வாரியாக பெறப்பட்ட நூல்களின் பட்டியல் & ஒத்திசைவு")
 
     if not sheet_physically or not sheet_vendor_wise:
         st.error("❌ கூகுள் ஷீட் இணைப்புகள் சரியாக இல்லை!")
@@ -372,122 +372,70 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
         try:
             p_records = sheet_physically.get_all_values()
             
-            vwbd_all_data_check = sheet_vendor_wise.get_all_values()
+            # ஏற்கனவே Sync செய்யப்பட்ட பதிப்பகங்களை மட்டும் கண்டறிதல்
+            vwbd_all_data = sheet_vendor_wise.get_all_values()
             synced_vendors = set()
-            if len(vwbd_all_data_check) > 1:
-                for r in vwbd_all_data_check[1:]:
-                    if len(r) > 19:
-                        r_val = str(r[18]).strip()
-                        nr_val = str(r[19]).strip()
-                        if (r_val.isdigit() and int(r_val) > 0) or (nr_val.isdigit() and int(nr_val) > 0):
-                            if len(r) > 10 and str(r[10]).strip():
-                                synced_vendors.add(clean_text(r[10]))
-                            if len(r) > 9 and str(r[9]).strip():
-                                synced_vendors.add(clean_text(r[9]))
+            if len(vwbd_all_data) > 1:
+                for r in vwbd_all_data[1:]:
+                    if len(r) > 18 and str(r[18]).strip() == "1": # Column S-ல் 1 இருந்தால்
+                        synced_vendors.add(clean_text(r[10])) # பதிப்பாளர் பெயர்
 
+            # மீதமுள்ள பதிப்பகங்களை மட்டும் தேர்வு செய்ய
             p_vendors = []
             if len(p_records) > 1:
                 for row in p_records[1:]:
-                    if len(row) >= 2:
+                    if len(row) >= 1:
                         v_raw = row[0]
                         if v_raw and clean_text(v_raw) not in synced_vendors and v_raw not in p_vendors:
                             p_vendors.append(v_raw)
 
             if not p_vendors:
-                st.success("🟢 அனைத்துப் பதிப்பகங்களின் தரவுகளும் வெற்றிகரமாக ஒத்திசைவு செய்யப்பட்டுவிட்டன!")
+                st.success("🟢 அனைத்துப் பதிப்பகங்களின் தரவுகளும் ஏற்கனவே ஒத்திசைவு செய்யப்பட்டுவிட்டன!")
             else:
-                st.markdown("### 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:")
-                selected_sync_vendor = st.selectbox("பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்...", ["-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + p_vendors, label_visibility="collapsed")
+                selected_sync_vendor = st.selectbox("ஒத்திசைவு செய்ய வேண்டிய பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + p_vendors)
 
-                if selected_sync_vendor and selected_sync_vendor != "-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+                if selected_sync_vendor and selected_sync_vendor != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
                     sync_vendor_clean = clean_text(selected_sync_vendor)
-                    rec_books = []
-                    not_rec_books = []
+                    st.write(f"### 📋 {selected_sync_vendor} - விவரங்கள்:")
+                    
+                    # அந்தப் பதிப்பகத்தின் தரவுகளை மட்டும் வடிகட்டவும்
+                    vendor_books = [r for r in p_records[1:] if clean_text(r[0]) == sync_vendor_clean]
+                    df_v = pd.DataFrame(vendor_books, columns=["Vendor", "Title", "Lang", "Auth", "V2", "Total", "Rec", "NotRec", "Date"])
+                    st.dataframe(df_v[['Title', 'Total', 'Rec']], use_container_width=True)
 
-                    for row in p_records[1:]:
-                        if len(row) >= 8 and (clean_text(row[0]) == sync_vendor_clean or clean_text(row[4]) == sync_vendor_clean):
-                            r_qty = int(row[6]) if str(row[6]).isdigit() else 0
-                            nr_qty = int(row[7]) if str(row[7]).isdigit() else 0
-                            
-                            if r_qty > 0:
-                                rec_books.append({"📖 புத்தகத் தலைப்பு": row[1], "🗣️ மொழி": row[2], "📦 பெறப்பட்ட படிகள்": r_qty})
-                            if nr_qty > 0:
-                                not_rec_books.append({"📖 புத்தகத் தலைப்பு": row[1], "🗣️ மொழி": row[2], "❌ பெறப்படாத படிகள்": nr_qty})
-
-                    tab1, tab2 = st.tabs([
-                        "✅ 1. பெறப்பட்ட நூல்களின் விவரம் (Received List)", 
-                        "⚠️ 2. பெறப்படாத நூலகளின் விவரம் (Not Received List)"
-                    ])
-
-                    with tab1:
-                        st.markdown(f"### 📦 {selected_sync_vendor} - பெறப்பட்ட நூல்கள் விவரம்:")
-                        if rec_books:
-                            df_rec = pd.DataFrame(rec_books)
-                            df_rec.index = range(1, len(df_rec) + 1)
-                            st.dataframe(df_rec, use_container_width=True)
-                        else:
-                            st.info("இந்தப் பதிப்பகத்தில் பெறப்பட்ட நூல்கள் எதுவும் இல்லை.")
-
-                    with tab2:
-                        st.markdown(f"### ⚠️ {selected_sync_vendor} - பெறப்படாத நூல்கள் விவரம்:")
-                        if not_rec_books:
-                            df_not_rec = pd.DataFrame(not_rec_books)
-                            df_not_rec.index = range(1, len(df_not_rec) + 1)
-                            st.dataframe(df_not_rec, use_container_width=True)
-                        else:
-                            st.success("பெறப்படாத நூல்கள் எதுவுமில்லை! அனைத்து நூல்களும் பெறப்பட்டுவிட்டன.")
-
-                st.markdown("---")
-                st.markdown("### 🚀 முக்கிய செயல்பாடு: Vendor Wise Book Data ஷீட்டிற்குத் தரவுகளை ஒத்திசைத்தல்")
-                st.info("💡 இந்தப் பொத்தானை அழுத்தினால், பெறப்பட்ட நூல்களின் எண்ணிக்கைக்கேற்ப ஒவ்வொரு நூலக வரிசைக்கும் முறையாக 1 மற்றும் 0 என்ற அடிப்படையில் **Vendor Wise Book Data** ஷீட்டில் பதிவுகள் மாற்றப்படும்.")
-
-                if st.button("🔄 Vendor Wise Book Data ஷீட்டிற்கு அனுப்பு (Sync to Sheet)", key="btn_sync_to_vendor_wise", use_container_width=True):
-                    with st.spinner("⏳ தரவுகள் Vendor Wise Book Data ஷீட்டிற்கு ஒத்திசைவு செய்யப்படுகின்றன... कृपया காத்திருக்கவும்..."):
-                        vwbd_data = sheet_vendor_wise.get_all_values()
-                        batch_updates = []
-                        update_count = 0
-
-                        for rec in p_records[1:]:
-                            if len(rec) >= 8:
-                                pub_name = clean_text(rec[0])
-                                book_title = clean_text(rec[1])
+                    if st.button(f"🚀 {selected_sync_vendor} தரவை மட்டும் ஒத்திசைவு செய்", key="btn_sync_single"):
+                        with st.spinner("⏳ ஒத்திசைவு செய்கிறது..."):
+                            batch_updates = []
+                            # அந்த குறிப்பிட்ட பதிப்பகத்தின் ஒவ்வொரு வரிசையாக எடுத்து ஒப்பிடுதல்
+                            for rec in vendor_books:
+                                target_title = clean_text(rec[1])
                                 r_qty = int(rec[6]) if str(rec[6]).isdigit() else 0
-                                nr_qty = int(rec[7]) if str(rec[7]).isdigit() else 0
-
-                                matched_rows = []
-                                for r_idx, r_data in enumerate(vwbd_data[1:], start=2):
+                                
+                                matched_count = 0
+                                for r_idx, r_data in enumerate(vwbd_all_data[1:], start=2):
                                     if len(r_data) > 10:
                                         s_title = clean_text(r_data[4])
                                         s_pub = clean_text(r_data[9])
                                         s_vendor = clean_text(r_data[10])
 
-                                        if (pub_name == s_pub or pub_name == s_vendor) and (book_title in s_title or s_title in book_title):
-                                            matched_rows.append(r_idx)
-
-                                for i, r_idx in enumerate(matched_rows):
-                                    if i < r_qty:
-                                        batch_updates.append({
-                                            'range': f'S{r_idx}:T{r_idx}',
-                                            'values': [[1, 0]]
-                                        })
-                                    else:
-                                        batch_updates.append({
-                                            'range': f'S{r_idx}:T{r_idx}',
-                                            'values': [[0, 1]]
-                                        })
-                                    update_count += 1
-
-                        if batch_updates:
-                            sheet_vendor_wise.batch_update(batch_updates)
-                        
-                        st.balloons()
-                        st.success(f"🎉 வெற்றி! தரவுகள் Vendor Wise Book Data ஷீட்டிற்கு சரியாக (1 மற்றும் 0 முறையில்) ஒத்திசைவு செய்யப்பட்டன!")
-                        time.sleep(1.5)
-                        st.rerun()
+                                        # பதிப்பாளர் மற்றும் தலைப்பு இரண்டும் பொருந்தினால் மட்டும்
+                                        if (sync_vendor_clean == s_pub or sync_vendor_clean == s_vendor) and (target_title == s_title):
+                                            if matched_count < r_qty:
+                                                batch_updates.append({'range': f'S{r_idx}:T{r_idx}', 'values': [[1, 0]]})
+                                                matched_count += 1
+                                            else:
+                                                break
+                            
+                            if batch_updates:
+                                sheet_vendor_wise.batch_update(batch_updates)
+                                st.success("✅ வெற்றிகரமாக ஒத்திசைக்கப்பட்டது!")
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                st.warning("⚠️ தரவுகள் பொருந்தவில்லை, சரிபார்க்கவும்.")
 
         except Exception as e:
-            st.error(f"❌ பிழை ஏற்பட்டது: {e}")
-
+            st.error(f"❌ பிழை: {e}")
 # ---------------------------------------------------------
 # பணி 3: 480 பதிப்பாளர் விவரங்கள்
 # ---------------------------------------------------------
