@@ -163,14 +163,27 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         str_lit.error("❌ 'Book Supply-2026.xlsx' கோப்பு காணப்படவில்லை!")
         str_lit.stop()
 
+    # ஏற்கனவே Google Sheet-ல் (Physically verified) சேமிக்கப்பட்ட பதிப்பகங்களைச் சேகரித்தல்
+    saved_vendors = set()
+    if sheet_physically:
+        try:
+            records = sheet_physically.get_all_values()
+            for r in records[1:]:
+                if len(r) >= 1 and r[0]:
+                    saved_vendors.add(clean_text(r[0]))
+        except Exception:
+            pass
+
     vendor_list = []
     if not vendor_df.empty:
         for idx, row in vendor_df.iterrows():
             col_b = str(row.iloc[1]).strip() if len(row) > 1 and pd.notna(row.iloc[1]) else ""
             col_c = str(row.iloc[2]).strip() if len(row) > 2 and pd.notna(row.iloc[2]) else ""
             label = col_b if col_b else col_c
-            if label and label.lower() != "nan" and label not in vendor_list:
-                vendor_list.append(label)
+            # ஏற்கனவே சேமிக்கப்பட்ட பதிப்பகங்களை தேர்வில் இருந்து நீக்குதல்
+            if label and label.lower() != "nan" and clean_text(label) not in saved_vendors:
+                if label not in vendor_list:
+                    vendor_list.append(label)
 
     str_lit.markdown("---")
     str_lit.markdown("### 🏢 **1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:**")
@@ -212,7 +225,6 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
             c1.metric("📚 மொத்தத் தலைப்புகள்", len(grouped))
             c2.metric("📦 மொத்தப் படிகள்", int(grouped['Quantity'].sum()))
 
-            # தற்காலிகப் பட்டியலில் ஏற்கனவே சேர்க்கப்பட்ட தலைப்புகள் மட்டும் தவிர்க்கப்படும் (Google Sheet சோதனை நீக்கப்பட்டுவிட்டது)
             added_titles_clean = [clean_text(x['Title']) for x in str_lit.session_state['verified_list']]
             title_options = ["-- 📖 புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"]
             
@@ -299,6 +311,8 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                     str_lit.balloons()
                     str_lit.success("🎉 வெற்றி! அனைத்துத் தரவுகளும் கூகுள் ஷீட்டில் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
                     str_lit.session_state['verified_list'] = []
+                    str_lit.session_state['selected_vendor'] = None  # சேமித்தவுடன் பதிப்பகத் தேர்வை நீக்கிவிடும்
+                    str_lit.session_state['vendor_key'] += 1
                     str_lit.rerun()
                 except Exception as e:
                     str_lit.error(f"❌ பிழை: {e}")
