@@ -81,7 +81,7 @@ if not st.session_state['logged_in']:
             password = st.text_input("🔑 கடவுச்சொல்:", type="password")
             submit = st.form_submit_button("🔓 உள்நுழை (Login)", use_container_width=True)
             if submit:
-                if phone == "9842759306" and password == "635002":
+                if phone == "9876543210" and password == "123456":
                     st.session_state['logged_in'] = True
                     st.success("✅ உள்நுழைவு வெற்றிகரமானது!")
                     st.rerun()
@@ -275,7 +275,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                             st.write(f"📖 **புத்தகத் தலைப்பு:** {matched_row['Title']}")
                             st.write(f"✍️ **ஆசிரியர் பெயர்:** {matched_row['Author Name']}")
                             rec_qty = st.number_input("📦 பெறப்பட்ட படிகள் (எண்ணிக்கை):", min_value=0, max_value=1000, value=tot_qty)
-                            submitted = st.form_submit_button("➕列表中 (Add to List)")
+                            submitted = st.form_submit_button("➕ பட்டியலில் சேர் (Add to List)")
                             
                             if submitted:
                                 not_rec_qty = max(0, tot_qty - rec_qty)
@@ -325,13 +325,12 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                 st.rerun()
 
 # ---------------------------------------------------------
-# பணி 2: Google Sheet தரவு ஒத்திசைவு (Sync)
+# பணி 2: Google Sheet தரவு ஒத்திசைவு (Sync - எண்களுடன்)
 # ---------------------------------------------------------
 elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)":
-    st.subheader("🔄 2. பதிப்பகம் வாரியாக தரவு ஒத்திசைவு (Vendor Wise Sync)")
-    st.info("💡 'Physically Verified' தாளில் சேமிக்கப்பட்டு, 'Vendor Wise Book Data' தாளில் Received = 1 என ஒத்திசைக்கப்படும்.")
+    st.subheader("🔄 2. பதிப்பகம் வாரியாக தரவு ஒத்திசைவு (Strict Received & Accession Rules)")
 
-    if not sheet_physically or not sheet_vendor_wise:
+    if not sheet_physically or not sheet_vendor_wise or not sheet_library_details:
         st.error("❌ கூகுள் ஷீட் இணைப்புகள் சரியாக இல்லை!")
     else:
         try:
@@ -371,38 +370,79 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
                         st.markdown(f"### 📋 {selected_sync_vendor} - ஒத்திசைக்கப்பட வேண்டிய புத்தகங்கள்:")
                         st.dataframe(pd.DataFrame(filtered_records), use_container_width=True)
 
-                        if st.button(f"🚀 {selected_sync_vendor} - தரவை கூகுள் ஷீட்டில் புதுப்பி (Sync Now)", key="btn_sync_now", use_container_width=True):
-                            with st.spinner("⏳ பெறப்பட்ட படிகளின் எண்ணிக்கைக்கு ஏற்ப புதுப்பிக்கப்படுகிறது..."):
+                        if st.button(f"🚀 {selected_sync_vendor} - Accession எண்களுடன் புதுப்பி (Sync Now)", key="btn_sync_now", use_container_width=True):
+                            with st.spinner("⏳ Lib_Detail எண்களின் அடிப்படையில் Accession எண்கள் ஒதுக்கப்படுகின்றன..."):
+                                
+                                # 1. Lib_Detail தாளில் இருந்து F & G பத்திகளை படித்தல்
+                                lib_records = sheet_library_details.get_all_values()
+                                
+                                # Last Central Accession Number (F2 செல்)
+                                last_central_acc = int(lib_records[1][5]) if len(lib_records) > 1 and str(lib_records[1][5]).isdigit() else 1001
+                                
+                                # 103 நூலகங்களின் Last Lib Accession Number (G பத்தி)
+                                lib_acc_map = {}
+                                for idx, r in enumerate(lib_records[1:], start=2):
+                                    if len(r) >= 7:
+                                        code = str(r[1]).strip() # Col B: Lib Code
+                                        g_val = str(r[6]).strip() # Col G: Lib Acc No
+                                        last_lib_acc = int(g_val) if g_val.isdigit() else 1000
+                                        if code:
+                                            lib_acc_map[code] = {'last_acc': last_lib_acc, 'row_idx': idx}
+
+                                curr_central_acc = last_central_acc
                                 updated_count = 0
+
+                                # 2. Vendor Wise Book Data தாளில் U மற்றும் V பத்திகளைப் புதுப்பித்தல்
                                 for rec in filtered_records:
                                     target_title_clean = clean_text(rec["📖 புத்தகத் தலைப்பு"])
                                     target_vendor_clean = clean_text(rec["🏢 பதிப்பகம்"])
                                     needed_qty = int(rec["✅ பெறப்பட்ட படிகள்"]) if str(rec["✅ பெறப்பட்ட படிகள்"]).isdigit() else 0
                                     matched_count = 0
-                                    
+
                                     for r_idx, r_data in enumerate(vwbd_data[1:], start=2):
-                                        if len(r_data) > 10:
+                                        if len(r_data) > 14:
                                             sheet_title_clean = clean_text(r_data[4])
                                             sheet_pub_clean = clean_text(r_data[9])
                                             sheet_vendor_clean = clean_text(r_data[10])
-                                            
+                                            lib_code = str(r_data[14]).strip() # Col O: Lib Code
+
                                             is_vendor_matched = (target_vendor_clean == sheet_pub_clean or target_vendor_clean == sheet_vendor_clean)
-                                            is_title_matched = (target_title_clean in sheet_title_clean or sheet_title_clean in target_title_clean or target_title_clean[:8] == sheet_title_clean[:8])
-                                            
+                                            is_title_matched = (target_title_clean in sheet_title_clean or sheet_title_clean in target_title_clean)
+
                                             if is_vendor_matched and is_title_matched:
+                                                # ✅ பெறப்பட்ட படிகளுக்கு மட்டும் Accession எண்கள்
                                                 if matched_count < needed_qty:
-                                                    sheet_vendor_wise.update_cell(r_idx, 19, 1) # Received = 1
-                                                    sheet_vendor_wise.update_cell(r_idx, 20, 0) # Not Received = 0
+                                                    curr_central_acc += 1
+                                                    
+                                                    if lib_code in lib_acc_map:
+                                                        lib_acc_map[lib_code]['last_acc'] += 1
+                                                        next_lib_acc = lib_acc_map[lib_code]['last_acc']
+                                                    else:
+                                                        next_lib_acc = 1001
+
+                                                    sheet_vendor_wise.update_cell(r_idx, 19, 1)                  # Col S: Received = 1
+                                                    sheet_vendor_wise.update_cell(r_idx, 20, 0)                  # Col T: Not Received = 0
+                                                    sheet_vendor_wise.update_cell(r_idx, 21, curr_central_acc)   # Col U: Central Acc No
+                                                    sheet_vendor_wise.update_cell(r_idx, 22, next_lib_acc)      # Col V: Lib Acc No
+                                                    
                                                     matched_count += 1
                                                     updated_count += 1
+                                                
+                                                # ❌ பெறப்படாத மீதிப் படிகளுக்கு (Blank)
                                                 else:
-                                                    sheet_vendor_wise.update_cell(r_idx, 19, 0) # Received = 0
-                                                    sheet_vendor_wise.update_cell(r_idx, 20, 1) # Not Received = 1
+                                                    sheet_vendor_wise.update_cell(r_idx, 19, 0)  # Col S: Received = 0
+                                                    sheet_vendor_wise.update_cell(r_idx, 20, 1)  # Col T: Not Received = 1
+                                                    sheet_vendor_wise.update_cell(r_idx, 21, "") # Col U: Blank
+                                                    sheet_vendor_wise.update_cell(r_idx, 22, "") # Col V: Blank
 
-                                if updated_count > 0:
-                                    st.balloons()
-                                    st.success(f"🎉 வெற்றி! '{selected_sync_vendor}' பதிப்பகத்திற்குச் சரியாக {updated_count} படிகளுக்கு Received = 1 எனக் கூகுள் ஷீட்டில் புதுப்பிக்கப்பட்டது!")
-                                    st.rerun()
+                                # 3. Lib_Detail தாளில் புதிய எண்களைச் சேமித்தல்
+                                sheet_library_details.update_cell(2, 6, curr_central_acc) # F2 புதுப்பிப்பு
+                                for code, data in lib_acc_map.items():
+                                    sheet_library_details.update_cell(data['row_idx'], 7, data['last_acc']) # Col G புதுப்பிப்பு
+
+                                st.balloons()
+                                st.success(f"🎉 வெற்றி! {updated_count} படிகளுக்கு Accession எண்கள் வெற்றிகரமாக ஒதுக்கப்பட்டன!")
+                                st.rerun()
 
         except Exception as e:
             st.error(f"❌ பிழை ஏற்பட்டது: {e}")
@@ -412,7 +452,6 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
 # ---------------------------------------------------------
 elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)":
     st.subheader("🏢 3. 480 பதிப்பாளர் வாரியான நூல் விவரங்கள் (Live Google Sheet)")
-    
     if not sheet_vendor_wise:
         st.error("❌ கூகுள் ஷீட் 'Vendor Wise Book Data' கிடைக்கவில்லை!")
     else:
@@ -424,18 +463,16 @@ elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் வ�
                 live_vendors = sorted(list(set(live_df[vendor_col].dropna().astype(str).str.strip())))
                 
                 selected_v = st.selectbox("🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + live_vendors)
-                
                 if selected_v and selected_v != "-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
                     filtered_live_df = live_df[live_df[vendor_col].astype(str).str.strip() == selected_v]
                     st.markdown(f"### 📋 {selected_v} - மொத்தப் புத்தகங்கள் ({len(filtered_live_df)})")
                     st.dataframe(filtered_live_df, use_container_width=True)
 
 # ---------------------------------------------------------
-# பணி 4: 103 நூலக விநியோக அறிக்கை (Google Sheet எண்களைப் படித்துக் காண்பித்தல்)
+# பணி 4: நூலகத்திற்கு விநியோகம் (103)
 # ---------------------------------------------------------
 elif menu_choice == "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)":
     st.subheader("🏛️ 4. 103 நூலகங்கள் வாரியான விநியோக அறிக்கை (Report Generator)")
-    
     if not sheet_vendor_wise or not sheet_library_details:
         st.error("❌ கூகுள் ஷீட் தரவுகள் கிடைக்கவில்லை!")
     else:
@@ -443,17 +480,14 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
             vwbd_all_data = sheet_vendor_wise.get_all_values()
             live_df = pd.DataFrame(vwbd_all_data[1:], columns=vwbd_all_data[0])
             
-            # Lib_Detail தாளில் இருந்து 103 நூலக விவரங்களைப் படித்தல்
             lib_records = sheet_library_details.get_all_values()
-            lib_df_details = pd.DataFrame(lib_records[1:], columns=lib_records[0]) if len(lib_records) > 1 else pd.DataFrame()
-
             lib_map = {}
             lib_name_list = []
 
             for r in lib_records[1:]:
                 if len(r) >= 3:
-                    code = str(r[1]).strip() # Col B: Lib Code
-                    name = str(r[2]).strip() # Col C: Library Name
+                    code = str(r[1]).strip()
+                    name = str(r[2]).strip()
                     if name and name.lower() != "nan":
                         lib_map[code] = name
                         if name not in lib_name_list:
@@ -469,8 +503,8 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
             )
 
             if selected_lib_name and selected_lib_name != "-- 🏛️ நூலகத்தைத் தேர்ந்தெடுக்கவும் --":
-                col_o = live_df.columns[14] if len(live_df.columns) > 14 else None # Lib Code
-                col_p = live_df.columns[15] if len(live_df.columns) > 15 else None # Lib Name
+                col_o = live_df.columns[14] if len(live_df.columns) > 14 else None
+                col_p = live_df.columns[15] if len(live_df.columns) > 15 else None
                 
                 selected_code = ""
                 for c_code, c_name in lib_map.items():
@@ -495,7 +529,6 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
                 if filtered_lib_df.empty:
                     st.warning(f"⚠️ **{selected_lib_name}** நூலகத்திற்கு ஒதுக்கீடு செய்யப்பட்ட விவரங்கள் எதுவும் இல்லை!")
                 else:
-                    # பெறப்பட்ட புத்தகங்கள் மட்டும் (Received = 1)
                     rec_col = live_df.columns[18] if len(live_df.columns) > 18 else None
                     if rec_col:
                         rec_df = filtered_lib_df[filtered_lib_df[rec_col].astype(str).str.strip() == "1"]
@@ -508,16 +541,8 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
                     c3.metric("🏛️ நூலகக் குறியீடு (Code)", selected_code if selected_code else "N/A")
 
                     st.markdown(f"### 📋 {selected_lib_name} - விநியோக அறிக்கை (Delivery Report)")
-                    
-                    # அறிக்கையில் காட்ட வேண்டிய முக்கியப் பத்திகள்
-                    display_cols = []
-                    for c in filtered_lib_df.columns:
-                        c_clean = str(c).strip()
-                        display_cols.append(c)
-
                     st.dataframe(filtered_lib_df, use_container_width=True)
 
-                    # அறிக்கை பதிவிறக்கம் (Excel / CSV)
                     st.markdown("---")
                     st.markdown("### 📥 அறிக்கை பதிவிறக்கம் (Download Report):")
                     
