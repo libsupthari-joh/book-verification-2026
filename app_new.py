@@ -9,55 +9,51 @@ import re
 # 1. Streamlit பக்க அமைப்பு
 st.set_page_config(page_title="2026 புதிய நூல்கள் விநியோகம்", layout="wide")
 
-# CSS - பொத்தான்களுக்கான 3D வண்ணங்கள் மற்றும் அளவுகள்
+# CSS - அனைத்து பொத்தான்களுக்கும் நேரடி 3D வடிவமைப்பு
 st.markdown("""
     <style>
-    /* 1. பதிப்பகம் / தலைப்பு மாற்றுக பொத்தான் (Orange 3D) */
-    div[data-testid="stButton"] button[key*="btn_"] {
-        background: linear-gradient(to bottom, #ff9800, #f57c00) !important;
-        color: white !important;
+    /* பொதுவான பொத்தான் 3D தோற்றம் */
+    .stButton > button {
         border: none !important;
+        border-radius: 8px !important;
+        font-weight: bold !important;
+        color: white !important;
+        transition: all 0.1s ease-in-out !important;
+    }
+    
+    /* 1. பதிப்பகத்தை மாற்றுக (ஆரஞ்சு 3D) */
+    div[data-testid="stColumn"]:nth-child(2) .stButton > button {
+        background: linear-gradient(to bottom, #ff9800, #f57c00) !important;
+        box-shadow: 0px 4px 0px #b55d00, 0px 5px 8px rgba(0,0,0,0.3) !important;
         height: 38px !important;
         font-size: 13px !important;
-        font-weight: bold !important;
-        border-radius: 6px !important;
-        box-shadow: 0px 3px 0px #e65100, 0px 4px 6px rgba(0,0,0,0.2) !important;
-        white-space: nowrap !important;
     }
-    div[data-testid="stButton"] button[key*="btn_"]:active {
-        box-shadow: 0px 1px 0px #e65100 !important;
-        transform: translateY(2px) !important;
+    div[data-testid="stColumn"]:nth-child(2) .stButton > button:active {
+        box-shadow: 0px 1px 0px #b55d00 !important;
+        transform: translateY(3px) !important;
     }
 
-    /* 2. கூகுள் ஷீட்டில் சேமி பொத்தான் (Green 3D) */
-    div[data-testid="stButton"] button[key="btn_save"] {
+    /* 2. கூகுள் ஷீட்டில் சேமி (பச்சை 3D) */
+    div[data-testid="stHorizontalBlock"] > div:nth-child(1) .stButton > button {
         background: linear-gradient(to bottom, #4caf50, #388e3c) !important;
-        color: white !important;
-        border: none !important;
+        box-shadow: 0px 4px 0px #1b5e20, 0px 5px 8px rgba(0,0,0,0.3) !important;
         height: 42px !important;
         font-size: 15px !important;
-        font-weight: bold !important;
-        border-radius: 6px !important;
-        box-shadow: 0px 4px 0px #1b5e20, 0px 5px 8px rgba(0,0,0,0.3) !important;
     }
-    div[data-testid="stButton"] button[key="btn_save"]:active {
+    div[data-testid="stHorizontalBlock"] > div:nth-child(1) .stButton > button:active {
         box-shadow: 0px 1px 0px #1b5e20 !important;
         transform: translateY(3px) !important;
     }
 
-    /* 3. பட்டியலை அழி பொத்தான் (Red 3D) */
-    div[data-testid="stButton"] button[key="btn_clear"] {
+    /* 3. பட்டியலை அழி (சிவப்பு 3D) */
+    div[data-testid="stHorizontalBlock"] > div:nth-child(2) .stButton > button {
         background: linear-gradient(to bottom, #f44336, #d32f2f) !important;
-        color: white !important;
-        border: none !important;
+        box-shadow: 0px 4px 0px #8e0000, 0px 5px 8px rgba(0,0,0,0.3) !important;
         height: 42px !important;
         font-size: 15px !important;
-        font-weight: bold !important;
-        border-radius: 6px !important;
-        box-shadow: 0px 4px 0px #b71c1c, 0px 5px 8px rgba(0,0,0,0.3) !important;
     }
-    div[data-testid="stButton"] button[key="btn_clear"]:active {
-        box-shadow: 0px 1px 0px #b71c1c !important;
+    div[data-testid="stHorizontalBlock"] > div:nth-child(2) .stButton > button:active {
+        box-shadow: 0px 1px 0px #8e0000 !important;
         transform: translateY(3px) !important;
     }
     </style>
