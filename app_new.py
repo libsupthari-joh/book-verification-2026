@@ -9,10 +9,10 @@ import re
 # 1. Streamlit பக்க அமைப்பு
 st.set_page_config(page_title="2026 புதிய நூல்கள் விநியோகம்", layout="wide")
 
-# CSS - 3D பொத்தான்கள் மற்றும் வண்ண அமைப்புகள்
+# CSS - பொத்தான்களுக்கான 3D நிறங்கள் மற்றும் தெளிவாகத் தெரியும் அமைப்புகள்
 st.markdown("""
     <style>
-    /* பொதுவான பொத்தான் 3D தோற்றம் */
+    /* பொதுவான பொத்தான் শৈலி */
     .stButton > button, div[data-testid="stForm"] button {
         border: none !important;
         border-radius: 8px !important;
@@ -20,54 +20,56 @@ st.markdown("""
         color: white !important;
         transition: all 0.1s ease-in-out !important;
     }
-    
-    /* 1. பட்டியலில் சேர் (Form Submit Button - 3D பச்சை நிறம்) */
+
+    /* 1. பட்டியலில் சேர் (Form Submit Button - 3D பச்சை) */
     div[data-testid="stForm"] button {
         background: linear-gradient(to bottom, #28a745, #218838) !important;
         box-shadow: 0px 4px 0px #1e7e34, 0px 5px 8px rgba(0,0,0,0.3) !important;
         height: 42px !important;
         font-size: 15px !important;
         width: 100% !important;
+        color: white !important;
     }
     div[data-testid="stForm"] button:active {
         box-shadow: 0px 1px 0px #1e7e34 !important;
         transform: translateY(3px) !important;
     }
 
-    /* 2. பதிப்பகத்தை / தலைப்பை மாற்றுக (ஆரஞ்சு 3D) */
-    div[data-testid="stColumn"]:nth-child(2) .stButton > button {
+    /* 2. கூகுள் ஷீட்டில் புதுப்பி / Sync Now பொத்தான் (3D நீல நிறம்) */
+    div.stButton > button[key="btn_sync_now"], 
+    button[data-testid="baseButton-secondary"][key="btn_sync_now"] {
+        background: linear-gradient(to bottom, #007bff, #0056b3) !important;
+        box-shadow: 0px 4px 0px #004085, 0px 5px 8px rgba(0,0,0,0.3) !important;
+        height: 45px !important;
+        font-size: 16px !important;
+        color: white !important;
+    }
+
+    /* 3. கூகுள் ஷீட்டில் சேமி (Save All - 3D பச்சை) */
+    button[key="btn_save"] {
+        background: linear-gradient(to bottom, #28a745, #218838) !important;
+        box-shadow: 0px 4px 0px #1e7e34, 0px 5px 8px rgba(0,0,0,0.3) !important;
+        height: 42px !important;
+        font-size: 15px !important;
+        color: white !important;
+    }
+
+    /* 4. பட்டியலை அழி (Clear - 3D சிவப்பு) */
+    button[key="btn_clear"] {
+        background: linear-gradient(to bottom, #dc3545, #bd2130) !important;
+        box-shadow: 0px 4px 0px #721c24, 0px 5px 8px rgba(0,0,0,0.3) !important;
+        height: 42px !important;
+        font-size: 15px !important;
+        color: white !important;
+    }
+
+    /* 5. மாற்றுக பொத்தான்கள் (Change Buttons - 3D ஆரஞ்சு) */
+    button[key="btn_v_change"], button[key="btn_b_change"] {
         background: linear-gradient(to bottom, #ff9800, #f57c00) !important;
         box-shadow: 0px 4px 0px #b55d00, 0px 5px 8px rgba(0,0,0,0.3) !important;
         height: 38px !important;
         font-size: 13px !important;
-    }
-    div[data-testid="stColumn"]:nth-child(2) .stButton > button:active {
-        box-shadow: 0px 1px 0px #b55d00 !important;
-        transform: translateY(3px) !important;
-    }
-
-    /* 3. கூகுள் ஷீட்டில் சேமி (பச்சை 3D) */
-    div[data-testid="stHorizontalBlock"] > div:nth-child(1) .stButton > button {
-        background: linear-gradient(to bottom, #4caf50, #388e3c) !important;
-        box-shadow: 0px 4px 0px #1b5e20, 0px 5px 8px rgba(0,0,0,0.3) !important;
-        height: 42px !important;
-        font-size: 15px !important;
-    }
-    div[data-testid="stHorizontalBlock"] > div:nth-child(1) .stButton > button:active {
-        box-shadow: 0px 1px 0px #1b5e20 !important;
-        transform: translateY(3px) !important;
-    }
-
-    /* 4. பட்டியலை அழி (சிவப்பு 3D) */
-    div[data-testid="stHorizontalBlock"] > div:nth-child(2) .stButton > button {
-        background: linear-gradient(to bottom, #f44336, #d32f2f) !important;
-        box-shadow: 0px 4px 0px #8e0000, 0px 5px 8px rgba(0,0,0,0.3) !important;
-        height: 42px !important;
-        font-size: 15px !important;
-    }
-    div[data-testid="stHorizontalBlock"] > div:nth-child(2) .stButton > button:active {
-        box-shadow: 0px 1px 0px #8e0000 !important;
-        transform: translateY(3px) !important;
+        color: white !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -185,11 +187,8 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
 
     st.markdown("---")
 
-    # ==========================================
-    # பகுதி 1: பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்
-    # ==========================================
+    # பகுதி 1: பதிப்பகதைத் தேர்ந்தெடுக்கவும்
     st.markdown("### 🏢 1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:")
-    
     col_v_select, col_v_btn = st.columns([5, 1])
 
     with col_v_select:
@@ -209,9 +208,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
     if selected_vendor_raw and selected_vendor_raw != "-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
         st.session_state['selected_vendor'] = selected_vendor_raw
 
-    # ==========================================
     # பகுதி 2: புத்தகத் தலைப்பதைத் தேர்ந்தெடுக்கவும்
-    # ==========================================
     if st.session_state['selected_vendor']:
         target_vendor_clean = clean_text(st.session_state['selected_vendor'])
         
@@ -252,7 +249,6 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                 st.success("🎉 இந்த பதிப்பகத்தின் அனைத்துப் புத்தகங்களும் ஏற்கனவே சரிபார்க்கப்பட்டுவிட்டன!")
             else:
                 st.markdown("### 📖 2. புத்தகத் தலைப்பதைத் தேர்ந்தெடுக்கவும்:")
-                
                 col_b_select, col_b_btn = st.columns([5, 1])
 
                 with col_b_select:
@@ -268,9 +264,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                         st.session_state['book_key'] += 1
                         st.rerun()
 
-                # ==========================================
                 # பகுதி 3: சரிபார்ப்புப் படிவம் (Form)
-                # ==========================================
                 if selected_title_disp and selected_title_disp != "-- 📖 புத்தகத்தைத் தேர்ந்தெடுக்கவும் --":
                     matched_row = None
                     for idx, row in grouped.iterrows():
@@ -304,9 +298,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                 st.session_state['book_key'] += 1
                                 st.rerun()
 
-    # ==========================================
     # பகுதி 4: சரிபார்க்கப்பட்ட தற்காலிகப் பட்டியல்
-    # ==========================================
     if st.session_state['verified_list']:
         st.markdown("---")
         st.markdown("### 📋 சரிபார்க்கப்பட்ட தற்காலிகப் பட்டியல்:")
@@ -413,6 +405,7 @@ elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவ�
                         st.markdown(f"### 📋 {selected_sync_vendor} - ஒத்திசைக்கப்பட வேண்டிய புத்தகங்கள்:")
                         st.dataframe(pd.DataFrame(filtered_records), use_container_width=True)
 
+                        # திருத்தப்பட்ட 3D நீல நிற பொத்தான்
                         if st.button(f"🚀 {selected_sync_vendor} - தரவை கூகுள் ஷீட்டில் புதுப்பி (Sync Now)", key="btn_sync_now", use_container_width=True):
                             with st.spinner("⏳ சரியான பதிப்பகத்தை சரிபார்த்து புதுப்பிக்கிறது..."):
                                 updated_count = 0
