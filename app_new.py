@@ -10,10 +10,11 @@ import time
 # 1. Streamlit பக்க அமைப்பு
 str_lit.set_page_config(page_title="2026 புதிய நூல்கள் விநியோகம்", layout="wide", initial_sidebar_state="expanded")
 
-# 🎨 பக்கவாட்டு மெனு பட்டன்களுக்கு தனித்துவமான வண்ணங்களுடன் கூடிய 3D CSS
+# 🎨 பக்கவாட்டு மெனு பட்டன்களுக்கு மட்டும் தனித்துவமான வண்ணங்கள் (இதர பட்டன்கள் பாதிக்கப்படாது)
 def get_custom_css():
     return """
     <style>
+    /* பக்கவாட்டு மெனுவில் உள்ள பட்டன்கள் மட்டும் */
     div[data-testid="stSidebar"] button {
         width: 100% !important;
         text-align: left !important;
@@ -496,7 +497,7 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
                     )
 
 # ---------------------------------------------------------
-# பணி 5: Accession எண்கள் மேலாண்மை (இறுதிக்கட்டப் பணி)
+# பணி 5: Accession எண்கள் மேலாண்மை
 # ---------------------------------------------------------
 elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
     str_lit.subheader("⚙️ 5. இறுதிக்கட்டப் பணி: Accession எண்கள் மற்றும் Batch ஒதுக்கீடு மேலாண்மை")
