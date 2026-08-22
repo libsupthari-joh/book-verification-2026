@@ -42,10 +42,8 @@ components.html(f"""
         buttons.forEach(btn => {{
             const text = btn.innerText || btn.textContent;
             
-            // பக்கவாட்டு மெனு பொத்தான்களை அடையாளம் காணுதல்
             if (text.includes("1. பெறப்பட்ட நூல்கள்") || text.includes("2. Google Sheet தரவு") || text.includes("3. மொத்த பதிப்பாளர்") || text.includes("4. நூலகத்திற்கு விநியோகம்") || text.includes("5. Accession எண்கள்")) {{
                 
-                // தற்போதுள்ள பக்கமா என்பதைச் சோதித்தல்
                 let isCurrent = false;
                 if (activePage.includes("1.") && text.includes("1. பெறப்பட்ட நூல்கள்")) isCurrent = true;
                 if (activePage.includes("2.") && text.includes("2. Google Sheet தரவு")) isCurrent = true;
@@ -54,19 +52,16 @@ components.html(f"""
                 if (activePage.includes("5.") && text.includes("5. Accession எண்கள்")) isCurrent = true;
                 
                 if (isCurrent) {{
-                    // active ஆன மெனுவிற்கு நீல நிறம் மற்றும் வெள்ளை எழுத்துக்கள்
                     btn.style.setProperty('background-color', '#007bff', 'important');
                     btn.style.setProperty('color', 'white', 'important');
                     btn.style.setProperty('border', 'none', 'important');
                 }} else {{
-                    // மற்ற மெனுக்களுக்கு சாதாரண வெளிச்சம் / சாம்பல் நிறம்
                     btn.style.setProperty('background-color', '#f0f2f6', 'important');
                     btn.style.setProperty('color', '#31333F', 'important');
                     btn.style.setProperty('border', '1px solid #d6d6d6', 'important');
                 }}
             }}
             
-            // இதர இயக்கப் பொத்தான்கள் (Action Buttons)
             if (text.includes("பதிப்பகத்தை மாற்றுக") || text.includes("தலைப்பை மாற்றுக")) {{
                 btn.style.setProperty('background-color', '#ff9800', 'important');
                 btn.style.setProperty('color', 'white', 'important');
@@ -606,7 +601,7 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
 # ---------------------------------------------------------
 elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை (இறுதிக்கட்டப் பணி)":
     st.subheader("⚙️ 5. இறுதிக்கட்டப் பணி: Accession எண்கள் மற்றும் Batch ஒதுக்கீடு மேலாண்மை")
-    st.info("💡 **குறிப்பு:** அனைத்துப் பதிப்பகங்களின் நூல்களும் முழுமையாகச் சரிபார்க்கப்பட்டு, Vendor Wise Book Data ஷீட்டிற்கு ஒத்திசைவு செய்யப்பட்ட பிறகே இந்தப் பணியைச் செய்ய வேண்டும்.")
+    st.info("💡 **குறிப்பு:** அனைத்துப் பதிப்பகங்களின் நூலகங்களும் முழுமையாகச் சரிபார்க்கப்பட்டு, Vendor Wise Book Data ஷீட்டிற்கு ஒத்திசைவு செய்யப்பட்ட பிறகே இந்தப் பணியைச் செய்ய வேண்டும்.")
 
     if not sheet_library_details or not sheet_vendor_wise or not sheet_physically:
         st.error("❌ கூகுள் ஷீட் தரவுகள் முழுமையாகக் கிடைக்கவில்லை!")
