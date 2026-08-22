@@ -13,7 +13,7 @@ st.set_page_config(page_title="2026 புதிய நூல்கள் வி
 st.markdown("""
     <style>
     /* பொதுவான பொத்தான் 3D தோற்றம் */
-    .stButton > button {
+    .stButton > button, div[data-testid="stForm"] button {
         border: none !important;
         border-radius: 8px !important;
         font-weight: bold !important;
@@ -21,7 +21,20 @@ st.markdown("""
         transition: all 0.1s ease-in-out !important;
     }
     
-    /* 1. பதிப்பகத்தை / தலைப்பை மாற்றுக (ஆரஞ்சு 3D) */
+    /* 1. பட்டியலில் சேர் (Form Submit Button - 3D பச்சை நிறம்) */
+    div[data-testid="stForm"] button {
+        background: linear-gradient(to bottom, #28a745, #218838) !important;
+        box-shadow: 0px 4px 0px #1e7e34, 0px 5px 8px rgba(0,0,0,0.3) !important;
+        height: 42px !important;
+        font-size: 15px !important;
+        width: 100% !important;
+    }
+    div[data-testid="stForm"] button:active {
+        box-shadow: 0px 1px 0px #1e7e34 !important;
+        transform: translateY(3px) !important;
+    }
+
+    /* 2. பதிப்பகத்தை / தலைப்பை மாற்றுக (ஆரஞ்சு 3D) */
     div[data-testid="stColumn"]:nth-child(2) .stButton > button {
         background: linear-gradient(to bottom, #ff9800, #f57c00) !important;
         box-shadow: 0px 4px 0px #b55d00, 0px 5px 8px rgba(0,0,0,0.3) !important;
@@ -33,7 +46,7 @@ st.markdown("""
         transform: translateY(3px) !important;
     }
 
-    /* 2. கூகுள் ஷீட்டில் சேமி (பச்சை 3D) */
+    /* 3. கூகுள் ஷீட்டில் சேமி (பச்சை 3D) */
     div[data-testid="stHorizontalBlock"] > div:nth-child(1) .stButton > button {
         background: linear-gradient(to bottom, #4caf50, #388e3c) !important;
         box-shadow: 0px 4px 0px #1b5e20, 0px 5px 8px rgba(0,0,0,0.3) !important;
@@ -45,7 +58,7 @@ st.markdown("""
         transform: translateY(3px) !important;
     }
 
-    /* 3. பட்டியலை அழி (சிவப்பு 3D) */
+    /* 4. பட்டியலை அழி (சிவப்பு 3D) */
     div[data-testid="stHorizontalBlock"] > div:nth-child(2) .stButton > button {
         background: linear-gradient(to bottom, #f44336, #d32f2f) !important;
         box-shadow: 0px 4px 0px #8e0000, 0px 5px 8px rgba(0,0,0,0.3) !important;
@@ -296,13 +309,11 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
     # ==========================================
     if st.session_state['verified_list']:
         st.markdown("---")
-        # தலைப்பு Bold மற்றும் Icon உடன்
         st.markdown("### 📋 சரிபார்க்கப்பட்ட தற்காலிகப் பட்டியல்:")
         
         v_df = pd.DataFrame(st.session_state['verified_list'])
         v_df.index = range(1, len(v_df) + 1)
 
-        # சீரான Icon-கள் மற்றும் Bold தலைப்புகளுடன் கூடிய அட்டவணை
         st.dataframe(
             v_df[['Vendor', 'Title', 'Language', 'Author', 'TotalQty', 'ReceivedQty']], 
             use_container_width=True,
