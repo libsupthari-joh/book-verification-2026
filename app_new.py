@@ -429,6 +429,7 @@ except Exception as error:
 st.session_state.setdefault("current_page", "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
 st.session_state.setdefault("vendor_key", 0)
 st.session_state.setdefault("selected_vendor", None)
+st.session_state.setdefault("temp_verified_records", [])
 
 st.sidebar.markdown(f"### 👤 {st.session_state['user_name']}")
 role_badge = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
@@ -440,6 +441,7 @@ if st.sidebar.button("🚪 வெளியேறு (Logout)", use_container_wid
     st.session_state["user_role"] = None
     st.session_state["user_name"] = ""
     st.session_state["selected_vendor"] = None
+    st.session_state["temp_verified_records"] = []
     st.rerun()
 
 st.sidebar.markdown("---")
@@ -474,7 +476,7 @@ menu_choice = st.session_state["current_page"]
 
 # --- TASK 1: PHYSICAL VERIFICATION, TARGETED VENDOR SYNC & DRIVE PDF UPLOAD ---
 if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு":
-    st.subheader("📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு போர்ட்டல் (பதிப்பாளர் வாரியாக ஒத்திசைவு)")
+    st.subheader("📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு போர்ட்டல் (தற்காலிகப் பட்டியல் முறை)")
 
     if vendor_df is None or book_df is None:
         st.error("❌ 'Book Supply-2026.xlsx' கோப்பு காணப்படவில்லை!")
@@ -498,7 +500,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
 
     with col_vendor:
         selected_vendor_raw = st.selectbox(
-            "பதிப்பகப் பெயரைத் தேர்ந்தெடுக்கவும்",
+            "பதிப்பகத்தின் முதல் எழுத்துகளை உள்ளீடு செய்து தேர்ந்தெடுக்கவும்",
             ["-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + vendor_list,
             key=f"vendor_select_{st.session_state['vendor_key']}",
             label_visibility="collapsed",
@@ -507,12 +509,14 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
     with col_change:
         if st.button("🔄 மாற்றுக", key="btn_v_change", use_container_width=True):
             st.session_state["selected_vendor"] = None
+            st.session_state["temp_verified_records"] = []
             st.session_state["vendor_key"] += 1
             st.rerun()
 
     if selected_vendor_raw != "-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
         if st.session_state["selected_vendor"] != selected_vendor_raw:
             st.session_state["selected_vendor"] = selected_vendor_raw
+            st.session_state["temp_verified_records"] = []
 
     if st.session_state["selected_vendor"]:
         completed_vendor_name = st.session_state["selected_vendor"]
@@ -544,137 +548,157 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
             c2.metric("📦 மொத்தப் படிகள் (Total Qty)", int(grouped["Quantity"].sum()))
 
             st.markdown("---")
-            st.markdown(f"### 📋 {completed_vendor_name} - புத்தகங்களின் சரிபார்ப்புப் பட்டியல்")
-            st.info("💡 தற்காலிகப் பட்டியலின்படி பெறப்பட வேண்டிய எண்ணிக்கை (Total Qty) தானாக வரும். நீங்கள் நேரில் பெற்ற எண்ணிக்கையை (Received Qty) மட்டும் உள்ளீடு செய்யவும்; பெறப்படாத / கூடுதலாகப் பெறப்பட்ட எண்ணிக்கை தானாகக் கணக்கிடப்படும்.")
+            st.markdown(f"### 🔍 2. தலைப்பைத் தேடித் தற்காலிகப் பட்டியலில் சேர்த்தல்")
+            st.info("💡 தலைப்பின் முதல் 2-3 எழுத்துகளை உள்ளிட்டுத் தேர்ந்து கொள்ளலாம். Total Qty தானாக வரும்; பெறப்பட்ட எண்ணிக்கையை (Received Qty) உள்ளிட்டுத் தற்காலிகப் பட்டியலில் சேர்க்கவும்.")
 
-            display_data = []
-            for idx, row in grouped.iterrows():
-                tot_q = int(row["Quantity"])
-                display_data.append({
-                    "Title": row["Title"],
-                    "Author": row["Author Name"] if pd.notna(row["Author Name"]) else "",
-                    "Language": row["Language"],
-                    "Total Qty": tot_q,
-                    "Received Qty": tot_q,  # பயனாளர் மாற்றி அமைக்கக்கூடியது
-                })
-
-            edit_df = pd.DataFrame(display_data)
-            
-            edited_df = st.data_editor(
-                edit_df,
-                num_rows="fixed",
-                use_container_width=True,
-                key=f"editor_{st.session_state['vendor_key']}",
-                disabled=["Title", "Author", "Language", "Total Qty"]
+            book_titles = grouped["Title"].tolist()
+            selected_title = st.selectbox(
+                "புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும்",
+                ["-- 📖 புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"] + book_titles,
+                key=f"title_select_{st.session_state['vendor_key']}"
             )
 
-            st.markdown("---")
-            if st.button("💾 சரிபார்ப்பைச் சேமித்து Google Sheet & Drive-ல் ஒத்திசைவு செய்", use_container_width=True):
-                if sheet_physically and sheet_vendor_wise:
-                    try:
-                        current_time_str = datetime.now().strftime("%d-%m-%y %H:%M:%S")
-                        v_id_code = vendor_id_map.get(completed_vendor_name, "077")
-                        id_with_vendor = f"{v_id_code}.{completed_vendor_name}"
-                        
-                        final_records_for_pdf = []
+            if selected_title != "-- 📖 புத்தகத்தைத் தேர்ந்தெடுக்கவும் --":
+                book_row = grouped[grouped["Title"] == selected_title].iloc[0]
+                t_author = book_row["Author Name"] if pd.notna(book_row["Author Name"]) else ""
+                t_lang = book_row["Language"]
+                t_total_qty = int(book_row["Quantity"])
 
-                        # 1. 'Physically verified' சீட்டில் பழைய பதிவுகள் நீக்கப்பட்டு புதிய தரவுகள் சேமிக்கப்படுதல்
-                        with st.spinner("படி 1: பழைய பதிவுகள் நீக்கப்பட்டு புதிய தரவுகள் சேமிக்கப்படுகின்றன..."):
-                            phys_data = sheet_physically.get_all_values()
-                            rows_to_delete = []
-                            for r_idx, row_item in enumerate(phys_data[1:], start=2):
-                                if len(row_item) > 4 and (
-                                    target_vendor_clean in clean_text(row_item[4]) or 
-                                    target_vendor_clean in clean_text(row_item[0])
-                                ):
-                                    rows_to_delete.append(r_idx)
-                            
-                            for r_num in sorted(rows_to_delete, reverse=True):
-                                sheet_physically.delete_rows(r_num)
+                col_det1, col_det2, col_det3 = st.columns(3)
+                col_det1.info(f"✍️ ஆசிரியர்: {t_author}")
+                col_det2.info(f"🌐 மொழி: {t_lang}")
+                col_det3.success(f"📦 Total Qty: {t_total_qty}")
 
-                            for _, row in edited_df.iterrows():
-                                t_title = row["Title"]
-                                t_author = row["Author"]
-                                t_lang = row["Language"]
-                                total_q = int(row["Total Qty"])
-                                rec_q = int(row["Received Qty"])
-                                
-                                # பெறப்படாத எண்ணிக்கை மற்றும் கூடுதலாகப் பெறப்பட்ட எண்ணிக்கை கணக்கீடு
-                                not_rec_q = max(0, total_q - rec_q)
-                                extra_q = max(0, rec_q - total_q)
+                rec_qty = st.number_input(
+                    "பெறப்பட்ட எண்ணிக்கை (Received Qty)",
+                    min_value=0,
+                    value=t_total_qty,
+                    step=1,
+                    key=f"rec_inp_{selected_title}"
+                )
 
-                                sheet_physically.append_row([
-                                    id_with_vendor,         # A: ID with Vendor Name
-                                    t_title,                # B: Title
-                                    t_lang,                 # C: Language
-                                    t_author,               # D: Author Name
-                                    completed_vendor_name,  # E: Vendor Name
-                                    total_q,                # F: Total Qty
-                                    rec_q,                  # G: Received Qty
-                                    not_rec_q,              # H: Not Received Qty
-                                    extra_q,                # I: Extra Qty
-                                    current_time_str        # J: Date
-                                ])
+                if st.button("➕ தற்காலிகப் பட்டியலில் சேர்", use_container_width=True):
+                    not_rec = max(0, t_total_qty - rec_qty)
+                    extra = max(0, rec_qty - t_total_qty)
+                    v_id_code = vendor_id_map.get(completed_vendor_name, "077")
+                    id_with_vendor = f"{v_id_code}.{completed_vendor_name}"
 
-                                final_records_for_pdf.append({
-                                    "ID with Vendor Name": id_with_vendor,
-                                    "Title": t_title,
-                                    "Language": t_lang,
-                                    "Author Name": t_author,
-                                    "Vendor Name": completed_vendor_name,
-                                    "Total Qty": total_q,
-                                    "Received": rec_q,
-                                    "Not Received": not_rec_q,
-                                    "Extra Qty": extra_q,
-                                    "Date": current_time_str
-                                })
+                    # ஏற்கனவே பட்டியலில் இருந்தால் புதுப்பிக்கவும் அல்லது சேர்க்கவும்
+                    existing_item = next((item for item in st.session_state["temp_verified_records"] if item["Title"] == selected_title), None)
+                    if existing_item:
+                        existing_item["Received"] = rec_qty
+                        existing_item["Not Received"] = not_rec
+                        existing_item["Extra Qty"] = extra
+                    else:
+                        st.session_state["temp_verified_records"].append({
+                            "ID with Vendor Name": id_with_vendor,
+                            "Title": selected_title,
+                            "Language": t_lang,
+                            "Author Name": t_author,
+                            "Vendor Name": completed_vendor_name,
+                            "Total Qty": t_total_qty,
+                            "Received": rec_qty,
+                            "Not Received": not_rec,
+                            "Extra Qty": extra,
+                            "Date": datetime.now().strftime("%d-%m-%y %H:%M:%S")
+                        })
+                    st.success(f"✅ '{selected_title}' தற்காலிகப் பட்டியலில் வெற்றிகراً சேர்க்கப்பட்டது!")
+                    time.sleep(0.5)
+                    st.rerun()
 
-                        # 2. 'Vendor Wise Book Data' சீட்டில் ஒத்திசைவு செய்றது
-                        with st.spinner("படி 2: 'Vendor Wise Book Data' சீட்டில் ஒத்திசைவு செய்யப்படுகிறது..."):
-                            ws_data = sheet_vendor_wise.get_all_values()
-                            header = ws_data[0]
-                            header_lower = [str(h).strip().lower() for h in header]
-                            s_col = next((i + 1 for i, h in enumerate(header_lower) if "received" in h and "not" not in h), 19)
-                            t_col = next((i + 1 for i, h in enumerate(header_lower) if "not received" in h or ("not" in h and "received" in h)), 20)
-                            
-                            for item in final_records_for_pdf:
-                                t_title = clean_text(item["Title"])
-                                rec_qty = int(item["Received"])
-                                
-                                matching_row_numbers = []
-                                for r_idx, row_item in enumerate(ws_data[1:], start=2):
-                                    row_vendor_match = target_vendor_clean in clean_text(row_item[10] if len(row_item) > 10 else "") or target_vendor_clean in clean_text(row_item[9] if len(row_item) > 9 else "")
-                                    row_title_match = t_title == clean_text(row_item[4] if len(row_item) > 4 else "")
-                                    if row_vendor_match and row_title_match:
-                                        matching_row_numbers.append(r_idx)
-                                
-                                for idx, r_num in enumerate(matching_row_numbers):
-                                    if idx < rec_qty:
-                                        sheet_vendor_wise.update_cell(r_num, s_col, "1")
-                                        sheet_vendor_wise.update_cell(r_num, t_col, "0")
-                                    else:
-                                        sheet_vendor_wise.update_cell(r_num, s_col, "0")
-                                        sheet_vendor_wise.update_cell(r_num, t_col, "1")
+            # தற்காலிகப் பட்டியல் காட்சிப்படுத்துதல்
+            if st.session_state["temp_verified_records"]:
+                st.markdown("---")
+                st.markdown(f"### 📋 {completed_vendor_name} - தற்காலிகச் சரிபார்ப்புப் பட்டியல் ({len(st.session_state['temp_verified_records'])} தலைப்புகள்)")
+                
+                temp_df = pd.DataFrame(st.session_state["temp_verified_records"])
+                st.dataframe(temp_df[["Title", "Author Name", "Language", "Total Qty", "Received", "Not Received", "Extra Qty"]], use_container_width=True)
 
-                        # 3. PDF உருவாக்கி Google Drive-ல் பதிவேற்றுதல்
-                        with st.spinner("படி 3: PDF உருவாக்கப்பட்டு பதிப்பகத்தின் பெயரில் Google Drive-ல் சேமிக்கப்படுகிறது..."):
-                            temp_df_pdf = pd.DataFrame(final_records_for_pdf)
-                            vendor_name_clean = re.sub(r'[^a-zA-Z0-9\u0B80-\u0BFF]', '_', completed_vendor_name)
-                            pdf_bytes = generate_pdf_bytes(temp_df_pdf, completed_vendor_name)
-                            file_name = f"{vendor_name_clean}_Verification_Report.pdf"
-                            upload_pdf_to_drive(pdf_bytes, file_name, GOOGLE_DRIVE_FOLDER_ID)
-
-                        st.success(f"✅ வெற்றிகரமாக முடிக்கப்பட்டது!\n1. '{completed_vendor_name}' பதிப்பாளர் தரவுகள் 'Physically verified' சீட்டில் பழைய பதிவுகள் நீக்கப்பட்டு சரியாகச் சேமிக்கப்பட்டன.\n2. 'Vendor Wise Book Data' சீட்டில் ஒத்திசைவு செய்யப்பட்டது.\n3. Google Drive-ல் PDF சேமிக்கப்பட்டது!")
-                        
-                        st.session_state["selected_vendor"] = None
-                        st.session_state["vendor_key"] += 1
-                        
-                        time.sleep(2)
+                col_clr, col_save = st.columns([1, 2])
+                with col_clr:
+                    if st.button("🗑️ தற்காலிகப் பட்டியலை அழி (Clear)", use_container_width=True):
+                        st.session_state["temp_verified_records"] = []
                         st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ செயல்பாட்டில் பிழை: {e}")
-                else:
-                    st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
+
+                with col_save:
+                    if st.button("💾 தற்காலிகப் பட்டியலை உறுதி செய்து Physically verified சீட் & Drive-ல் சேமி", use_container_width=True):
+                        if sheet_physically and sheet_vendor_wise:
+                            try:
+                                # 1. Physically verified சீட்டில் பழைய பதிவுகளை நீக்குதல்
+                                with st.spinner("படி 1: பழைய பதிவுகள் நீக்கப்பட்டு புதிய தரவுகள் சேமிக்கப்படுகின்றன..."):
+                                    phys_data = sheet_physically.get_all_values()
+                                    rows_to_delete = []
+                                    for r_idx, row_item in enumerate(phys_data[1:], start=2):
+                                        if len(row_item) > 4 and (
+                                            target_vendor_clean in clean_text(row_item[4]) or 
+                                            target_vendor_clean in clean_text(row_item[0])
+                                        ):
+                                            rows_to_delete.append(r_idx)
+                                    
+                                    for r_num in sorted(rows_to_delete, reverse=True):
+                                        sheet_physically.delete_rows(r_num)
+
+                                    for item in st.session_state["temp_verified_records"]:
+                                        sheet_physically.append_row([
+                                            item["ID with Vendor Name"],
+                                            item["Title"],
+                                            item["Language"],
+                                            item["Author Name"],
+                                            item["Vendor Name"],
+                                            item["Total Qty"],
+                                            item["Received"],
+                                            item["Not Received"],
+                                            item["Extra Qty"],
+                                            item["Date"]
+                                        ])
+
+                                # 2. Vendor Wise Book Data சீட்டில் ஒத்திசைவு செய்தல்
+                                with st.spinner("படி 2: 'Vendor Wise Book Data' சீட்டில் ஒத்திசைவு செய்யப்படுகிறது..."):
+                                    ws_data = sheet_vendor_wise.get_all_values()
+                                    header = ws_data[0]
+                                    header_lower = [str(h).strip().lower() for h in header]
+                                    s_col = next((i + 1 for i, h in enumerate(header_lower) if "received" in h and "not" not in h), 19)
+                                    t_col = next((i + 1 for i, h in enumerate(header_lower) if "not received" in h or ("not" in h and "received" in h)), 20)
+                                    
+                                    for item in st.session_state["temp_verified_records"]:
+                                        t_title_clean = clean_text(item["Title"])
+                                        rec_qty = int(item["Received"])
+                                        
+                                        matching_row_numbers = []
+                                        for r_idx, row_item in enumerate(ws_data[1:], start=2):
+                                            row_vendor_match = target_vendor_clean in clean_text(row_item[10] if len(row_item) > 10 else "") or target_vendor_clean in clean_text(row_item[9] if len(row_item) > 9 else "")
+                                            row_title_match = t_title_clean == clean_text(row_item[4] if len(row_item) > 4 else "")
+                                            if row_vendor_match and row_title_match:
+                                                matching_row_numbers.append(r_idx)
+                                        
+                                        for idx, r_num in enumerate(matching_row_numbers):
+                                            if idx < rec_qty:
+                                                sheet_vendor_wise.update_cell(r_num, s_col, "1")
+                                                sheet_vendor_wise.update_cell(r_num, t_col, "0")
+                                            else:
+                                                sheet_vendor_wise.update_cell(r_num, s_col, "0")
+                                                sheet_vendor_wise.update_cell(r_num, t_col, "1")
+
+                                # 3. PDF உருவாக்கி Google Drive-ல் பதிவேற்றுதல்
+                                with st.spinner("படி 3: PDF உருவாக்கப்பட்டு Google Drive-ல் சேமிக்கப்படுகிறது..."):
+                                    temp_df_pdf = pd.DataFrame(st.session_state["temp_verified_records"])
+                                    vendor_name_clean = re.sub(r'[^a-zA-Z0-9\u0B80-\u0BFF]', '_', completed_vendor_name)
+                                    pdf_bytes = generate_pdf_bytes(temp_df_pdf, completed_vendor_name)
+                                    file_name = f"{vendor_name_clean}_Verification_Report.pdf"
+                                    upload_pdf_to_drive(pdf_bytes, file_name, GOOGLE_DRIVE_FOLDER_ID)
+
+                                st.success(f"✅ வெற்றிகரமாக முடிக்கப்பட்டது!\n1. '{completed_vendor_name}' தரவுகள் 'Physically verified' சீட்டில் சேமிக்கப்பட்டன.\n2. Google Sheet ஒத்திசைவு செய்யப்பட்டது.\n3. Google Drive-ல் PDF சேமிக்கப்பட்டது!")
+                                
+                                st.session_state["selected_vendor"] = None
+                                st.session_state["temp_verified_records"] = []
+                                st.session_state["vendor_key"] += 1
+                                
+                                time.sleep(2)
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"❌ செயல்பாட்டில் பிழை: {e}")
+                        else:
+                            st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
 
 
 # --- TASK 2: GOOGLE SHEET DATA SYNC ---
