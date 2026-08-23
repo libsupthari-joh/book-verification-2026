@@ -700,7 +700,6 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
     if book_df is None or book_df.empty:
         st.error("❌ புத்தகத் தரவுகள் கிடைக்கவில்லை!")
     else:
-        # நூலகப் பெயர்களைக் கண்டறிதல்
         lib_list = []
         try:
             lib_name_col_candidate = next((col for col in book_df.columns if "library name" in str(col).lower()), None)
@@ -720,12 +719,6 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
         if selected_library == "-- அனைத்து நூலகங்களும் (All Libraries) --":
             st.markdown("### 📋 அனைத்து நூலகங்களின் Vendor Wise Book Data விவரங்கள்")
             
-            # Column Reordering as requested:
-            # 1. S.No (வ.எண்)
-            # 2. librarianId (Column O equivalent)
-            # 3. Library Name (Column P equivalent)
-            # 4. library Type (Column N equivalent)
-            # 5. Rest of the columns
             temp_all_df = book_df.copy()
             col_map_lower = {str(c).lower().strip(): c for c in temp_all_df.columns}
             
@@ -740,11 +733,14 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
             
             other_cols = [c for c in temp_all_df.columns if c not in reordered_cols]
             final_display_df = temp_all_df[reordered_cols + other_cols].copy()
+            
+            if "S.No" in final_display_df.columns:
+                final_display_df = final_display_df.drop(columns=["S.No"])
+            
             final_display_df.insert(0, "S.No", range(1, len(final_display_df) + 1))
 
             st.dataframe(final_display_df, use_container_width=True, hide_index=True)
 
-            # Download Buttons for All Libraries Vendor Wise Book Data
             st.markdown("---")
             st.markdown("### 📥 தரவிறக்கம் செய்யும் வசதி")
             btn_col1, btn_col2 = st.columns(2)
