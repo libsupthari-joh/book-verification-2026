@@ -265,7 +265,7 @@ elif menu_choice == "4. நூலக வாரியான Accession எண்�
                     with col_btn1:
                         st.download_button(
                             label="📊 Excel கோப்பாக பதிவிறக்குக",
-                            data=excel_excel := excel_data,
+                            data=excel_data,
                             file_name=f"{file_prefix}_Accession_Register.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             use_container_width=True
