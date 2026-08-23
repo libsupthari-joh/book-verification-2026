@@ -863,7 +863,6 @@ elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் வ�
       st.markdown("### 📋 அனைத்து பதிப்பகங்களின் பொதுப் பட்டியல்")
       st.dataframe(vendor_df, use_container_width=True, hide_index=True)
 
-      # Excel Download for Vendor List (using openpyxl engine)
       output = io.BytesIO()
       with pd.ExcelWriter(output, engine="openpyxl") as writer:
         vendor_df.to_excel(writer, index=False, sheet_name="Vendor Summary")
@@ -928,7 +927,6 @@ elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் வ�
         st.markdown(f"### 📋 {selected_vendor_t3} - நூல்களின் முழு விவரங்கள்")
         st.dataframe(filtered_books_t3, use_container_width=True)
 
-        # Excel Download for Specific Vendor (using openpyxl engine)
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
           filtered_books_t3.to_excel(
@@ -947,27 +945,125 @@ elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் வ�
 
 # --- TASK 4: LIBRARY DISTRIBUTION (103) ---
 elif menu_choice == "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)":
-  st.subheader("🏛️ நூலகத்திற்கு விநியோகம் (103)")
-  st.info("💡 நூலக விநியோகம் மற்றும் விவரங்கள் தொடர்பான மேலாண்மைப் பகுதி.")
+  st.subheader("🏛️ 4. நூலகத்திற்கு விநியோகம் (103)")
 
-  if sheet_library_details:
+  if sheet_library_details is None and (vendor_df is None or book_df is None):
+    st.error("❌ நூலகத் தரவுகள் அல்லது புத்தகத் தரவுகள் கிடைக்கவில்லை!")
+  else:
+    lib_list = []
+    lib_df_local = pd.DataFrame()
     try:
       lib_data = sheet_library_details.get_all_values()
-      if lib_data:
-        lib_df = (
-            pd.DataFrame(lib_data[1:], columns=lib_data[0])
-            if len(lib_data) > 1
-            else pd.DataFrame(lib_data)
+      if lib_data and len(lib_data) > 1:
+        lib_df_local = pd.DataFrame(lib_data[1:], columns=lib_data[0])
+        lib_name_col = next(
+            (
+                col
+                for col in lib_df_local.columns
+                if "library name" in str(col).lower()
+                or "library" in str(col).lower()
+            ),
+            (
+                lib_df_local.columns[2]
+                if len(lib_df_local.columns) > 2
+                else lib_df_local.columns[0]
+            ),
         )
-        st.metric("🏛️ மொத்த நூலகங்கள்", len(lib_df))
-        st.markdown("---")
-        st.dataframe(lib_df, use_container_width=True, hide_index=True)
-      else:
-        st.warning("⚠️ நூலக விவரங்கள் சீட்டில் தரவுகள் இல்லை.")
+        lib_list = (
+            lib_df_local[lib_name_col].dropna().astype(str).tolist()
+        )
+        lib_list = [
+            l.strip() for l in lib_list if l.strip() and l.strip().lower() != "nan"
+        ]
     except Exception as e:
-      st.error(f"❌ பிழை: {e}")
-  else:
-    st.warning("⚠️ Google Sheet-ல் 'Library Details' சீட் இணைக்கப்படவில்லை.")
+      st.error(f"❌ நூலகத் தரவுகளை ஏற்றுவதில் பிழை: {e}")
+
+    st.markdown("---")
+    selected_library = st.selectbox(
+        "নூலகத்தைத் தேர்ந்தெடுக்கவும் (Select Library)",
+        ["-- அனைத்து நூலகங்களும் (All Libraries) --"] + lib_list,
+        key="library_select_t4",
+    )
+
+    if selected_library == "-- அனைத்து நூலகங்களும் (All Libraries) --":
+      st.markdown("### 📋 அனைத்து நூலகங்களின் பொதுப் பட்டியல்")
+      if not lib_df_local.empty:
+        st.dataframe(lib_df_local, use_container_width=True, hide_index=True)
+
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+          lib_df_local.to_excel(
+              writer, index=False, sheet_name="Library Summary"
+          )
+        excel_data = output.getvalue()
+
+        st.download_button(
+            label="📥 அனைத்து நூலகப் பட்டியலைப் பதிவிறக்குக (Excel)",
+            data=excel_data,
+            file_name="All_Libraries_Summary.xlsx",
+            mime=(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ),
+        )
+      else:
+        st.warning("⚠️ நூலகத் தரவுகள் எதுவும் இல்லை.")
+    else:
+      if book_df is not None and not book_df.empty:
+        total_titles = len(book_df)
+        total_qty = (
+            int(book_df["Quantity"].sum())
+            if "Quantity" in book_df.columns
+            else 0
+        )
+
+        lang_col_idx = next(
+            (
+                i
+                for i, col in enumerate(book_df.columns)
+                if "lang" in str(col).lower()
+            ),
+            None,
+        )
+        tamil_count = 0
+        english_count = 0
+        if lang_col_idx is not None:
+          lang_series = book_df.iloc[:, lang_col_idx].astype(str)
+          tamil_count = int(
+              lang_series.str.contains("tamil", case=False, na=False).sum()
+          )
+          english_count = int(
+              lang_series.str.contains("english", case=False, na=False).sum()
+          )
+
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("📚 மொத்தத் தலைப்புகள்", total_titles)
+        col2.metric("📦 மொத்தப் படிகள்", total_qty)
+        col3.metric("🇮🇳 தமிழ் நூல்கள்", tamil_count)
+        col4.metric("🇬🇧 ஆங்கில நூல்கள்", english_count)
+
+        st.markdown("---")
+        st.markdown(
+            f"### 📋 {selected_library} - விநியோகிக்கப்பட வேண்டிய நூல்களின் முழு"
+            " விவரங்கள்"
+        )
+        st.dataframe(book_df, use_container_width=True)
+
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+          book_df.to_excel(writer, index=False, sheet_name="Library Distribution")
+        excel_data = output.getvalue()
+
+        safe_lib_name = re.sub(r"[^\w\s]", "", selected_library).strip()
+        st.download_button(
+            label=f"📥 '{selected_library}' நூலகத் தரவைப் பதிவிறக்குக (Excel)",
+            data=excel_data,
+            file_name=f"{safe_lib_name}_Distribution.xlsx",
+            mime=(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ),
+        )
+      else:
+        st.warning("⚠️ புத்தகத் தரவுகள் எதுவும் இல்லை.")
 
 # --- TASK 5: ACCESSION NUMBERS MANAGEMENT ---
 elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
