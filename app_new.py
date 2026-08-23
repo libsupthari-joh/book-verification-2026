@@ -31,7 +31,7 @@ st.set_page_config(
 
 
 # ============================================================
-# 2. UI DESIGN & STYLES (STABLE SIDEBAR)
+# 2. UI DESIGN & STYLES (STABLE SIDEBAR & BOLD HEADERS)
 # ============================================================
 def get_custom_css():
     return """
@@ -269,7 +269,7 @@ def generate_pdf_bytes(df, vendor_name):
             [Paragraph(str(val) if pd.notna(val) else "", normal_style) for val in row]
         )
 
-    t = Table(table_data, colWidths=[70, 115, 45, 75, 35, 35, 35, 45, 65])
+    t = Table(table_data)
     t.setStyle(
         TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#071a38")),
@@ -546,15 +546,15 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                         id_with_vendor = f"{v_id_code}.{completed_vendor_name}"
 
                         st.session_state["temp_verified_records"].append({
-                            "ID with Vendor Name": id_with_vendor,
                             "Title": selected_title,
                             "Language": t_lang,
-                            "Author Name": t_author,
-                            "Vendor Name": completed_vendor_name,
                             "Total Qty": t_total_qty,
                             "Received": rec_qty,
                             "Not Received": not_rec,
                             "Extra Qty": extra,
+                            "ID with Vendor Name": id_with_vendor,
+                            "Author Name": t_author,
+                            "Vendor Name": completed_vendor_name,
                             "Date": datetime.now().strftime("%d-%m-%y %H:%M:%S")
                         })
                         st.success(f"✅ '{selected_title}' சேர்க்கப்பட்டது!")
@@ -566,7 +566,10 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                 st.markdown(f"### 📋 தற்காலிகச் சரிபார்ப்புப் பட்டியல் ({len(st.session_state['temp_verified_records'])} தலைப்புகள்)")
                 
                 temp_df = pd.DataFrame(st.session_state["temp_verified_records"])
-                st.dataframe(temp_df[["Title", "Total Qty", "Received", "Not Received", "Extra Qty"]], use_container_width=True)
+                display_cols = ["Title", "Language", "Total Qty", "Received", "Not Received", "Extra Qty"]
+                
+                # Streamlit dataframe with clean columns order (Title, Language, Total Qty, Received, Not Received, Extra Qty)
+                st.dataframe(temp_df[display_cols], use_container_width=True)
 
                 col_clr, col_save = st.columns(2)
                 with col_clr:
@@ -629,7 +632,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                                 sheet_vendor_wise.update_cell(r_num, s_col, "0")
                                                 sheet_vendor_wise.update_cell(r_num, t_col, "1")
 
-                                    pdf_bytes = generate_pdf_bytes(temp_df, completed_vendor_name)
+                                    pdf_bytes = generate_pdf_bytes(temp_df[display_cols], completed_vendor_name)
                                     file_name = f"{completed_vendor_name}_Verification_Report.pdf"
                                     upload_pdf_to_drive(pdf_bytes, file_name, GOOGLE_DRIVE_FOLDER_ID)
 
