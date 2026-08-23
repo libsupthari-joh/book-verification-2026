@@ -428,9 +428,7 @@ except Exception as error:
 # 6. SIDEBAR & ROLE-BASED NAVIGATION
 # ============================================================
 st.session_state.setdefault("current_page", "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
-st.session_state.setdefault("verified_list", [])
 st.session_state.setdefault("vendor_key", 0)
-st.session_state.setdefault("book_key", 0)
 st.session_state.setdefault("selected_vendor", None)
 
 st.sidebar.markdown(f"### 👤 {st.session_state['user_name']}")
@@ -442,7 +440,6 @@ if st.sidebar.button("🚪 வெளியேறு (Logout)", use_container_wid
     st.session_state["logged_in"] = False
     st.session_state["user_role"] = None
     st.session_state["user_name"] = ""
-    st.session_state["verified_list"] = []
     st.session_state["selected_vendor"] = None
     st.rerun()
 
@@ -485,13 +482,16 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         st.stop()
 
     vendor_list = []
+    vendor_id_map = {}
     if not vendor_df.empty:
         for _, row in vendor_df.iterrows():
+            col_a = str(row.iloc[0]).strip() if len(row) > 0 and pd.notna(row.iloc[0]) else ""
             col_b = str(row.iloc[1]).strip() if len(row) > 1 and pd.notna(row.iloc[1]) else ""
             col_c = str(row.iloc[2]).strip() if len(row) > 2 and pd.notna(row.iloc[2]) else ""
             vendor_name = col_b or col_c
             if vendor_name and vendor_name.lower() != "nan" and vendor_name not in vendor_list:
                 vendor_list.append(vendor_name)
+                vendor_id_map[vendor_name] = col_a
 
     st.markdown("---")
     st.markdown("### 🏢 1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்")
@@ -508,17 +508,17 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
     with col_change:
         if st.button("🔄 மாற்றுக", key="btn_v_change", use_container_width=True):
             st.session_state["selected_vendor"] = None
-            st.session_state["verified_list"] = []
             st.session_state["vendor_key"] += 1
             st.rerun()
 
     if selected_vendor_raw != "-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
         if st.session_state["selected_vendor"] != selected_vendor_raw:
             st.session_state["selected_vendor"] = selected_vendor_raw
-            st.session_state["verified_list"] = []
 
     if st.session_state["selected_vendor"]:
-        target_vendor_clean = clean_text(st.session_state["selected_vendor"])
+        completed_vendor_name = st.session_state["selected_vendor"]
+        target_vendor_clean = clean_text(completed_vendor_name)
+        
         vendor_mask = (
             book_df.iloc[:, 9].apply(clean_text) == target_vendor_clean
         ) | (
@@ -544,102 +544,75 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
             c1.metric("📚 மொத்தத் தலைப்புகள்", len(grouped))
             c2.metric("📦 மொத்தப் படிகள்", int(grouped["Quantity"].sum()))
 
-            added_titles = [
-                clean_text(item["Title"])
-                for item in st.session_state["verified_list"]
-            ]
-            title_options = ["-- 📖 புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"]
+            st.markdown("---")
+            st.markdown(f"### 📋 {completed_vendor_name} - புத்தகங்களின் சரிபார்ப்புப் பட்டியல்")
+            st.info("💡 கீழேயுள்ள அட்டவணையில் ஒவ்வொரு புத்தகத்திற்கும் பெறப்பட்ட படிகளின் எண்ணிக்கையை (Received Qty) சரிபார்த்து மாற்றிக்கொள்ளலாம்.")
 
-            for _, row in grouped.iterrows():
-                title = str(row["Title"]).strip()
-                if clean_text(title) not in added_titles:
-                    author = str(row["Author Name"]).strip() if pd.notna(row["Author Name"]) else ""
-                    title_options.append(f"{title} - {author}" if author else title)
+            display_data = []
+            for idx, row in grouped.iterrows():
+                display_data.append({
+                    "Title": row["Title"],
+                    "Author": row["Author Name"] if pd.notna(row["Author Name"]) else "",
+                    "Language": row["Language"],
+                    "Total Qty": int(row["Quantity"]),
+                    "Received Qty": int(row["Quantity"]),
+                })
 
-            if len(title_options) > 1:
-                st.markdown("### 📖 2. புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும்")
-                col_book, col_book_change = st.columns([5, 1])
+            edit_df = pd.DataFrame(display_data)
+            
+            edited_df = st.data_editor(
+                edit_df,
+                num_rows="fixed",
+                use_container_width=True,
+                key=f"editor_{st.session_state['vendor_key']}",
+                disabled=["Title", "Author", "Language", "Total Qty"]
+            )
 
-                with col_book:
-                    selected_title = st.selectbox(
-                        "புத்தகத்தைத் தேர்ந்தெடுக்கவும்",
-                        title_options,
-                        key=f"book_select_{st.session_state['book_key']}",
-                        label_visibility="collapsed",
-                    )
-
-                with col_book_change:
-                    if st.button("🔄 மாற்றுக", key="btn_b_change", use_container_width=True):
-                        st.session_state["book_key"] += 1
-                        st.rerun()
-
-                if selected_title != "-- 📖 புத்தகத்தைத் தேர்ந்தெடுக்கவும் --":
-                    matched_row = None
-                    for _, row in grouped.iterrows():
-                        title = str(row["Title"]).strip()
-                        author = str(row["Author Name"]).strip() if pd.notna(row["Author Name"]) else ""
-                        display = f"{title} - {author}" if author else title
-                        if display == selected_title:
-                            matched_row = row
-                            break
-
-                    if matched_row is not None:
-                        total_quantity = int(matched_row["Quantity"])
-                        with st.form("verify_form"):
-                            st.write(f"📖 **புத்தகத் தலைப்பு:** {matched_row['Title']}")
-                            st.write(f"✍️ **ஆசிரியர் பெயர்:** {matched_row['Author Name']}")
-                            received_quantity = st.number_input(
-                                "📦 பெறப்பட்ட படிகள்",
-                                min_value=0,
-                                max_value=total_quantity,
-                                value=total_quantity,
-                            )
-                            submitted = st.form_submit_button("➕ பட்டியலில் சேர்")
-
-                        if submitted:
-                            st.session_state["verified_list"].append({
-                                "Vendor": st.session_state["selected_vendor"],
-                                "Title": matched_row["Title"],
-                                "Language": matched_row["Language"],
-                                "Author": matched_row["Author Name"],
-                                "TotalQty": total_quantity,
-                                "ReceivedQty": received_quantity,
-                                "NotReceivedQty": max(0, total_quantity - received_quantity),
-                            })
-                            st.session_state["book_key"] += 1
-                            st.rerun()
-
-    if st.session_state["verified_list"]:
-        st.markdown("---")
-        st.markdown(f"### 📋 {st.session_state['selected_vendor']} - தற்காலிக சரிபார்ப்பு பட்டியல்")
-        temp_df = pd.DataFrame(st.session_state["verified_list"])
-        st.dataframe(temp_df, use_container_width=True)
-
-        col_save, col_clear = st.columns(2)
-        with col_save:
-            if st.button("💾 Physically verified சேமித்து, இந்த பதிப்பகத்திற்கு மட்டும் Google Sheet & Drive-ல் ஒத்திசைவு செய்", use_container_width=True):
+            st.markdown("---")
+            if st.button("💾 சரிபார்ப்பைச் சேமித்து Google Sheet & Drive-ல் ஒத்திசைவு செய்", use_container_width=True):
                 if sheet_physically and sheet_vendor_wise:
                     try:
                         current_time_str = datetime.now().strftime("%d-%m-%y %H:%M:%S")
-                        completed_vendor_name = st.session_state["selected_vendor"]
+                        v_id_code = vendor_id_map.get(completed_vendor_name, "077")
+                        id_with_vendor = f"{v_id_code}.{completed_vendor_name}"
                         
-                        # 1. முதலில் 'Physically verified' சீட்டில் சேமித்தல்
+                        final_records_for_pdf = []
+
+                        # 1. 'Physically verified' சீட்டில் சேமித்தல் (A1:I1 Header order: ID with Vendor Name, Title, Language, Author Name, Vendor Name, Quantity, Received, Not Received, Date)
                         with st.spinner("படி 1: 'Physically verified' சீட்டில் பதிப்பாளர் தரவுகள் சேமிக்கப்படுகின்றன..."):
-                            for item in st.session_state["verified_list"]:
+                            for _, row in edited_df.iterrows():
+                                t_title = row["Title"]
+                                t_author = row["Author"]
+                                t_lang = row["Language"]
+                                total_q = int(row["Total Qty"])
+                                rec_q = int(row["Received Qty"])
+                                not_rec_q = max(0, total_q - rec_q)
+
                                 sheet_physically.append_row([
-                                    f"077.{item['Vendor']}",
-                                    item["Title"],
-                                    item["Language"],
-                                    item["Author"],
-                                    item["TotalQty"],
-                                    item["Vendor"],
-                                    item["TotalQty"],
-                                    item["ReceivedQty"],
-                                    item["NotReceivedQty"],
-                                    current_time_str
+                                    id_with_vendor,         # A: ID with Vendor Name
+                                    t_title,                # B: Title
+                                    t_lang,                 # C: Language
+                                    t_author,               # D: Author Name
+                                    completed_vendor_name,  # E: Vendor Name
+                                    total_q,                # F: Quantity
+                                    rec_q,                  # G: Received
+                                    not_rec_q,              # H: Not Received
+                                    current_time_str        # I: Date
                                 ])
 
-                        # 2. இரண்டாவதாக 'Vendor Wise Book Data' சீட்டில் குறிப்பிட்ட பதிப்பகத்திற்கு மட்டும் ஒத்திசைவு செய்தல்
+                                final_records_for_pdf.append({
+                                    "ID with Vendor Name": id_with_vendor,
+                                    "Title": t_title,
+                                    "Language": t_lang,
+                                    "Author Name": t_author,
+                                    "Vendor Name": completed_vendor_name,
+                                    "Quantity": total_q,
+                                    "Received": rec_q,
+                                    "Not Received": not_rec_q,
+                                    "Date": current_time_str
+                                })
+
+                        # 2. 'Vendor Wise Book Data' சீட்டில் குறிப்பிட்ட பதிப்பகத்திற்கு மட்டும் ஒத்திசைவு செய்தல்
                         with st.spinner("படி 2: 'Vendor Wise Book Data' சீட்டில் இந்த பதிப்பகத்திற்கு மட்டும் ஒத்திசைவு செய்யப்படுகிறது..."):
                             ws_data = sheet_vendor_wise.get_all_values()
                             header = ws_data[0]
@@ -647,16 +620,14 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                             s_col = next((i + 1 for i, h in enumerate(header_lower) if "received" in h and "not" not in h), 19)
                             t_col = next((i + 1 for i, h in enumerate(header_lower) if "not received" in h or ("not" in h and "received" in h)), 20)
                             
-                            target_v_clean = clean_text(completed_vendor_name)
-                            
-                            for item in st.session_state["verified_list"]:
+                            for item in final_records_for_pdf:
                                 t_title = clean_text(item["Title"])
-                                rec_qty = int(item["ReceivedQty"])
+                                rec_qty = int(item["Received"])
                                 
                                 matching_row_numbers = []
-                                for r_idx, row in enumerate(ws_data[1:], start=2):
-                                    row_vendor_match = any(target_v_clean in clean_text(c) for c in row)
-                                    row_title_match = t_title in clean_text(row[9] if len(row) > 9 else "") or t_title in clean_text(row[10] if len(row) > 10 else "") or any(t_title in clean_text(c) for c in row)
+                                for r_idx, row_item in enumerate(ws_data[1:], start=2):
+                                    row_vendor_match = target_v_clean in clean_text(row_item[10] if len(row_item) > 10 else "") or target_v_clean in clean_text(row_item[9] if len(row_item) > 9 else "")
+                                    row_title_match = t_title == clean_text(row_item[4] if len(row_item) > 4 else "")
                                     if row_vendor_match and row_title_match:
                                         matching_row_numbers.append(r_idx)
                                 
@@ -668,17 +639,16 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                         sheet_vendor_wise.update_cell(r_num, s_col, "0")
                                         sheet_vendor_wise.update_cell(r_num, t_col, "1")
 
-                        # 3. மூன்றாவதாக PDF உருவாக்கி குறிப்பிட்ட பதிப்பகத்தின் பெயரில் Google Drive-ல் பதிவேற்றுதல்
+                        # 3. PDF உருவாக்கி Google Drive-ல் பதிவேற்றுதல்
                         with st.spinner("படி 3: PDF உருவாக்கப்பட்டு பதிப்பகத்தின் பெயரில் Google Drive-ல் சேமிக்கப்படுகிறது..."):
+                            temp_df_pdf = pd.DataFrame(final_records_for_pdf)
                             vendor_name_clean = re.sub(r'[^a-zA-Z0-9\u0B80-\u0BFF]', '_', completed_vendor_name)
-                            pdf_bytes = generate_pdf_bytes(temp_df, completed_vendor_name)
+                            pdf_bytes = generate_pdf_bytes(temp_df_pdf, completed_vendor_name)
                             file_name = f"{vendor_name_clean}_Verification_Report.pdf"
                             upload_pdf_to_drive(pdf_bytes, file_name, GOOGLE_DRIVE_FOLDER_ID)
 
-                        st.success(f"✅ வெற்றிகரமாக முடிக்கப்பட்டது!\n1. '{completed_vendor_name}' பதிப்பாளர் தரவுகள் 'Physically verified' சீட்டில் சேமிக்கப்பட்டன.\n2. 'Vendor Wise Book Data' சீட்டில் இந்த பதிப்பகத்திற்கு மட்டும் ஒத்திசைவு செய்யப்பட்டது.\n3. Google Drive ஃபோல்டரில் PDF சேமிக்கப்பட்டது!")
+                        st.success(f"✅ வெற்றிகரமாக முடிக்கப்பட்டது!\n1. '{completed_vendor_name}' பதிப்பாளர் தரவுகள் 'Physically verified' சீட்டில் சரியான தலைப்பு வரிசையில் சேமிக்கப்பட்டன.\n2. 'Vendor Wise Book Data' சீட்டில் ஒத்திசைவு செய்யப்பட்டது.\n3. Google Drive-ல் PDF சேமிக்கப்பட்டது!")
                         
-                        # பதிப்பாளர் மற்றும் பட்டியலைத் தானாக நீக்குதல் (Resetting)
-                        st.session_state["verified_list"] = []
                         st.session_state["selected_vendor"] = None
                         st.session_state["vendor_key"] += 1
                         
@@ -688,11 +658,6 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                         st.error(f"❌ செயல்பாட்டில் பிழை: {e}")
                 else:
                     st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
-
-        with col_clear:
-            if st.button("🗑️ பட்டியலை அழிக்கவும்", use_container_width=True):
-                st.session_state["verified_list"] = []
-                st.rerun()
 
 
 # --- TASK 2: GOOGLE SHEET DATA SYNC ---
