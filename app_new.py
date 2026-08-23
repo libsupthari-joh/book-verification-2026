@@ -693,44 +693,22 @@ elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் வ�
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 )
 
-# --- TASK 4: LIBRARY DISTRIBUTION (103) --- (உங்களது பதிவிறக்க வசதி சேர்க்கப்பட்டுள்ள பகுதி)
+# --- TASK 4: LIBRARY DISTRIBUTION (103) ---
 elif menu_choice == "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)":
     st.subheader("🏛️ 4. நூலகத்திற்கு விநியோகம் (103)")
 
-    if sheet_library_details is None and (vendor_df is None or book_df is None):
-        st.error("❌ நூலகத் தரவுகள் அல்லது புத்தகத் தரவுகள் கிடைக்கவில்லை!")
+    if book_df is None or book_df.empty:
+        st.error("❌ புத்தகத் தரவுகள் கிடைக்கவில்லை!")
     else:
+        # நூலகப் பெயர்களைக் கண்டறிதல்
         lib_list = []
-        lib_df_local = pd.DataFrame()
         try:
-            lib_data = sheet_library_details.get_all_values()
-            if lib_data and len(lib_data) > 1:
-                raw_headers = lib_data[0]
-                cleaned_headers = []
-                seen_headers = {}
-                for i, h in enumerate(raw_headers):
-                    h_str = str(h).strip()
-                    if not h_str or h_str.lower() == "nan":
-                        h_str = f"Column_{i+1}"
-                    if h_str in seen_headers:
-                        seen_headers[h_str] += 1
-                        h_str = f"{h_str}_{seen_headers[h_str]}"
-                    else:
-                        seen_headers[h_str] = 0
-                    cleaned_headers.append(h_str)
-
-                lib_df_local = pd.DataFrame(lib_data[1:], columns=cleaned_headers)
-                for col in lib_df_local.columns:
-                    lib_df_local[col] = lib_df_local[col].astype(str)
-
-                lib_name_col = next(
-                    (col for col in lib_df_local.columns if "library name" in col.lower() or "library" in col.lower() or "நூலகம்" in col),
-                    lib_df_local.columns[1] if len(lib_df_local.columns) > 1 else lib_df_local.columns[0]
-                )
-                lib_list = lib_df_local[lib_name_col].dropna().astype(str).tolist()
+            lib_name_col_candidate = next((col for col in book_df.columns if "library name" in str(col).lower()), None)
+            if lib_name_col_candidate:
+                lib_list = book_df[lib_name_col_candidate].dropna().astype(str).unique().tolist()
                 lib_list = [l.strip() for l in lib_list if l.strip() and l.strip().lower() != "nan"]
-        except Exception as e:
-            st.error(f"❌ நூலகத் தரவுகளை ஏற்றுவதில் பிழை: {e}")
+        except Exception:
+            pass
 
         st.markdown("---")
         selected_library = st.selectbox(
@@ -740,33 +718,76 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
         )
 
         if selected_library == "-- அனைத்து நூலகங்களும் (All Libraries) --":
-            st.markdown("### 📋 அனைத்து நூலகங்களின் பொதுப் பட்டியல்")
-            if not lib_df_local.empty:
-                st.dataframe(lib_df_local, use_container_width=True, hide_index=True)
+            st.markdown("### 📋 அனைத்து நூலகங்களின் Vendor Wise Book Data விவரங்கள்")
+            
+            # Column Reordering as requested:
+            # 1. S.No (வ.எண்)
+            # 2. librarianId (Column O equivalent)
+            # 3. Library Name (Column P equivalent)
+            # 4. library Type (Column N equivalent)
+            # 5. Rest of the columns
+            temp_all_df = book_df.copy()
+            col_map_lower = {str(c).lower().strip(): c for c in temp_all_df.columns}
+            
+            lib_id_col = next((col_map_lower[c] for c in col_map_lower if "librarianid" in c or "lib id" in c or "librarian" in c), temp_all_df.columns[11] if len(temp_all_df.columns) > 11 else None)
+            lib_name_col = next((col_map_lower[c] for c in col_map_lower if "library name" in c), temp_all_df.columns[12] if len(temp_all_df.columns) > 12 else None)
+            lib_type_col = next((col_map_lower[c] for c in col_map_lower if "library type" in c), temp_all_df.columns[10] if len(temp_all_df.columns) > 10 else None)
+            
+            reordered_cols = []
+            if lib_id_col: reordered_cols.append(lib_id_col)
+            if lib_name_col: reordered_cols.append(lib_name_col)
+            if lib_type_col: reordered_cols.append(lib_type_col)
+            
+            other_cols = [c for c in temp_all_df.columns if c not in reordered_cols]
+            final_display_df = temp_all_df[reordered_cols + other_cols].copy()
+            final_display_df.insert(0, "S.No", range(1, len(final_display_df) + 1))
 
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                    lib_df_local.to_excel(writer, index=False, sheet_name="Library Summary")
-                excel_data = output.getvalue()
+            st.dataframe(final_display_df, use_container_width=True, hide_index=True)
 
+            # Download Buttons for All Libraries Vendor Wise Book Data
+            st.markdown("---")
+            st.markdown("### 📥 தரவிறக்கம் செய்யும் வசதி")
+            btn_col1, btn_col2 = st.columns(2)
+
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                final_display_df.to_excel(writer, index=False, sheet_name="Vendor Wise Distribution")
+            excel_data = output.getvalue()
+
+            with btn_col1:
                 st.download_button(
-                    label="📥 அனைத்து நூலகப் பட்டியலைப் பதிவிறக்குக (Excel)",
+                    label="📊 Excel கோப்பாக பதிவிறக்குக",
                     data=excel_data,
-                    file_name="All_Libraries_Summary.xlsx",
+                    file_name="All_Libraries_Vendor_Wise_Distribution.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
                 )
-            else:
-                st.warning("⚠️ நூலகத் தரவுகள் எதுவும் இல்லை.")
-        else:
-            if book_df is not None and not book_df.empty:
-                total_titles = len(book_df)
-                total_qty = int(book_df["Quantity"].sum()) if "Quantity" in book_df.columns else 0
 
-                lang_col_idx = next((i for i, col in enumerate(book_df.columns) if "lang" in str(col).lower()), None)
+            csv_data = final_display_df.to_csv(index=False).encode('utf-8-sig')
+            with btn_col2:
+                st.download_button(
+                    label="📄 CSV கோப்பாக பதிவிறக்குக",
+                    data=csv_data,
+                    file_name="All_Libraries_Vendor_Wise_Distribution.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+        else:
+            lib_name_col_candidate = next((col for col in book_df.columns if "library name" in str(col).lower()), None)
+            if lib_name_col_candidate:
+                filtered_lib_df = book_df[book_df[lib_name_col_candidate].astype(str).str.strip() == selected_library].copy()
+            else:
+                filtered_lib_df = book_df.copy()
+
+            if not filtered_lib_df.empty:
+                total_titles = len(filtered_lib_df)
+                total_qty = int(filtered_lib_df["Quantity"].sum()) if "Quantity" in filtered_lib_df.columns else 0
+
+                lang_col_idx = next((i for i, col in enumerate(filtered_lib_df.columns) if "lang" in str(col).lower()), None)
                 tamil_count = 0
                 english_count = 0
                 if lang_col_idx is not None:
-                    lang_series = book_df.iloc[:, lang_col_idx].astype(str)
+                    lang_series = filtered_lib_df.iloc[:, lang_col_idx].astype(str)
                     tamil_count = int(lang_series.str.contains("tamil", case=False, na=False).sum())
                     english_count = int(lang_series.str.contains("english", case=False, na=False).sum())
 
@@ -778,44 +799,39 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
 
                 st.markdown("---")
                 st.markdown(f"### 📋 {selected_library} - விநியோகிக்கப்பட வேண்டிய நூல்களின் முழு விவரங்கள்")
-                st.dataframe(book_df, use_container_width=True)
+                st.dataframe(filtered_lib_df, use_container_width=True)
 
-                # =========================================================
-                # 📥 பதிவிறக்கப் பொத்தான்கள் (DOWNLOAD BUTTONS)
-                # =========================================================
                 st.markdown("---")
                 st.markdown("### 📥 தரவிறக்கம் செய்யும் வசதி")
                 btn_col1, btn_col2 = st.columns(2)
 
-                # Excel தரவிறக்கம்
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                    book_df.to_excel(writer, index=False, sheet_name="Library Distribution")
+                    filtered_lib_df.to_excel(writer, index=False, sheet_name="Library Distribution")
                 excel_data = output.getvalue()
 
                 safe_lib_name = re.sub(r"[^\w\s]", "", selected_library).strip()
 
                 with btn_col1:
                     st.download_button(
-                        label=f"📊 Excel கோப்பாக பதிவிறக்குக",
+                        label="📊 Excel கோப்பாக பதிவிறக்குக",
                         data=excel_data,
                         file_name=f"{safe_lib_name}_Distribution.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True
                     )
 
-                # CSV தரவிறக்கம்
-                csv_data = book_df.to_csv(index=False).encode('utf-8-sig')
+                csv_data = filtered_lib_df.to_csv(index=False).encode('utf-8-sig')
                 with btn_col2:
                     st.download_button(
-                        label=f"📄 CSV கோப்பாக பதிவிறக்குக",
+                        label="📄 CSV கோப்பாக பதிவிறக்குக",
                         data=csv_data,
                         file_name=f"{safe_lib_name}_Distribution.csv",
                         mime="text/csv",
                         use_container_width=True
                     )
             else:
-                st.warning("⚠️ புத்தகத் தரவுகள் எதுவும் இல்லை.")
+                st.warning("⚠️ இந்த நூலகத்திற்குத் தரவுகள் எதுவும் இல்லை.")
 
 # --- TASK 5: ACCESSION NUMBERS MANAGEMENT ---
 elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
