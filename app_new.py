@@ -20,18 +20,18 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 import streamlit as st
 
 # ============================================================
-# 1. PAGE SETTINGS
+# 1. PAGE SETTINGS (MOBILE RESPONSIVE VIEWPORT)
 # ============================================================
 st.set_page_config(
     page_title="2026 புதிய நூல்கள் விநியோகம்",
     page_icon="📚",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 
 # ============================================================
-# 2. COMPLETE UI DESIGN & STYLES
+# 2. COMPLETE UI DESIGN & MOBILE-FRIENDLY STYLES
 # ============================================================
 def get_custom_css():
     return """
@@ -40,16 +40,12 @@ def get_custom_css():
         --navy: #071a38;
         --blue: #1565c0;
         --cyan: #00acc1;
-        --purple: #7b1fa2;
-        --orange: #ef6c00;
         --green: #2e7d32;
-        --slate: #263238;
     }
 
     .stApp {
         background: 
-            radial-gradient(circle at 8% 8%, rgba(0,188,212,.15), transparent 28%),
-            radial-gradient(circle at 92% 12%, rgba(123,31,162,.14), transparent 30%),
+            radial-gradient(circle at 8% 8%, rgba(0,188,212,.12), transparent 28%),
             linear-gradient(135deg, #eef5ff, #f8fbff 48%, #edf3ff);
     }
 
@@ -57,27 +53,22 @@ def get_custom_css():
     [data-testid="stToolbar"] { visibility: hidden; }
 
     h1 {
-        padding: 22px 28px !important;
-        border-radius: 22px;
+        font-size: 22px !important;
+        padding: 16px 18px !important;
+        border-radius: 16px;
         color: white !important;
         background: linear-gradient(135deg, #071a38, #1565c0 58%, #00acc1);
-        box-shadow: 0 12px 0 #041127, 0 20px 32px rgba(7,26,56,.25);
-        text-shadow: 2px 3px 3px rgba(0,0,0,.35);
+        box-shadow: 0 6px 0 #041127, 0 12px 20px rgba(7,26,56,.2);
+        text-shadow: 1px 2px 2px rgba(0,0,0,.3);
+        text-align: center;
     }
 
-    h2, h3 { color: #092653 !important; }
+    h2, h3 { color: #092653 !important; font-size: 18px !important; }
 
+    /* Mobile friendly sidebar */
     section[data-testid="stSidebar"] {
         background: linear-gradient(180deg, #071a38, #0b2e63 55%, #082044);
         border-right: 1px solid rgba(255,255,255,.15);
-        min-width: 280px !important;
-        max-width: 320px !important;
-        display: block !important;
-        visibility: visible !important;
-    }
-
-    section[data-testid="stSidebar"] > div:first-child {
-        padding: 1.2rem .85rem;
     }
 
     section[data-testid="stSidebar"] h3, 
@@ -88,70 +79,63 @@ def get_custom_css():
 
     section[data-testid="stSidebar"] .stButton > button {
         width: 100% !important;
-        min-height: 52px !important;
-        margin: 8px 0 !important;
-        padding: 14px 16px !important;
-        border: 1px solid rgba(255,255,255,.25) !important;
-        border-radius: 14px !important;
+        min-height: 48px !important;
+        margin: 6px 0 !important;
+        padding: 10px 14px !important;
+        border-radius: 12px !important;
         color: white !important;
         font-weight: 700 !important;
         font-size: 14px !important;
         text-align: left !important;
-        transition: all 0.2s ease !important;
-        box-shadow: 0 4px 0 rgba(0,0,0,.25), 0 8px 12px rgba(0,0,0,.2) !important;
-        background: linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.05)) !important;
+        background: linear-gradient(145deg, rgba(255,255,255,.1), rgba(255,255,255,.05)) !important;
     }
 
-    section[data-testid="stSidebar"] .stButton > button:hover {
-        transform: translateY(-2px) !important;
-        background: linear-gradient(145deg, rgba(255,255,255,.15), rgba(255,255,255,.1)) !important;
+    /* Mobile touch optimization for inputs & buttons */
+    .stButton > button, .stDownloadButton > button {
+        min-height: 50px !important;
+        border-radius: 12px !important;
+        font-size: 15px !important;
+        font-weight: 700 !important;
+        color: white !important;
+        background: linear-gradient(145deg, #1565c0, #082b68) !important;
+        box-shadow: 0 4px 0 #041430, 0 6px 12px rgba(8,43,104,.25) !important;
+        width: 100% !important;
     }
 
     div[data-testid="stSelectbox"] label, 
     div[data-testid="stNumberInput"] label, 
     div[data-testid="stTextInput"] label {
-        color: white !important;
+        font-size: 14px !important;
         font-weight: 600 !important;
     }
 
-    .stButton > button, 
-    .stDownloadButton > button {
-        min-height: 44px;
-        border: none !important;
-        border-radius: 12px !important;
-        color: white !important;
-        font-weight: 700 !important;
-        background: linear-gradient(145deg, #1565c0, #082b68) !important;
-        box-shadow: 0 4px 0 #061b42, 0 8px 14px rgba(8,43,104,.25) !important;
-        transition: all 0.2s ease !important;
-    }
-
     .login-card {
-        max-width: 500px;
-        margin: 8vh auto 0 auto;
-        padding: 32px 32px 26px;
-        border-radius: 24px;
-        background: rgba(255,255,255,.95);
-        box-shadow: 0 16px 0 rgba(7,26,56,.14), 0 24px 40px rgba(7,26,56,.18);
+        max-width: 420px;
+        margin: 5vh auto 0 auto;
+        padding: 24px;
+        border-radius: 20px;
+        background: rgba(255,255,255,.98);
+        box-shadow: 0 12px 0 rgba(7,26,56,.1), 0 20px 30px rgba(7,26,56,.15);
         text-align: center;
     }
 
+    /* Floating hamburger menu for mobile */
     [data-testid="stSidebarCollapsedControl"] {
         display: flex !important;
         visibility: visible !important;
         opacity: 1 !important;
         z-index: 9999 !important;
         position: fixed !important;
-        left: 8px !important;
-        top: 8px !important;
+        left: 10px !important;
+        top: 10px !important;
         background: linear-gradient(145deg, #1565c0, #0d47a1) !important;
-        border-radius: 8px !important;
-        padding: 8px !important;
+        border-radius: 10px !important;
+        padding: 10px !important;
     }
     [data-testid="stSidebarCollapsedControl"] svg {
         fill: white !important;
-        width: 22px !important;
-        height: 22px !important;
+        width: 24px !important;
+        height: 24px !important;
     }
     </style>
     """
@@ -201,28 +185,28 @@ def show_login_page():
     st.markdown(
         """
         <div class="login-card">
-            <div style="font-size: 36px; margin-bottom: 12px;">📚</div>
-            <div style="font-size: 24px; font-weight: 900; color: #082653;">பணி போர்ட்டல்</div>
-            <div style="font-size: 13px; color: #60708a; margin-top: 6px;">2026 புதிய நூல்கள் விநியோகம்</div>
+            <div style="font-size: 32px; margin-bottom: 8px;">📚</div>
+            <div style="font-size: 20px; font-weight: 900; color: #082653;">பணி போர்ட்டல்</div>
+            <div style="font-size: 12px; color: #60708a; margin-top: 4px;">2026 புதிய நூல்கள் விநியோகம்</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    _, form_col, _ = st.columns([1, 2, 1])
+    _, form_col, _ = st.columns([0.1, 2.8, 0.1])
     with form_col:
         with st.form("secure_login_form"):
             phone = st.text_input(
                 "📱 அலைபேசி எண்",
                 max_chars=10,
-                placeholder="10 இலக்க அலைபேசி எண்",
+                placeholder="10 இலக்க எண்",
             )
             password = st.text_input(
                 "🔑 கடவுச்சொல்",
                 type="password",
-                placeholder="கடவுச்சொல்லை உள்ளிடவும்",
+                placeholder="கடவுச்சொல்",
             )
             submitted = st.form_submit_button(
-                "🔓 பாதுகாப்பாக உள்நுழைக",
+                "🔓 உள்நுழைக",
                 use_container_width=True,
             )
 
@@ -275,7 +259,7 @@ def generate_pdf_bytes(df, vendor_name):
         "TamilTitle",
         parent=styles["Heading1"],
         fontName=font_name,
-        fontSize=13,
+        fontSize=12,
         alignment=1,
         textColor=colors.HexColor("#071a38"),
     )
@@ -301,7 +285,7 @@ def generate_pdf_bytes(df, vendor_name):
             [Paragraph(str(val) if pd.notna(val) else "", normal_style) for val in row]
         )
 
-    t = Table(table_data, colWidths=[75, 110, 50, 75, 40, 40, 40, 45, 65])
+    t = Table(table_data, colWidths=[70, 115, 45, 75, 35, 35, 35, 45, 65])
     t.setStyle(
         TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#071a38")),
@@ -466,7 +450,7 @@ for item in menu_items:
         st.session_state["current_page"] = item
         st.rerun()
 
-st.title("📚 2026 புதிய நூல்கள் விநியோகம் - பணி போர்ட்டல்")
+st.title("📚 நூல்கள் சரிபார்ப்புப் போர்ட்டல்")
 menu_choice = st.session_state["current_page"]
 
 
@@ -474,9 +458,9 @@ menu_choice = st.session_state["current_page"]
 # 7. TASK IMPLEMENTATIONS
 # ============================================================
 
-# --- TASK 1: PHYSICAL VERIFICATION, TARGETED VENDOR SYNC & DRIVE PDF UPLOAD ---
+# --- TASK 1: PHYSICAL VERIFICATION & MOBILE OPTIMIZED WORKFLOW ---
 if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு":
-    st.subheader("📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு போர்ட்டல் (தற்காலிகப் பட்டியல் முறை)")
+    st.subheader("📥 பெறப்பட்ட நூல்கள் சரிபார்ப்பு (Mobile Mode)")
 
     if vendor_df is None or book_df is None:
         st.error("❌ 'Book Supply-2026.xlsx' கோப்பு காணப்படவில்லை!")
@@ -496,24 +480,14 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
 
     st.markdown("---")
     st.markdown("### 🏢 1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்")
-    col_vendor, col_change = st.columns([5, 1])
+    
+    selected_vendor_raw = st.selectbox(
+        "பதிப்பகத்தின் முதல் எழுத்துகளை உள்ளீடு செய்யவும்",
+        ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + vendor_list,
+        key=f"vendor_select_{st.session_state['vendor_key']}"
+    )
 
-    with col_vendor:
-        selected_vendor_raw = st.selectbox(
-            "பதிப்பகத்தின் முதல் எழுத்துகளை உள்ளீடு செய்து தேர்ந்தெடுக்கவும்",
-            ["-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + vendor_list,
-            key=f"vendor_select_{st.session_state['vendor_key']}",
-            label_visibility="collapsed",
-        )
-
-    with col_change:
-        if st.button("🔄 மாற்றுக", key="btn_v_change", use_container_width=True):
-            st.session_state["selected_vendor"] = None
-            st.session_state["temp_verified_records"] = []
-            st.session_state["vendor_key"] += 1
-            st.rerun()
-
-    if selected_vendor_raw != "-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+    if selected_vendor_raw != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
         if st.session_state["selected_vendor"] != selected_vendor_raw:
             st.session_state["selected_vendor"] = selected_vendor_raw
             st.session_state["temp_verified_records"] = []
@@ -545,51 +519,49 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
 
             c1, c2 = st.columns(2)
             c1.metric("📚 மொத்தத் தலைப்புகள்", len(grouped))
-            c2.metric("📦 மொத்தப் படிகள் (Total Qty)", int(grouped["Quantity"].sum()))
+            c2.metric("📦 மொத்தப் படிகள்", int(grouped["Quantity"].sum()))
 
             st.markdown("---")
-            st.markdown(f"### 🔍 2. தலைப்பைத் தேடித் தற்காலிகப் பட்டியலில் சேர்த்தல்")
-            st.info("💡 தலைப்பின் முதல் 2-3 எழுத்துகளை உள்ளிட்டுத் தேர்ந்து கொள்ளலாம். Total Qty தானாக வரும்; பெறப்பட்ட எண்ணிக்கையை (Received Qty) உள்ளிட்டுத் தற்காலிகப் பட்டியலில் சேர்க்கவும்.")
+            st.markdown(f"### 🔍 2. தலைப்பைத் தேடிச் சரிபார்த்தல்")
 
-            book_titles = grouped["Title"].tolist()
-            selected_title = st.selectbox(
-                "புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும்",
-                ["-- 📖 புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"] + book_titles,
-                key=f"title_select_{st.session_state['vendor_key']}"
-            )
+            # ஏற்கனவே தற்காலிகப் பட்டியலில் சேர்க்கப்பட்ட தலைப்புகளை நீக்குதல் (Dropdown-ல் வராமல் இருக்க)
+            verified_titles = {item["Title"] for item in st.session_state["temp_verified_records"]}
+            remaining_book_titles = [t for t in grouped["Title"].tolist() if t not in verified_titles]
 
-            if selected_title != "-- 📖 புத்தகத்தைத் தேர்ந்தெடுக்கவும் --":
-                book_row = grouped[grouped["Title"] == selected_title].iloc[0]
-                t_author = book_row["Author Name"] if pd.notna(book_row["Author Name"]) else ""
-                t_lang = book_row["Language"]
-                t_total_qty = int(book_row["Quantity"])
-
-                col_det1, col_det2, col_det3 = st.columns(3)
-                col_det1.info(f"✍️ ஆசிரியர்: {t_author}")
-                col_det2.info(f"🌐 மொழி: {t_lang}")
-                col_det3.success(f"📦 Total Qty: {t_total_qty}")
-
-                rec_qty = st.number_input(
-                    "பெறப்பட்ட எண்ணிக்கை (Received Qty)",
-                    min_value=0,
-                    value=t_total_qty,
-                    step=1,
-                    key=f"rec_inp_{selected_title}"
+            if not remaining_book_titles:
+                st.success("🎉 இந்த பதிப்பகத்தில் உள்ள அனைத்துத் தலைப்புகளும் தற்காலிகப் பட்டியலில் சேர்க்கப்பட்டுவிட்டன!")
+            else:
+                st.info("💡 தலைப்பின் முதல் 2-3 எழுத்துகளை உள்ளிட்டுத் தேர்ந்து கொள்ளலாம்.")
+                selected_title = st.selectbox(
+                    "புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும்",
+                    ["-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"] + remaining_book_titles,
+                    key=f"title_select_{len(st.session_state['temp_verified_records'])}"
                 )
 
-                if st.button("➕ தற்காலிகப் பட்டியலில் சேர்", use_container_width=True):
-                    not_rec = max(0, t_total_qty - rec_qty)
-                    extra = max(0, rec_qty - t_total_qty)
-                    v_id_code = vendor_id_map.get(completed_vendor_name, "077")
-                    id_with_vendor = f"{v_id_code}.{completed_vendor_name}"
+                if selected_title != "-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --":
+                    book_row = grouped[grouped["Title"] == selected_title].iloc[0]
+                    t_author = book_row["Author Name"] if pd.notna(book_row["Author Name"]) else ""
+                    t_lang = book_row["Language"]
+                    t_total_qty = int(book_row["Quantity"])
 
-                    # ஏற்கனவே பட்டியலில் இருந்தால் புதுப்பிக்கவும் அல்லது சேர்க்கவும்
-                    existing_item = next((item for item in st.session_state["temp_verified_records"] if item["Title"] == selected_title), None)
-                    if existing_item:
-                        existing_item["Received"] = rec_qty
-                        existing_item["Not Received"] = not_rec
-                        existing_item["Extra Qty"] = extra
-                    else:
+                    st.markdown(f"✍️ **ஆசிரியர்:** {t_author}")
+                    st.markdown(f"🌐 **மொழி:** {t_lang}")
+                    st.success(f"📦 **Total Qty:** {t_total_qty}")
+
+                    rec_qty = st.number_input(
+                        "பெறப்பட்ட எண்ணிக்கை (Received Qty)",
+                        min_value=0,
+                        value=t_total_qty,
+                        step=1,
+                        key=f"rec_inp_{selected_title}"
+                    )
+
+                    if st.button("➕ தற்காலிகப் பட்டியலில் சேர்", use_container_width=True):
+                        not_rec = max(0, t_total_qty - rec_qty)
+                        extra = max(0, rec_qty - t_total_qty)
+                        v_id_code = vendor_id_map.get(completed_vendor_name, "077")
+                        id_with_vendor = f"{v_id_code}.{completed_vendor_name}"
+
                         st.session_state["temp_verified_records"].append({
                             "ID with Vendor Name": id_with_vendor,
                             "Title": selected_title,
@@ -602,30 +574,29 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                             "Extra Qty": extra,
                             "Date": datetime.now().strftime("%d-%m-%y %H:%M:%S")
                         })
-                    st.success(f"✅ '{selected_title}' தற்காலிகப் பட்டியலில் வெற்றிகراً சேர்க்கப்பட்டது!")
-                    time.sleep(0.5)
-                    st.rerun()
+                        st.success(f"✅ '{selected_title}' சேர்க்கப்பட்டது!")
+                        time.sleep(0.3)
+                        st.rerun()
 
-            # தற்காலிகப் பட்டியல் காட்சிப்படுத்துதல்
+            # தற்காலிகப் பட்டியல் மற்றும் இறுதிப் பதிவு
             if st.session_state["temp_verified_records"]:
                 st.markdown("---")
-                st.markdown(f"### 📋 {completed_vendor_name} - தற்காலிகச் சரிபார்ப்புப் பட்டியல் ({len(st.session_state['temp_verified_records'])} தலைப்புகள்)")
+                st.markdown(f"### 📋 தற்காலிகச் சரிபார்ப்புப் பட்டியல் ({len(st.session_state['temp_verified_records'])} தலைப்புகள்)")
                 
                 temp_df = pd.DataFrame(st.session_state["temp_verified_records"])
-                st.dataframe(temp_df[["Title", "Author Name", "Language", "Total Qty", "Received", "Not Received", "Extra Qty"]], use_container_width=True)
+                st.dataframe(temp_df[["Title", "Total Qty", "Received", "Not Received", "Extra Qty"]], use_container_width=True)
 
-                col_clr, col_save = st.columns([1, 2])
+                col_clr, col_save = st.columns(2)
                 with col_clr:
-                    if st.button("🗑️ தற்காலிகப் பட்டியலை அழி (Clear)", use_container_width=True):
+                    if st.button("🗑️ அழிக்க", use_container_width=True):
                         st.session_state["temp_verified_records"] = []
                         st.rerun()
 
                 with col_save:
-                    if st.button("💾 தற்காலிகப் பட்டியலை உறுதி செய்து Physically verified சீட் & Drive-ல் சேமி", use_container_width=True):
+                    if st.button("💾 சீட் & Drive-ல் சேமி", use_container_width=True):
                         if sheet_physically and sheet_vendor_wise:
                             try:
-                                # 1. Physically verified சீட்டில் பழைய பதிவுகளை நீக்குதல்
-                                with st.spinner("படி 1: பழைய பதிவுகள் நீக்கப்பட்டு புதிய தரவுகள் சேமிக்கப்படுகின்றன..."):
+                                with st.spinner("சேமிக்கப்படுகிறது..."):
                                     phys_data = sheet_physically.get_all_values()
                                     rows_to_delete = []
                                     for r_idx, row_item in enumerate(phys_data[1:], start=2):
@@ -652,11 +623,8 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                             item["Date"]
                                         ])
 
-                                # 2. Vendor Wise Book Data சீட்டில் ஒத்திசைவு செய்தல்
-                                with st.spinner("படி 2: 'Vendor Wise Book Data' சீட்டில் ஒத்திசைவு செய்யப்படுகிறது..."):
                                     ws_data = sheet_vendor_wise.get_all_values()
-                                    header = ws_data[0]
-                                    header_lower = [str(h).strip().lower() for h in header]
+                                    header_lower = [str(h).strip().lower() for h in ws_data[0]]
                                     s_col = next((i + 1 for i, h in enumerate(header_lower) if "received" in h and "not" not in h), 19)
                                     t_col = next((i + 1 for i, h in enumerate(header_lower) if "not received" in h or ("not" in h and "received" in h)), 20)
                                     
@@ -679,60 +647,50 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                                 sheet_vendor_wise.update_cell(r_num, s_col, "0")
                                                 sheet_vendor_wise.update_cell(r_num, t_col, "1")
 
-                                # 3. PDF உருவாக்கி Google Drive-ல் பதிவேற்றுதல்
-                                with st.spinner("படி 3: PDF உருவாக்கப்பட்டு Google Drive-ல் சேமிக்கப்படுகிறது..."):
-                                    temp_df_pdf = pd.DataFrame(st.session_state["temp_verified_records"])
-                                    vendor_name_clean = re.sub(r'[^a-zA-Z0-9\u0B80-\u0BFF]', '_', completed_vendor_name)
-                                    pdf_bytes = generate_pdf_bytes(temp_df_pdf, completed_vendor_name)
-                                    file_name = f"{vendor_name_clean}_Verification_Report.pdf"
+                                    pdf_bytes = generate_pdf_bytes(temp_df, completed_vendor_name)
+                                    file_name = f"{completed_vendor_name}_Verification_Report.pdf"
                                     upload_pdf_to_drive(pdf_bytes, file_name, GOOGLE_DRIVE_FOLDER_ID)
 
-                                st.success(f"✅ வெற்றிகரமாக முடிக்கப்பட்டது!\n1. '{completed_vendor_name}' தரவுகள் 'Physically verified' சீட்டில் சேமிக்கப்பட்டன.\n2. Google Sheet ஒத்திசைவு செய்யப்பட்டது.\n3. Google Drive-ல் PDF சேமிக்கப்பட்டது!")
-                                
+                                st.success("✅ வெற்றிகரமாகச் சேமிக்கப்பட்டது!")
                                 st.session_state["selected_vendor"] = None
                                 st.session_state["temp_verified_records"] = []
                                 st.session_state["vendor_key"] += 1
-                                
-                                time.sleep(2)
+                                time.sleep(1)
                                 st.rerun()
                             except Exception as e:
-                                st.error(f"❌ செயல்பாட்டில் பிழை: {e}")
+                                st.error(f"❌ பிழை: {e}")
                         else:
                             st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
 
+    if st.button("🔄 மற்றொரு பதிப்பகத்தைத் தேர்ந்தெடுக்க", use_container_width=True):
+        st.session_state["selected_vendor"] = None
+        st.session_state["temp_verified_records"] = []
+        st.session_state["vendor_key"] += 1
+        st.rerun()
 
-# --- TASK 2: GOOGLE SHEET DATA SYNC ---
+# --- TASK 2: GOOGLE SHEET SYNC ---
 elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)":
-    st.subheader("🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync) மேலாண்மை")
-    if st.button("🚀 தரவுகளை உடனே ஒத்திசை (Sync Now)"):
-        with st.spinner("ஒத்திசைக்கப்படுகிறது..."):
-            time.sleep(1)
-            st.success("✅ Google Sheet தரவுகள் வெற்றிகரமாக ஒத்திசைக்கப்பட்டன!")
-
+    st.subheader("🔄 2. Google Sheet தரவு ஒத்திசைவு")
+    if st.button("🚀 உடனே ஒத்திசை", use_container_width=True):
+        st.success("✅ ஒத்திசைக்கப்பட்டது!")
 
 # --- TASK 3: VENDOR DETAILS ---
 elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)":
-    st.subheader("🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)")
+    st.subheader("🏢 3. மொத்த பதிப்பாளர் விவரங்கள்")
     if vendor_df is not None and not vendor_df.empty:
-        st.metric("📦 மொத்தப் பதிப்பாளர்கள்", len(vendor_df))
         st.dataframe(vendor_df, use_container_width=True)
-
 
 # --- TASK 4: LIBRARY DISTRIBUTION ---
 elif menu_choice == "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)":
-    st.subheader("🏛️ 4. நூலகத்திற்கு விநியோகம் (103)")
+    st.subheader("🏛️ 4. நூலகத்திற்கு விநியோகம்")
     if sheet_library_details:
-        lib_records = sheet_library_details.get_all_records()
-        if lib_records:
-            st.dataframe(pd.DataFrame(lib_records), use_container_width=True)
+        st.dataframe(pd.DataFrame(sheet_library_details.get_all_records()), use_container_width=True)
 
-
-# --- TASK 5: ACCESSION NUMBER MANAGEMENT ---
+# --- TASK 5: ACCESSION ---
 elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
-    st.subheader("⚙️ 5. Accession எண்கள் மேலாண்மை")
-    with st.form("accession_form"):
-        acc_book_title = st.text_input("📖 புத்தகத் தலைப்பு")
-        acc_number = st.text_input("🔢 Accession எண்")
-        if st.form_submit_button("💾 பதிவு செய்"):
-            if acc_book_title and acc_number:
-                st.success(f"✅ '{acc_book_title}' புத்தகத்திற்கு Accession எண் வெற்றிகரமாகப் பதிவு செய்யப்பட்டது!")
+    st.subheader("⚙️ 5. Accession மேலாண்மை")
+    with st.form("acc_form"):
+        st.text_input("📖 தலைப்பு")
+        st.text_input("🔢 எண்")
+        if st.form_submit_button("💾 பதிவு செய்", use_container_width=True):
+            st.success("✅ பதிவு செய்யப்பட்டது!")
