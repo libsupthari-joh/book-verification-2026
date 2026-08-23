@@ -295,7 +295,6 @@ st.session_state.setdefault("current_page", "📥 1. பெறப்பட்ட
 st.session_state.setdefault("vendor_key", 0)
 st.session_state.setdefault("selected_vendor", None)
 st.session_state.setdefault("temp_verified_records", [])
-st.session_state.setdefault("completed_sync_vendors", [])
 
 st.sidebar.markdown(f"### 👤 {st.session_state['user_name']}")
 role_badge = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
@@ -308,7 +307,6 @@ if st.sidebar.button("🚪 வெளியேறு (Logout)", use_container_wid
     st.session_state["user_name"] = ""
     st.session_state["selected_vendor"] = None
     st.session_state["temp_verified_records"] = []
-    st.session_state["completed_sync_vendors"] = []
     st.query_params.clear()
     st.rerun()
 
@@ -339,7 +337,7 @@ menu_choice = st.session_state["current_page"]
 
 
 # ============================================================
-# 6. TASK IMPLEMENTATIONS
+# 6. TASK IMPLEMENTATIONS (INDEPENDENT & SECURE)
 # ============================================================
 
 # --- TASK 1: PHYSICAL VERIFICATION ---
@@ -593,7 +591,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
 # --- TASK 2: VENDOR WISE BOOK DATA SYNC ---
 elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்":
     st.subheader("🔄 Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை ஒத்திசைவு (Sync)")
-    st.info("💡 Physically verified சீட்டில் சரிபார்க்கப்பட்ட பதிப்பகங்கள் மட்டுமே கீழே தோன்றும்.")
+    st.info("💡 Physically verified சீட்டில் உள்ள பதிப்பகங்கள் கீழே தோன்றும். ஒத்திசைவு செய்யப்பட்டவை குறிக்கப்படும்.")
 
     if sheet_physically is None or sheet_vendor_wise is None:
         st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
@@ -611,16 +609,13 @@ elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்க�
                 if v_name not in phys_vendors:
                     phys_vendors.append(v_name)
 
-        completed_syncs = st.session_state["completed_sync_vendors"]
-        available_vendors_t2 = [v for v in phys_vendors if v not in completed_syncs]
-
-        if not available_vendors_t2:
-            st.success("🎉 அனைத்து பதிப்பகங்களின் ஒத்திசைவுப் பணிகளும் முடிவுற்றன!")
+        if not phys_vendors:
+            st.warning("⚠️ Physically Verified சீட்டில் பதிப்பகங்கள் எதுவும் இல்லை.")
         else:
             st.markdown("---")
             selected_vendor_t2 = st.selectbox(
                 "ஒத்திசைவு செய்ய வேண்டிய பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்",
-                ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + available_vendors_t2,
+                ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + phys_vendors,
                 key="vendor_select_t2"
             )
 
@@ -709,8 +704,7 @@ elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்க�
                             if cell_list:
                                 sheet_vendor_wise.update_cells(cell_list)
 
-                            st.success(f"✅ **{selected_vendor_t2}** பதிப்பகத்தின் தரவுகள் ஒத்திசைவு செய்யப்பட்டன!")
-                            st.session_state["completed_sync_vendors"].append(selected_vendor_t2)
+                            st.success(f"✅ **{selected_vendor_t2}** பதிப்பகத்தின் தரவுகள் வெற்றிகரமாக ஒத்திசைவு செய்யப்பட்டன!")
                             time.sleep(1)
                             st.rerun()
     except Exception as e:
@@ -725,8 +719,7 @@ elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் வ�
         st.metric("📦 மொத்த பதிப்பகங்கள்", len(vendor_df))
         st.markdown("---")
         
-        # Search filter
-        search_v = st.text_input("🔍 பதிப்பாளர் பெயரைத் தேടவும் (Search Vendor)")
+        search_v = st.text_input("🔍 பதிப்பாளர் பெயரைத் தேடவும் (Search Vendor)")
         display_v_df = vendor_df
         if search_v:
             mask_v = vendor_df.astype(str).apply(lambda x: x.str.contains(search_v, case=False, na=False)).any(axis=1)
