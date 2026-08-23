@@ -294,6 +294,7 @@ st.session_state.setdefault("current_page", "📥 1. பெறப்பட்ட
 st.session_state.setdefault("vendor_key", 0)
 st.session_state.setdefault("selected_vendor", None)
 st.session_state.setdefault("temp_verified_records", [])
+st.session_state.setdefault("completed_sync_vendors", [])
 
 st.sidebar.markdown(f"### 👤 {st.session_state['user_name']}")
 role_badge = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
@@ -306,6 +307,7 @@ if st.sidebar.button("🚪 வெளியேறு (Logout)", use_container_wid
     st.session_state["user_name"] = ""
     st.session_state["selected_vendor"] = None
     st.session_state["temp_verified_records"] = []
+    st.session_state["completed_sync_vendors"] = []
     st.query_params.clear()
     st.rerun()
 
@@ -591,38 +593,42 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
 # --- TASK 2: VENDOR WISE BOOK DATA SYNC (VENDOR BY VENDOR) ---
 elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்":
     st.subheader("🔄 Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை ஒத்திசைவு (Sync)")
-    st.info("💡 முதல் பணியைப் போலவே, ஒவ்வொரு பதிப்பகமாகத் (Vendor) தேர்ந்தெடுத்து, அந்தப் பதிப்பகத்திற்கு மட்டும் Physically Verified சீட்டின் அடிப்படையில் Vendor Wise Book Data சீட்டை ஒத்திசைவு செய்யலாம்.")
+    st.info("💡 Physically verified சீட்டில் சரிபார்க்கப்பட்ட பதிப்பகங்கள் மட்டுமே கீழே தோன்றும். ஒரு பதிப்பகத்தின் ஒத்திசைவு முடிந்தவுடன் அது பட்டியலில் இருந்து தானாகவே மறைந்துவிடும்.")
 
-    if vendor_df is None or book_df is None:
-        st.error("❌ 'Book Supply-2026.xlsx' கோப்பு காணப்படவில்லை!")
+    if sheet_physically is None or sheet_vendor_wise is None:
+        st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
         st.stop()
 
-    vendor_list = []
-    if not vendor_df.empty:
-        for _, row in vendor_df.iterrows():
-            col_b = str(row.iloc[1]).strip() if len(row) > 1 and pd.notna(row.iloc[1]) else ""  
-            col_c = str(row.iloc[2]).strip() if len(row) > 2 and pd.notna(row.iloc[2]) else ""  
-            vendor_name = col_c if col_c and col_c.lower() != "nan" else col_b
-            if vendor_name and vendor_name.lower() != "nan" and vendor_name not in vendor_list:
-                vendor_list.append(vendor_name)
+    try:
+        phys_rows = sheet_physically.get_all_values()
+        phys_headers = [str(h).strip().lower() for h in phys_rows[0]] if phys_rows else []
+        v_name_idx = next((i for i, h in enumerate(phys_headers) if "vendor" in h), 4)
 
-    st.markdown("---")
-    st.markdown("### 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்")
-    
-    selected_vendor_t2 = st.selectbox(
-        "பதிப்பகத்தின் முதல் எழுத்துகளை உள்ளீடு செய்யவும் (உள்ளே இரண்டு எழுத்துகள் இடவும்)",
-        ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + vendor_list,
-        key="vendor_select_t2"
-    )
+        phys_vendors = []
+        for p_row in phys_rows[1:]:
+            if len(p_row) > v_name_idx and p_row[v_name_idx].strip():
+                v_name = p_row[v_name_idx].strip()
+                if v_name not in phys_vendors:
+                    phys_vendors.append(v_name)
 
-    if selected_vendor_t2 != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
-        target_v_clean_t2 = clean_text(selected_vendor_t2)
+        completed_syncs = st.session_state["completed_sync_vendors"]
+        available_vendors_t2 = [v for v in phys_vendors if v not in completed_syncs]
 
-        if sheet_physically and sheet_vendor_wise:
-            try:
-                phys_rows = sheet_physically.get_all_values()
-                phys_headers = [str(h).strip().lower() for h in phys_rows[0]] if phys_rows else []
-                v_name_idx = next((i for i, h in enumerate(phys_headers) if "vendor" in h), 4)
+        if not available_vendors_t2:
+            st.success("🎉 Physically verified சீட்டில் உள்ள அனைத்து பதிப்பகங்களின் ஒத்திசைவுப் பணிகளும் வெற்றிகரமாக முடிவுற்றன!")
+        else:
+            st.markdown("---")
+            st.markdown("### 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்")
+            
+            selected_vendor_t2 = st.selectbox(
+                "பதிப்பகத்தின் முதல் எழுத்துகளை உள்ளீடு செய்யவும் (உள்ளே இரண்டு எழுத்துகள் இடவும்)",
+                ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + available_vendors_t2,
+                key="vendor_select_t2"
+            )
+
+            if selected_vendor_t2 != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+                target_v_clean_t2 = clean_text(selected_vendor_t2)
+
                 title_idx = next((i for i, h in enumerate(phys_headers) if "title" in h), 1)
                 rec_idx = next((i for i, h in enumerate(phys_headers) if "received" in h and "not" not in h), 6)
 
@@ -633,7 +639,7 @@ elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்க�
                             vendor_phys_records.append(p_row)
 
                 if not vendor_phys_records:
-                    st.warning(f"⚠️ **{selected_vendor_t2}** பதிப்பகத்திற்கு Physically Verified சீட்டில் தரவுகள் எதுவும் கிடைக்கவில்லை!")
+                    st.warning(f"⚠️ **{selected_vendor_t2}** பதிப்பகத்திற்குத் தரவுகள் எதுவும் கிடைக்கவில்லை!")
                 else:
                     st.success(f"✅ **{selected_vendor_t2}** பதிப்பகத்திற்காக {len(vendor_phys_records)} சரிபார்ப்புப் பதிவுகள் கண்டறியப்பட்டுள்ளன.")
                     
@@ -648,7 +654,6 @@ elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்க�
 
                             cell_list = []
                             for p_row in vendor_phys_records:
-                                vendor_name_val = p_row[v_name_idx]
                                 title_val = p_row[title_idx]
                                 try:
                                     rec_qty = int(p_row[rec_idx])
@@ -689,13 +694,16 @@ elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்க�
 
                             if cell_list:
                                 sheet_vendor_wise.update_cells(cell_list)
-                                st.success(f"✅ **{selected_vendor_t2}** பதிப்பகத்திற்கான Received மற்றும் Not Received மதிப்புகள் quantity-க்கு ஏற்ப வெற்றிகரமாக ஒத்திசைக்கப்பட்டன!")
+                                if selected_vendor_t2 not in st.session_state["completed_sync_vendors"]:
+                                    st.session_state["completed_sync_vendors"].append(selected_vendor_t2)
+                                
+                                st.success(f"✅ **{selected_vendor_t2}** பதிப்பகத்திற்கான ஒத்திசைவு வெற்றிகரமாக முடிக்கப்பட்டது!")
+                                time.sleep(1)
+                                st.rerun()
                             else:
                                 st.warning("⚠️ ஒத்திசைக்கத்தக்க பொருத்தமான தரவுகள் எதுவும் கிடைக்கவில்லை.")
-            except Exception as e:
-                st.error(f"❌ ஒத்திசைவுப் பிழை: {e}")
-        else:
-            st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
+    except Exception as e:
+        st.error(f"❌ ஒத்திசைவுப் பிழை: {e}")
 
 # --- TASK 3: VENDOR DETAILS ---
 elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)":
