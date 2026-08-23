@@ -551,7 +551,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                             "Total Qty": t_total_qty,
                             "Received": rec_qty,
                             "Not Received": not_rec,
-                            "Extra Qty": extra,
+                            "Short/Extra Qty": Short/extra,
                             "ID with Vendor Name": id_with_vendor,
                             "Author Name": t_author,
                             "Vendor Name": completed_vendor_name,
