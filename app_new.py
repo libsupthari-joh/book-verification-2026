@@ -16,7 +16,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 # 1. PAGE SETTINGS
 # ============================================================
 st.set_page_config(
-    page_title="2026 புதிய நூல்கள் பெறப்பட்டது சரிபார்த்தல் / விநியோகம்",
+    page_title="2026 புதிய நூல்கள் விநியோகம்",
     page_icon="📚",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -161,8 +161,8 @@ def show_login_page():
             """
             <div style="text-align: center; padding: 10px 0;">
                 <div style="font-size: 36px; margin-bottom: 6px;">📚</div>
-                <div style="font-size: 22px; font-weight: 900; color: #082653;">பணி</div>
-                <div style="font-size: 13px; color: #60708a; margin-top: 4px; margin-bottom: 16px;">2026 புதிய நூல்கள் சரிபார்த்தல் / விநியோகம்</div>
+                <div style="font-size: 22px; font-weight: 900; color: #082653;">பணி போர்ட்டல்</div>
+                <div style="font-size: 13px; color: #60708a; margin-top: 4px; margin-bottom: 16px;">2026 புதிய நூல்கள் விநியோகம்</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -239,12 +239,14 @@ except Exception as error:
 # ============================================================
 # 5. SIDEBAR & NAVIGATION
 # ============================================================
-st.session_state.setdefault("current_page", "📥 1. பதிப்பாளர் சரிபார்ப்பு")
+st.session_state.setdefault("current_page", "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
 st.session_state.setdefault("vendor_key", 0)
 st.session_state.setdefault("selected_vendor", None)
 st.session_state.setdefault("temp_verified_records", [])
 st.session_state.setdefault("library_key", 0)
 st.session_state.setdefault("selected_library", None)
+st.session_state.setdefault("vendor_t3_key", 0)
+st.session_state.setdefault("selected_vendor_t3", None)
 
 st.sidebar.markdown(f"### 👤 {st.session_state['user_name']}")
 role_badge = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
@@ -258,6 +260,7 @@ if st.sidebar.button("🚪 வெளியேறு (Logout)", use_container_wid
     st.session_state["selected_vendor"] = None
     st.session_state["temp_verified_records"] = []
     st.session_state["selected_library"] = None
+    st.session_state["selected_vendor_t3"] = None
     st.query_params.clear()
     st.rerun()
 
@@ -266,14 +269,14 @@ st.sidebar.markdown("### 📌 முதன்மைப் பணிகள்")
 
 if st.session_state["user_role"] == "Admin":
     menu_items = [
-        "📥 1. பதிப்பளார் சரிபார்ப்பு",
-        "🔄 2. Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்",
-        "🏢 3. பதிப்பாளர் விவரம் ",
-        "🏛️ 4. நூலக விவரம் ",
+        "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு",
+        "🔄 2. Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்",
+        "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)",
+        "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)",
         "⚙️ 5. Accession எண்கள் மேலாண்மை",
     ]
 else:
-    menu_items = ["📥 1. பதிப்பளார் சரிபார்ப்பு"]
+    menu_items = ["📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு"]
 
 if st.session_state["current_page"] not in menu_items:
     st.session_state["current_page"] = menu_items[0]
@@ -630,68 +633,86 @@ elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் வ�
             if vendor_name and vendor_name.lower() != "nan" and vendor_name not in vendor_list:
                 vendor_list.append(vendor_name)
 
+        vendor_list = sorted(vendor_list)
+
         st.markdown("---")
-        selected_vendor_t3 = st.selectbox(
-            "பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் (Select Publisher)",
-            ["-- அனைத்து பதிப்பாளர்களும் (All Publishers) --"] + vendor_list,
-            key="vendor_select_t3",
+        st.markdown("### 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் (Select Publisher)")
+
+        selected_vendor_raw_t3 = st.selectbox(
+            "பதிப்பகத்தின் பெயரினை உள்ளீடு செய்யவும் அல்லது தேர்ந்தெடுக்கவும்",
+            ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --", "-- அனைத்து பதிப்பாளர்களும் (All Publishers) --"] + vendor_list,
+            key=f"vendor_select_t3_{st.session_state['vendor_t3_key']}",
         )
 
-        if selected_vendor_t3 == "-- அனைத்து பதிப்பாளர்களும் (All Publishers) --":
-            st.markdown("### 📋 அனைத்து பதிப்பகங்களின் பொதுப் பட்டியல்")
-            st.dataframe(vendor_df, use_container_width=True, hide_index=True)
+        if selected_vendor_raw_t3 != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+            if st.session_state["selected_vendor_t3"] != selected_vendor_raw_t3:
+                st.session_state["selected_vendor_t3"] = selected_vendor_raw_t3
 
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                vendor_df.to_excel(writer, index=False, sheet_name="Vendor Summary")
-            excel_data = output.getvalue()
+        if st.session_state["selected_vendor_t3"]:
+            selected_vendor_t3 = st.session_state["selected_vendor_t3"]
 
-            st.download_button(
-                label="📥 அனைத்து பதிப்பாளர் பட்டியலைப் பதிவிறக்குக (Excel)",
-                data=excel_data,
-                file_name="All_Vendors_Summary.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            )
-        else:
-            target_vendor_clean_t3 = clean_text(selected_vendor_t3)
-            vendor_mask = (book_df.iloc[:, 9].apply(clean_text) == target_vendor_clean_t3) | (book_df.iloc[:, 10].apply(clean_text) == target_vendor_clean_t3)
-            filtered_books_t3 = book_df[vendor_mask]
+            if st.button("🔄 மற்றொரு பதிப்பகத்தைத் தேர்ந்தெடுக்க", use_container_width=True):
+                st.session_state["selected_vendor_t3"] = None
+                st.session_state["vendor_t3_key"] += 1
+                st.rerun()
 
-            if filtered_books_t3.empty:
-                st.warning("⚠️ இந்த பதிப்பகத்திற்குப் புத்தகத் தரவுகள் இல்லை!")
-            else:
-                total_titles = len(filtered_books_t3)
-                total_qty = int(filtered_books_t3["Quantity"].sum()) if "Quantity" in filtered_books_t3.columns else 0
-
-                lang_col_idx = next((i for i, col in enumerate(filtered_books_t3.columns) if "lang" in str(col).lower()), None)
-                tamil_count = 0
-                english_count = 0
-                if lang_col_idx is not None:
-                    lang_series = filtered_books_t3.iloc[:, lang_col_idx].astype(str)
-                    tamil_count = int(lang_series.str.contains("tamil", case=False, na=False).sum())
-                    english_count = int(lang_series.str.contains("english", case=False, na=False).sum())
-
-                col1, col2, col3, col4 = st.columns(4)
-                col1.metric("📚 மொத்தத் தலைப்புகள்", total_titles)
-                col2.metric("📦 மொத்தப் படிகள்", total_qty)
-                col3.metric("🇮🇳 தமிழ் நூல்கள்", tamil_count)
-                col4.metric("🇬🇧 ஆங்கில நூல்கள்", english_count)
-
-                st.markdown("---")
-                st.markdown(f"### 📋 {selected_vendor_t3} - நூல்களின் முழு விவரங்கள்")
-                st.dataframe(filtered_books_t3, use_container_width=True)
+            if selected_vendor_t3 == "-- அனைத்து பதிப்பாளர்களும் (All Publishers) --":
+                st.markdown("### 📋 அனைத்து பதிப்பகங்களின் பொதுப் பட்டியல்")
+                st.dataframe(vendor_df, use_container_width=True, hide_index=True)
 
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                    filtered_books_t3.to_excel(writer, index=False, sheet_name="Vendor Details")
+                    vendor_df.to_excel(writer, index=False, sheet_name="Vendor Summary")
                 excel_data = output.getvalue()
 
                 st.download_button(
-                    label=f"📥 '{selected_vendor_t3}' தரவைப் பதிவிறக்குக (Excel)",
+                    label="📥 அனைத்து பதிப்பாளர் பட்டியலைப் பதிவிறக்குக (Excel)",
                     data=excel_data,
-                    file_name=f"{selected_vendor_t3}_Vendor_Details.xlsx",
+                    file_name="All_Vendors_Summary.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
                 )
+            else:
+                target_vendor_clean_t3 = clean_text(selected_vendor_t3)
+                vendor_mask = (book_df.iloc[:, 9].apply(clean_text) == target_vendor_clean_t3) | (book_df.iloc[:, 10].apply(clean_text) == target_vendor_clean_t3)
+                filtered_books_t3 = book_df[vendor_mask]
+
+                if filtered_books_t3.empty:
+                    st.warning("⚠️ இந்த பதிப்பகத்திற்குப் புத்தகத் தரவுகள் இல்லை!")
+                else:
+                    total_titles = len(filtered_books_t3)
+                    total_qty = int(filtered_books_t3["Quantity"].sum()) if "Quantity" in filtered_books_t3.columns else 0
+
+                    lang_col_idx = next((i for i, col in enumerate(filtered_books_t3.columns) if "lang" in str(col).lower()), None)
+                    tamil_count = 0
+                    english_count = 0
+                    if lang_col_idx is not None:
+                        lang_series = filtered_books_t3.iloc[:, lang_col_idx].astype(str)
+                        tamil_count = int(lang_series.str.contains("tamil", case=False, na=False).sum())
+                        english_count = int(lang_series.str.contains("english", case=False, na=False).sum())
+
+                    col1, col2, col3, col4 = st.columns(4)
+                    col1.metric("📚 மொத்தத் தலைப்புகள்", total_titles)
+                    col2.metric("📦 மொத்தப் படிகள்", total_qty)
+                    col3.metric("🇮🇳 தமிழ் நூல்கள்", tamil_count)
+                    col4.metric("🇬🇧 ஆங்கில நூல்கள்", english_count)
+
+                    st.markdown("---")
+                    st.markdown(f"### 📋 {selected_vendor_t3} - நூல்களின் முழு விவரங்கள்")
+                    st.dataframe(filtered_books_t3, use_container_width=True)
+
+                    output = io.BytesIO()
+                    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                        filtered_books_t3.to_excel(writer, index=False, sheet_name="Vendor Details")
+                    excel_data = output.getvalue()
+
+                    st.download_button(
+                        label=f"📥 '{selected_vendor_t3}' தரவைப் பதிவிறக்குக (Excel)",
+                        data=excel_data,
+                        file_name=f"{selected_vendor_t3}_Vendor_Details.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
 
 # --- TASK 4: LIBRARY DISTRIBUTION (103) ---
 elif menu_choice == "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)":
@@ -709,7 +730,6 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
         lib_name_col = next((col_map_lower[c] for c in col_map_lower if "library name" in c), base_df.columns[12] if len(base_df.columns) > 12 else None)
         lib_type_col = next((col_map_lower[c] for c in col_map_lower if "library type" in c), base_df.columns[10] if len(base_df.columns) > 10 else None)
 
-        # Build library name list and mapping directly from Vendor Wise Book Data
         lib_dict = {}
         lib_name_list = []
         if lib_name_col and lib_id_col:
@@ -786,7 +806,7 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
                 col4.metric("🇬🇧 ஆங்கில நூல்கள்", english_count)
 
                 st.markdown("---")
-                title_header_text = f"📋 {selected_library} - நூல்களின் முழு விவரங்கள்" if selected_library != "-- அனைத்து நூலகங்களும் (All Libraries) --" else "📋 அனைத்து நூலகங்களின் விநியோக விவரங்கள்"
+                title_header_text = f"📋 {selected_library} - நூலகத்தின் முழு விவரங்கள்" if selected_library != "-- அனைத்து நூலகங்களும் (All Libraries) --" else "📋 அனைத்து நூலகங்களின் விநியோக விவரங்கள்"
                 st.markdown(f"### {title_header_text}")
                 st.dataframe(filtered_lib_df, use_container_width=True, hide_index=True)
 
