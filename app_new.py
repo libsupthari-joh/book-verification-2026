@@ -20,18 +20,18 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 import streamlit as st
 
 # ============================================================
-# 1. PAGE SETTINGS (MOBILE RESPONSIVE VIEWPORT)
+# 1. PAGE SETTINGS (SIDEBAR EXPANDED & FIXED)
 # ============================================================
 st.set_page_config(
     page_title="2026 புதிய நூல்கள் விநியோகம்",
     page_icon="📚",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 
 # ============================================================
-# 2. COMPLETE UI DESIGN & MOBILE-FRIENDLY STYLES
+# 2. UI DESIGN & STYLES (STABLE SIDEBAR)
 # ============================================================
 def get_custom_css():
     return """
@@ -65,10 +65,13 @@ def get_custom_css():
 
     h2, h3 { color: #092653 !important; font-size: 18px !important; }
 
-    /* Mobile friendly sidebar */
+    /* Force Sidebar to be fully visible and styled */
     section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #071a38, #0b2e63 55%, #082044);
+        background: linear-gradient(180deg, #071a38, #0b2e63 55%, #082044) !important;
         border-right: 1px solid rgba(255,255,255,.15);
+        min-width: 280px !important;
+        visibility: visible !important;
+        display: block !important;
     }
 
     section[data-testid="stSidebar"] h3, 
@@ -87,10 +90,10 @@ def get_custom_css():
         font-weight: 700 !important;
         font-size: 14px !important;
         text-align: left !important;
-        background: linear-gradient(145deg, rgba(255,255,255,.1), rgba(255,255,255,.05)) !important;
+        background: linear-gradient(145deg, rgba(255,255,255,.12), rgba(255,255,255,.06)) !important;
+        border: 1px solid rgba(255,255,255,0.2) !important;
     }
 
-    /* Mobile touch optimization for inputs & buttons */
     .stButton > button, .stDownloadButton > button {
         min-height: 50px !important;
         border-radius: 12px !important;
@@ -117,25 +120,6 @@ def get_custom_css():
         background: rgba(255,255,255,.98);
         box-shadow: 0 12px 0 rgba(7,26,56,.1), 0 20px 30px rgba(7,26,56,.15);
         text-align: center;
-    }
-
-    /* Floating hamburger menu for mobile */
-    [data-testid="stSidebarCollapsedControl"] {
-        display: flex !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        z-index: 9999 !important;
-        position: fixed !important;
-        left: 10px !important;
-        top: 10px !important;
-        background: linear-gradient(145deg, #1565c0, #0d47a1) !important;
-        border-radius: 10px !important;
-        padding: 10px !important;
-    }
-    [data-testid="stSidebarCollapsedControl"] svg {
-        fill: white !important;
-        width: 24px !important;
-        height: 24px !important;
     }
     </style>
     """
@@ -408,7 +392,7 @@ except Exception as error:
 
 
 # ============================================================
-# 6. SIDEBAR & ROLE-BASED NAVIGATION
+# 6. SIDEBAR & ROLE-BASED NAVIGATION (FIXED & VISIBLE)
 # ============================================================
 st.session_state.setdefault("current_page", "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
 st.session_state.setdefault("vendor_key", 0)
@@ -458,9 +442,9 @@ menu_choice = st.session_state["current_page"]
 # 7. TASK IMPLEMENTATIONS
 # ============================================================
 
-# --- TASK 1: PHYSICAL VERIFICATION & MOBILE OPTIMIZED WORKFLOW ---
+# --- TASK 1: PHYSICAL VERIFICATION ---
 if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு":
-    st.subheader("📥 பெறப்பட்ட நூல்கள் சரிபார்ப்பு (Mobile Mode)")
+    st.subheader("📥 பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
 
     if vendor_df is None or book_df is None:
         st.error("❌ 'Book Supply-2026.xlsx' கோப்பு காணப்படவில்லை!")
@@ -524,7 +508,6 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
             st.markdown("---")
             st.markdown(f"### 🔍 2. தலைப்பைத் தேடிச் சரிபார்த்தல்")
 
-            # ஏற்கனவே தற்காலிகப் பட்டியலில் சேர்க்கப்பட்ட தலைப்புகளை நீக்குதல் (Dropdown-ல் வராமல் இருக்க)
             verified_titles = {item["Title"] for item in st.session_state["temp_verified_records"]}
             remaining_book_titles = [t for t in grouped["Title"].tolist() if t not in verified_titles]
 
@@ -578,7 +561,6 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                         time.sleep(0.3)
                         st.rerun()
 
-            # தற்காலிகப் பட்டியல் மற்றும் இறுதிப் பதிவு
             if st.session_state["temp_verified_records"]:
                 st.markdown("---")
                 st.markdown(f"### 📋 தற்காலிகச் சரிபார்ப்புப் பட்டியல் ({len(st.session_state['temp_verified_records'])} தலைப்புகள்)")
