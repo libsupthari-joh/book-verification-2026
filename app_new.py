@@ -700,19 +700,35 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
     if book_df is None or book_df.empty:
         st.error("❌ புத்தகத் தரவுகள் கிடைக்கவில்லை!")
     else:
+        # Load Library Names from Lib_Detail sheet primarily
         lib_list = []
-        try:
-            lib_name_col_candidate = next((col for col in book_df.columns if "library name" in str(col).lower()), None)
-            if lib_name_col_candidate:
-                lib_list = book_df[lib_name_col_candidate].dropna().astype(str).unique().tolist()
-                lib_list = [l.strip() for l in lib_list if l.strip() and l.strip().lower() != "nan"]
-        except Exception:
-            pass
+        lib_details_rows = []
+        lib_headers = []
+        lib_name_col_idx_sheet = 1
+        
+        if sheet_library_details:
+            try:
+                lib_details_rows = sheet_library_details.get_all_values()
+                if len(lib_details_rows) > 1:
+                    lib_headers = [str(h).strip() for h in lib_details_rows[0]]
+                    lib_name_col_idx_sheet = next((i for i, h in enumerate(lib_headers) if "library name" in h.lower() or "lib name" in h.lower()), 1)
+                    lib_list = [str(r[lib_name_col_idx_sheet]).strip() for r in lib_details_rows[1:] if len(r) > lib_name_col_idx_sheet and str(r[lib_name_col_idx_sheet]).strip() and str(r[lib_name_col_idx_sheet]).strip().lower() != "nan"]
+            except Exception:
+                pass
+
+        if not lib_list:
+            try:
+                lib_name_col_candidate = next((col for col in book_df.columns if "library name" in str(col).lower()), None)
+                if lib_name_col_candidate:
+                    lib_list = book_df[lib_name_col_candidate].dropna().astype(str).unique().tolist()
+                    lib_list = [l.strip() for l in lib_list if l.strip() and l.strip().lower() != "nan"]
+            except Exception:
+                pass
 
         st.markdown("---")
         selected_library = st.selectbox(
             "நூலகத்தைத் தேர்ந்தெடுக்கவும் (Select Library)",
-            ["-- அனைத்து நூலகங்களும் (All Libraries) --"] + lib_list,
+            ["-- அனைத்து நூலகங்களும் (All Libraries) --"] + sorted(list(set(lib_list))),
             key="library_select_t4",
         )
 
@@ -776,6 +792,22 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
                 filtered_lib_df = book_df.copy()
 
             if not filtered_lib_df.empty:
+                # Reorder columns: S.No, Library ID, Library Name, then other columns
+                col_map_lower = {str(c).lower().strip(): c for c in filtered_lib_df.columns}
+                lib_id_col = next((col_map_lower[c] for c in col_map_lower if "librarianid" in c or "lib id" in c or "librarian" in c), filtered_lib_df.columns[11] if len(filtered_lib_df.columns) > 11 else None)
+                lib_name_col = next((col_map_lower[c] for c in col_map_lower if "library name" in c), filtered_lib_df.columns[12] if len(filtered_lib_df.columns) > 12 else None)
+                
+                reordered_cols = []
+                if lib_id_col: reordered_cols.append(lib_id_col)
+                if lib_name_col: reordered_cols.append(lib_name_col)
+                
+                other_cols = [c for c in filtered_lib_df.columns if c not in reordered_cols]
+                filtered_lib_df = filtered_lib_df[reordered_cols + other_cols].copy()
+                
+                if "S.No" in filtered_lib_df.columns:
+                    filtered_lib_df = filtered_lib_df.drop(columns=["S.No"])
+                filtered_lib_df.insert(0, "S.No", range(1, len(filtered_lib_df) + 1))
+
                 total_titles = len(filtered_lib_df)
                 total_qty = int(filtered_lib_df["Quantity"].sum()) if "Quantity" in filtered_lib_df.columns else 0
 
@@ -793,9 +825,46 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
                 col3.metric("🇮🇳 தமிழ் நூல்கள்", tamil_count)
                 col4.metric("🇬🇧 ஆங்கில நூல்கள்", english_count)
 
+                # --- Edit Library Details Section (நூலகத்தின் விவரத்தினை மாற்ற பொத்தான்) ---
+                st.markdown("---")
+                with st.expander("✏️ நூலகத்தின் விவரங்களை மாற்ற (Edit Library Details)", expanded=False):
+                    if sheet_library_details and lib_details_rows:
+                        target_row_idx = None
+                        target_row_data = None
+                        for idx, row in enumerate(lib_details_rows[1:], start=2):
+                            if len(row) > lib_name_col_idx_sheet and str(row[lib_name_col_idx_sheet]).strip() == selected_library:
+                                target_row_idx = idx
+                                target_row_data = row
+                                break
+                        
+                        if target_row_data:
+                            with st.form(f"edit_lib_form_{selected_library}"):
+                                st.write(f"நூலகம்: **{selected_library}** (வரிசை எண்: {target_row_idx})")
+                                form_cols = st.columns(2)
+                                input_cells = {}
+                                for c_idx, (header_name, cell_val) in enumerate(zip(lib_headers, target_row_data)):
+                                    with form_cols[c_idx % 2]:
+                                        new_val = st.text_input(header_name, value=cell_val, key=f"edit_col_{target_row_idx}_{c_idx}")
+                                        input_cells[c_idx] = new_val
+                                
+                                save_lib_changes = st.form_submit_button("💾 மாற்றங்களைச் சேமி", use_container_width=True)
+                                if save_lib_changes:
+                                    try:
+                                        cell_updates = [Cell(row=target_row_idx, col=c_idx + 1, value=val) for c_idx, val in input_cells.items()]
+                                        sheet_library_details.update_cells(cell_updates)
+                                        st.success("✅ நூலக விவரங்கள் வெற்றிகரமாக மாற்றப்பட்டன!")
+                                        time.sleep(1)
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"❌ சேமிப்பதில் பிழை: {e}")
+                        else:
+                            st.warning("⚠️ Lib_Detail சீட்டில் இந்த நூலகத்திற்கான வரிசை கிடைக்கவில்லை.")
+                    else:
+                        st.warning("⚠️ Lib_Detail Google Sheet இணைப்பு கிடைக்கவில்லை.")
+
                 st.markdown("---")
                 st.markdown(f"### 📋 {selected_library} - விநியோகிக்கப்பட வேண்டிய நூல்களின் முழு விவரங்கள்")
-                st.dataframe(filtered_lib_df, use_container_width=True)
+                st.dataframe(filtered_lib_df, use_container_width=True, hide_index=True)
 
                 st.markdown("---")
                 st.markdown("### 📥 தரவிறக்கம் செய்யும் வசதி")
