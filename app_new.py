@@ -245,6 +245,8 @@ st.session_state.setdefault("selected_vendor", None)
 st.session_state.setdefault("temp_verified_records", [])
 st.session_state.setdefault("library_key", 0)
 st.session_state.setdefault("selected_library", None)
+st.session_state.setdefault("vendor_key_t3", 0)
+st.session_state.setdefault("selected_vendor_t3", None)
 
 st.sidebar.markdown(f"### 👤 {st.session_state['user_name']}")
 role_badge = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
@@ -258,6 +260,7 @@ if st.sidebar.button("🚪 வெளியேறு (Logout)", use_container_wid
     st.session_state["selected_vendor"] = None
     st.session_state["temp_verified_records"] = []
     st.session_state["selected_library"] = None
+    st.session_state["selected_vendor_t3"] = None
     st.query_params.clear()
     st.rerun()
 
@@ -444,7 +447,6 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
 
                     with col_save:
                         if st.button("💾 சீட்டில் சேமி", use_container_width=True):
-                            # --- 🔒 புதிய கட்டுப்பாடு (Validation Check) ---
                             total_titles_count = len(grouped)
                             added_titles_count = len(st.session_state["temp_verified_records"])
 
@@ -638,67 +640,81 @@ elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் வ�
                 vendor_list.append(vendor_name)
 
         st.markdown("---")
-        selected_vendor_t3 = st.selectbox(
-            "பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் (Select Publisher)",
-            ["-- அனைத்து பதிப்பாளர்களும் (All Publishers) --"] + vendor_list,
-            key="vendor_select_t3",
+        st.markdown("### 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் (Select Publisher)")
+
+        selected_vendor_raw_t3 = st.selectbox(
+            "பதிப்பகத்தின் பெயரினை உள்ளீடு செய்யவும் அல்லது தேர்ந்தெடுக்கவும்",
+            ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --", "-- அனைத்து பதிப்பாளர்களும் (All Publishers) --"] + vendor_list,
+            key=f"vendor_select_t3_{st.session_state['vendor_key_t3']}",
         )
 
-        if selected_vendor_t3 == "-- அனைத்து பதிப்பாளர்களும் (All Publishers) --":
-            st.markdown("### 📋 அனைத்து பதிப்பகங்களின் பொதுப் பட்டியல்")
-            st.dataframe(vendor_df, use_container_width=True, hide_index=True)
+        if selected_vendor_raw_t3 != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+            if st.session_state["selected_vendor_t3"] != selected_vendor_raw_t3:
+                st.session_state["selected_vendor_t3"] = selected_vendor_raw_t3
 
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                vendor_df.to_excel(writer, index=False, sheet_name="Vendor Summary")
-            excel_data = output.getvalue()
+        if st.session_state["selected_vendor_t3"]:
+            selected_vendor_t3 = st.session_state["selected_vendor_t3"]
+            
+            if st.button("🔄 மற்றொரு பதிப்பகத்தைத் தேர்ந்தெடுக்க", use_container_width=True, key="reset_vendor_t3"):
+                st.session_state["selected_vendor_t3"] = None
+                st.session_state["vendor_key_t3"] += 1
+                st.rerun()
 
-            st.download_button(
-                label="📥 அனைத்து பதிப்பாளர் பட்டியலைப் பதிவிறக்குக (Excel)",
-                data=excel_data,
-                file_name="All_Vendors_Summary.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            )
-        else:
-            target_vendor_clean_t3 = clean_text(selected_vendor_t3)
-            vendor_mask = (book_df.iloc[:, 9].apply(clean_text) == target_vendor_clean_t3) | (book_df.iloc[:, 10].apply(clean_text) == target_vendor_clean_t3)
-            filtered_books_t3 = book_df[vendor_mask]
-
-            if filtered_books_t3.empty:
-                st.warning("⚠️ இந்த பதிப்பகத்திற்குப் புத்தகத் தரவுகள் இல்லை!")
-            else:
-                total_titles = len(filtered_books_t3)
-                total_qty = int(filtered_books_t3["Quantity"].sum()) if "Quantity" in filtered_books_t3.columns else 0
-
-                lang_col_idx = next((i for i, col in enumerate(filtered_books_t3.columns) if "lang" in str(col).lower()), None)
-                tamil_count = 0
-                english_count = 0
-                if lang_col_idx is not None:
-                    lang_series = filtered_books_t3.iloc[:, lang_col_idx].astype(str)
-                    tamil_count = int(lang_series.str.contains("tamil", case=False, na=False).sum())
-                    english_count = int(lang_series.str.contains("english", case=False, na=False).sum())
-
-                col1, col2, col3, col4 = st.columns(4)
-                col1.metric("📚 மொத்தத் தலைப்புகள்", total_titles)
-                col2.metric("📦 மொத்தப் படிகள்", total_qty)
-                col3.metric("🇮🇳 தமிழ் நூல்கள்", tamil_count)
-                col4.metric("🇬🇧 ஆங்கில நூல்கள்", english_count)
-
-                st.markdown("---")
-                st.markdown(f"### 📋 {selected_vendor_t3} - நூல்களின் முழு விவரங்கள்")
-                st.dataframe(filtered_books_t3, use_container_width=True)
+            if selected_vendor_t3 == "-- அனைத்து பதிப்பாளர்களும் (All Publishers) --":
+                st.markdown("### 📋 அனைத்து பதிப்பகங்களின் பொதுப் பட்டியல்")
+                st.dataframe(vendor_df, use_container_width=True, hide_index=True)
 
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                    filtered_books_t3.to_excel(writer, index=False, sheet_name="Vendor Details")
+                    vendor_df.to_excel(writer, index=False, sheet_name="Vendor Summary")
                 excel_data = output.getvalue()
 
                 st.download_button(
-                    label=f"📥 '{selected_vendor_t3}' தரவைப் பதிவிறக்குக (Excel)",
+                    label="📥 அனைத்து பதிப்பாளர் பட்டியலைப் பதிவிறக்குக (Excel)",
                     data=excel_data,
-                    file_name=f"{selected_vendor_t3}_Vendor_Details.xlsx",
+                    file_name="All_Vendors_Summary.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 )
+            else:
+                target_vendor_clean_t3 = clean_text(selected_vendor_t3)
+                vendor_mask = (book_df.iloc[:, 9].apply(clean_text) == target_vendor_clean_t3) | (book_df.iloc[:, 10].apply(clean_text) == target_vendor_clean_t3)
+                filtered_books_t3 = book_df[vendor_mask]
+
+                if filtered_books_t3.empty:
+                    st.warning("⚠️ இந்த பதிப்பகத்திற்குப் புத்தகத் தரவுகள் இல்லை!")
+                else:
+                    total_titles = len(filtered_books_t3)
+                    total_qty = int(filtered_books_t3["Quantity"].sum()) if "Quantity" in filtered_books_t3.columns else 0
+
+                    lang_col_idx = next((i for i, col in enumerate(filtered_books_t3.columns) if "lang" in str(col).lower()), None)
+                    tamil_count = 0
+                    english_count = 0
+                    if lang_col_idx is not None:
+                        lang_series = filtered_books_t3.iloc[:, lang_col_idx].astype(str)
+                        tamil_count = int(lang_series.str.contains("tamil", case=False, na=False).sum())
+                        english_count = int(lang_series.str.contains("english", case=False, na=False).sum())
+
+                    col1, col2, col3, col4 = st.columns(4)
+                    col1.metric("📚 மொத்தத் தலைப்புகள்", total_titles)
+                    col2.metric("📦 மொத்தப் படிகள்", total_qty)
+                    col3.metric("🇮🇳 தமிழ் நூல்கள்", tamil_count)
+                    col4.metric("🇬🇧 ஆங்கில நூல்கள்", english_count)
+
+                    st.markdown("---")
+                    st.markdown(f"### 📋 {selected_vendor_t3} - நூல்களின் முழு விவரங்கள்")
+                    st.dataframe(filtered_books_t3, use_container_width=True)
+
+                    output = io.BytesIO()
+                    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                        filtered_books_t3.to_excel(writer, index=False, sheet_name="Vendor Details")
+                    excel_data = output.getvalue()
+
+                    st.download_button(
+                        label=f"📥 '{selected_vendor_t3}' தரவைப் பதிவிறக்குக (Excel)",
+                        data=excel_data,
+                        file_name=f"{selected_vendor_t3}_Vendor_Details.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    )
 
 # --- TASK 4: LIBRARY DISTRIBUTION (103) ---
 elif menu_choice == "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)":
