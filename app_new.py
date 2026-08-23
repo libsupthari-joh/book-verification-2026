@@ -835,11 +835,11 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
 
 # --- TASK 5: ACCESSION NUMBERS MANAGEMENT ---
 elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
-    st.subheader("⚙️ 5. மைய மற்றும் கிளை நூல் சேர்க்கை எண்கள் மேலாண்மை")
-    st.info("💡 ஒவ்வொரு நூலகத்திற்கும் விநியோகிக்கப்படும் நூல்களுக்கான 'மைய நூல் சேர்க்கை எண்' (Central Accession) மற்றும் 'கிளை நூல் சேர்க்கை எண்' (Branch Accession) ஆகியவற்றை இங்கு உள்ளிட்டுப் பதிவு செய்யலாம்.")
+    st.subheader("⚙️ 5. மைய மற்றும் கிளை நூல் சேர்க்கை எண்கள் மேலாண்மை (Vendor Wise Sheet Update)")
+    st.info("💡 ஒவ்வொரு நூலகத்திற்கும் விநியோகிக்கப்படும் நூல்களுக்கு 'மைய நூல் சேர்க்கை எண்' மற்றும் 'கிளை நூல் சேர்க்கை எண்' வழங்கி நேரடியாக **'Vendor Wise Book Data'** சீட்டின் **U மற்றும் V** தூண்களில் (Columns U & V) பதிவு செய்யலாம்.")
 
-    if book_df is None or book_df.empty:
-        st.error("❌ புத்தகத் தரவுகள் கிடைக்கவில்லை!")
+    if book_df is None or book_df.empty or sheet_vendor_wise is None:
+        st.error("❌ புத்தகத் தரவுகள் அல்லது Google Sheet இணைப்பு கிடைக்கவில்லை!")
     else:
         base_df = book_df.copy()
         col_map_lower = {str(c).lower().strip(): c for c in base_df.columns}
@@ -879,27 +879,47 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                 st.rerun()
 
             target_lib_id = lib_dict.get(selected_acc_lib)
-            lib_books_df = base_df[base_df[lib_id_col].astype(str).str.strip() == target_lib_id].copy() if target_lib_id else pd.DataFrame()
+            
+            # Get original DataFrame indices to map back to Google Sheet rows correctly
+            lib_mask = base_df[lib_id_col].astype(str).str.strip() == target_lib_id if target_lib_id else pd.Series([False]*len(base_df))
+            lib_indices = base_df[lib_mask].index.tolist()
+            lib_books_df = base_df.loc[lib_indices].copy()
 
             if lib_books_df.empty:
                 st.warning("⚠️ இந்த நூலகத்திற்குப் புத்தகங்கள் எதுவும் இல்லை.")
             else:
                 st.success(f"📚 **{selected_acc_lib}** நூலகத்திற்குரிய நூல்கள் ({len(lib_books_df)} தலைப்புகள்) கீழே உள்ளன.")
                 
-                st.markdown("### 🔢 சேர்க்கை எண்கள் வரம்பு (Accession Range) உள்ளீடு")
+                st.markdown("### 🔢 தொடக்க சேர்க்கை எண்கள் (Start Accession Numbers) உள்ளீடு")
                 col_c1, col_c2 = st.columns(2)
                 with col_c1:
                     start_central_acc = st.text_input("முதَல் மைய நூல் சேர்க்கை எண் (Start Central Acc. No)", placeholder="எ.கா: 1001")
                 with col_c2:
                     start_branch_acc = st.text_input("முதَல் கிளை நூல் சேர்க்கை எண் (Start Branch Acc. No)", placeholder="எ.கா: 501")
 
-                if "Central Accession No" not in lib_books_df.columns:
-                    lib_books_df["Central Accession No"] = ""
-                if "Branch Accession No" not in lib_books_df.columns:
-                    lib_books_df["Branch Accession No"] = ""
+                # Generate series if starting numbers are provided
+                central_acc_list = []
+                branch_acc_list = []
+                
+                try:
+                    c_start = int(start_central_acc.strip()) if start_central_acc.strip().isdigit() else 0
+                except:
+                    c_start = 0
+
+                try:
+                    b_start = int(start_branch_acc.strip()) if start_branch_acc.strip().isdigit() else 0
+                except:
+                    b_start = 0
+
+                for i in range(len(lib_books_df)):
+                    central_acc_list.append(str(c_start + i) if c_start > 0 else "")
+                    branch_acc_list.append(str(b_start + i) if b_start > 0 else "")
+
+                lib_books_df["Central Accession No"] = central_acc_list
+                lib_books_df["Branch Accession No"] = branch_acc_list
 
                 st.markdown("---")
-                st.markdown("### 📋 நூல்களின் பட்டியல் மற்றும் எண்கள் பதிவு")
+                st.markdown("### 📋 நூல்களின் பட்டியல் மற்றும் எண்கள் சரிபார்ப்பு")
                 
                 display_editor_cols = [c for c in ["Book Id", "Title", "Author Name", "Language", "Quantity", "Central Accession No", "Branch Accession No"] if c in lib_books_df.columns]
                 edited_df = st.data_editor(
@@ -911,8 +931,31 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
 
                 col_save_btn1, col_save_btn2 = st.columns(2)
                 with col_save_btn1:
-                    if st.button("💾 சேர்க்கை எண்களைச் சேமி", use_container_width=True):
-                        st.success(f"✅ **{selected_acc_lib}** நூலகத்திற்கான மைய மற்றும் கிளை நூல் சேர்க்கை எண்கள் வெற்றிகரமாகப் பதிவு செய்யப்பட்டன!")
+                    if st.button("💾 Google Sheet (U & V தூண்களில்) சேமி", use_container_width=True):
+                        if c_start == 0 or b_start == 0:
+                            st.error("❌ தயவுசெய்து சரியான தொடக்க மைய மற்றும் கிளை நூல் சேர்க்கை எண்களை உள்ளிடவும்!")
+                        else:
+                            try:
+                                with st.spinner("Google Sheet-ல் U மற்றும் V தூண்களில் பதிவு செய்யப்படுகிறது..."):
+                                    cell_list = []
+                                    for idx, original_df_idx in enumerate(lib_indices):
+                                        # Google Sheet rows are 1-indexed, and row 1 is header, so dataframe row `i` is `i + 2`
+                                        sheet_row_num = original_df_idx + 2
+                                        
+                                        # Get values from edited dataframe
+                                        c_val = str(edited_df.iloc[idx]["Central Accession No"]).strip()
+                                        b_val = str(edited_df.iloc[idx]["Branch Accession No"]).strip()
+                                        
+                                        # Column U is 21, Column V is 22
+                                        cell_list.append(Cell(row=sheet_row_num, col=21, value=c_val))
+                                        cell_list.append(Cell(row=sheet_row_num, col=22, value=b_val))
+                                    
+                                    if cell_list:
+                                        sheet_vendor_wise.update_cells(cell_list)
+                                        
+                                st.success(f"✅ **{selected_acc_lib}** நூலகத்திற்கான சேர்க்கை எண்கள் 'Vendor Wise Book Data' சீட்டின் U மற்றும் V தூண்களில் வெற்றிகரமாகப் பதிவு செய்யப்பட்டன!")
+                            except Exception as e:
+                                st.error(f"❌ சேமிப்பதில் பிழை ஏற்பட்டது: {e}")
                 
                 with col_save_btn2:
                     output = io.BytesIO()
