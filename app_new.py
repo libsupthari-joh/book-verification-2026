@@ -16,7 +16,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 # 1. PAGE SETTINGS
 # ============================================================
 st.set_page_config(
-    page_title="2026 புதிய நூல்கள் விநியோகம்",
+    page_title="2026 புதிய நூல்கள் பெறப்பட்டது சரிபார்த்தல் / விநியோகம்",
     page_icon="📚",
     layout="wide",
     initial_sidebar_state="expanded",
