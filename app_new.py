@@ -19,7 +19,7 @@ st.set_page_config(
     page_title="2026 புதிய நூல்கள் விநியோகம்",
     page_icon="📚",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 # ============================================================
@@ -57,20 +57,8 @@ def get_custom_css():
 
     h2, h3 { color: #092653 !important; font-size: 18px !important; }
 
-    section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #071a38, #0b2e63 55%, #082044) !important;
-        border-right: 1px solid rgba(255,255,255,.15);
-        min-width: 280px !important;
-    }
-
-    section[data-testid="stSidebar"] h3, 
-    section[data-testid="stSidebar"] p, 
-    section[data-testid="stSidebar"] label {
-        color: white !important;
-    }
-
     .stButton > button, .stDownloadButton > button {
-        min-height: 50px !important;
+        min-height: 45px !important;
         border-radius: 12px !important;
         font-size: 15px !important;
         font-weight: 700 !important;
@@ -224,7 +212,7 @@ except Exception as error:
     st.error(f"❌ Google Sheet இணைப்புப் பிழை: {error}")
 
 # ============================================================
-# 5. SIDEBAR & MAIN NAVIGATION SETUP
+# 5. MAIN NAVIGATION & SESSION SETUP
 # ============================================================
 st.session_state.setdefault("current_page", "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
 st.session_state.setdefault("vendor_key", 0)
@@ -234,23 +222,6 @@ st.session_state.setdefault("library_key", 0)
 st.session_state.setdefault("selected_library", None)
 st.session_state.setdefault("acc_library_key", 0)
 st.session_state.setdefault("selected_acc_library", None)
-
-# Sidebar info
-st.sidebar.markdown(f"### 👤 {st.session_state['user_name']}")
-role_badge = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
-st.sidebar.caption(f"அதிகார நிலை: **{role_badge}**")
-st.sidebar.markdown("---")
-
-if st.sidebar.button("🚪 வெளியேறு (Logout)", use_container_width=True):
-    st.session_state["logged_in"] = False
-    st.session_state["user_role"] = None
-    st.session_state["user_name"] = ""
-    st.session_state["selected_vendor"] = None
-    st.session_state["temp_verified_records"] = []
-    st.session_state["selected_library"] = None
-    st.session_state["selected_acc_library"] = None
-    st.query_params.clear()
-    st.rerun()
 
 # Menu items list
 if st.session_state["user_role"] == "Admin":
@@ -267,19 +238,29 @@ else:
 if st.session_state["current_page"] not in menu_items:
     st.session_state["current_page"] = menu_items[0]
 
-# Sidebar navigation buttons
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 📌 முதன்மைப் பணிகள்")
-for item in menu_items:
-    if st.sidebar.button(item, use_container_width=True, key=f"sidebar_{item}"):
-        st.session_state["current_page"] = item
-        st.rerun()
-
 # Title
 st.title("📚 நூல்கள் சரிபார்ப்புப் போர்ட்டல்")
 
-# --- MAIN SCREEN FALLBACK NAVIGATION SELECTOR (Solves Mobile/Sidebar hidden issue) ---
+# --- USER PROFILE & LOGOUT BAR (Main Screen Top) ---
+user_col1, user_col2 = st.columns([3, 1])
+with user_col1:
+    role_badge = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
+    st.markdown(f"**👤 பயனர்:** {st.session_state['user_name']} &nbsp;|&nbsp; **அதிகாரம்:** {role_badge}")
+with user_col2:
+    if st.button("🚪 வெளியேறு (Logout)", use_container_width=True, key="main_logout_btn"):
+        st.session_state["logged_in"] = False
+        st.session_state["user_role"] = None
+        st.session_state["user_name"] = ""
+        st.session_state["selected_vendor"] = None
+        st.session_state["temp_verified_records"] = []
+        st.session_state["selected_library"] = None
+        st.session_state["selected_acc_library"] = None
+        st.query_params.clear()
+        st.rerun()
+
 st.markdown("---")
+
+# --- MAIN SCREEN NAVIGATION SELECTOR ---
 selected_main_menu = st.selectbox(
     "🧭 செய்ய வேண்டிய பணியைத் தேர்ந்தெடுக்கவும் (Main Navigation Menu)",
     menu_items,
