@@ -495,192 +495,191 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         completed_vendor_name = st.session_state["selected_vendor"]
         target_vendor_clean = clean_text(completed_vendor_name)
         
-        # Check if already completed
+        # Check if already completed -> BLOCKS further processing entirely
         if target_vendor_clean in already_verified_clean:
-            st.warning(f"⚠️ **{completed_vendor_name}** பதிப்பகத்தின் சரிபார்ப்பு பணி ஏற்கனவே முடிவுற்றது! (Verification already completed)")
-        
-        vendor_mask = (
-            book_df.iloc[:, 9].apply(clean_text) == target_vendor_clean
-        ) | (
-            book_df.iloc[:, 10].apply(clean_text) == target_vendor_clean
-        )
-        filtered_books = book_df[vendor_mask]
-
-        if filtered_books.empty:
-            st.warning("⚠️ இந்த பதிப்பகத்திற்குப் புத்தகத் தரவுகள் இல்லை!")
+            st.error(f"⚠️ **{completed_vendor_name}** பதிப்பகத்தின் சரிபார்ப்பு பணி ஏற்கனவே முடிவுற்றது! எனவே இந்த பதிப்பகத்திற்கான புதிய தலைப்புகளைத் தேர்ந்தெடுக்கவோ அல்லது சேமிக்கவோ இயலாது.")
         else:
-            grouped = filtered_books.groupby(
-                ["Title", "Author Name", "Language"],
-                as_index=False,
-            ).agg({
-                "Quantity": "sum",
-                "Original Price": "first",
-                "Acccepted Price": "first",
-                "Isbn": "first",
-                "Book Id": "first",
-            })
+            vendor_mask = (
+                book_df.iloc[:, 9].apply(clean_text) == target_vendor_clean
+            ) | (
+                book_df.iloc[:, 10].apply(clean_text) == target_vendor_clean
+            )
+            filtered_books = book_df[vendor_mask]
 
-            c1, c2 = st.columns(2)
-            c1.metric("📚 மொத்தத் தலைப்புகள்", len(grouped))
-            c2.metric("📦 மொத்தப் படிகள்", int(grouped["Quantity"].sum()))
-
-            st.markdown("---")
-            st.markdown(f"### 🔍 2. தலைப்பைத் தேடிச் சரிபார்த்தல்")
-
-            verified_titles = {item["Title"] for item in st.session_state["temp_verified_records"]}
-            remaining_book_titles = [t for t in grouped["Title"].tolist() if t not in verified_titles]
-
-            if not remaining_book_titles:
-                st.success("🎉 இந்த பதிப்பகத்தில் உள்ள அனைத்துத் தலைப்புகளும் தற்காலிகப் பட்டியலில் சேர்க்கப்பட்டுவிட்டன!")
+            if filtered_books.empty:
+                st.warning("⚠️ இந்த பதிப்பகத்திற்குப் புத்தகத் தரவுகள் இல்லை!")
             else:
-                st.info("💡 தலைப்பின் முதல் 2-3 எழுத்துகளை உள்ளிட்டுத் தேர்ந்து கொள்ளலாம்.")
-                selected_title = st.selectbox(
-                    "புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும் (உள்ளே இரண்டு எழுத்துகள் இடவும்)",
-                    ["-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"] + remaining_book_titles,
-                    key=f"title_select_{len(st.session_state['temp_verified_records'])}"
-                )
+                grouped = filtered_books.groupby(
+                    ["Title", "Author Name", "Language"],
+                    as_index=False,
+                ).agg({
+                    "Quantity": "sum",
+                    "Original Price": "first",
+                    "Acccepted Price": "first",
+                    "Isbn": "first",
+                    "Book Id": "first",
+                })
 
-                if selected_title != "-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --":
-                    book_row = grouped[grouped["Title"] == selected_title].iloc[0]
-                    t_author = book_row["Author Name"] if pd.notna(book_row["Author Name"]) else ""
-                    t_lang = book_row["Language"]
-                    t_total_qty = int(book_row["Quantity"])
+                c1, c2 = st.columns(2)
+                c1.metric("📚 மொத்தத் தலைப்புகள்", len(grouped))
+                c2.metric("📦 மொத்தப் படிகள்", int(grouped["Quantity"].sum()))
 
-                    st.markdown(f"✍️ **ஆசிரியர்:** {t_author}")
-                    st.markdown(f"🌐 **மொழி:** {t_lang}")
-                    st.success(f"📦 **Total Qty:** {t_total_qty}")
+                st.markdown("---")
+                st.markdown(f"### 🔍 2. தலைப்பைத் தேடிச் சரிபார்த்தல்")
 
-                    rec_qty = st.number_input(
-                        "பெறப்பட்ட எண்ணிக்கை (Received Qty)",
-                        min_value=0,
-                        value=t_total_qty,
-                        step=1,
-                        key=f"rec_inp_{selected_title}"
+                verified_titles = {item["Title"] for item in st.session_state["temp_verified_records"]}
+                remaining_book_titles = [t for t in grouped["Title"].tolist() if t not in verified_titles]
+
+                if not remaining_book_titles:
+                    st.success("🎉 இந்த பதிப்பகத்தில் உள்ள அனைத்துத் தலைப்புகளும் தற்காலிகப் பட்டியலில் சேர்க்கப்பட்டுவிட்டன!")
+                else:
+                    st.info("💡 தலைப்பின் முதல் 2-3 எழுத்துகளை உள்ளிட்டுத் தேர்ந்து கொள்ளலாம்.")
+                    selected_title = st.selectbox(
+                        "புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும் (உள்ளே இரண்டு எழுத்துகள் இடவும்)",
+                        ["-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"] + remaining_book_titles,
+                        key=f"title_select_{len(st.session_state['temp_verified_records'])}"
                     )
 
-                    if st.button("➕ தற்காலிகப் பட்டியலில் சேர்", use_container_width=True):
-                        diff = rec_qty - t_total_qty
-                        if diff < 0:
-                            not_rec = abs(diff)
-                            short_extra_val = str(diff)  # உ.ம்: -1, -3
-                        elif diff > 0:
-                            not_rec = 0
-                            short_extra_val = f"+{diff}"  # உ.ம்: +10
-                        else:
-                            not_rec = 0
-                            short_extra_val = "0"
+                    if selected_title != "-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --":
+                        book_row = grouped[grouped["Title"] == selected_title].iloc[0]
+                        t_author = book_row["Author Name"] if pd.notna(book_row["Author Name"]) else ""
+                        t_lang = book_row["Language"]
+                        t_total_qty = int(book_row["Quantity"])
 
-                        id_with_vendor = vendor_id_map.get(completed_vendor_name, completed_vendor_name)
+                        st.markdown(f"✍️ **ஆசிரியர்:** {t_author}")
+                        st.markdown(f"🌐 **மொழி:** {t_lang}")
+                        st.success(f"📦 **Total Qty:** {t_total_qty}")
 
-                        st.session_state["temp_verified_records"].append({
-                            "Title": selected_title,
-                            "Language": t_lang,
-                            "Total Qty": t_total_qty,
-                            "Received": rec_qty,
-                            "Not Received": not_rec,
-                            "Short / Extra": short_extra_val,
-                            "ID with Vendor Name": id_with_vendor,
-                            "Author Name": t_author,
-                            "Vendor Name": completed_vendor_name,
-                            "Date": datetime.now().strftime("%d-%m-%y %H:%M:%S")
-                        })
-                        st.success(f"✅ '{selected_title}' சேர்க்கப்பட்டது!")
-                        time.sleep(0.3)
-                        st.rerun()
+                        rec_qty = st.number_input(
+                            "பெறப்பட்ட எண்ணிக்கை (Received Qty)",
+                            min_value=0,
+                            value=t_total_qty,
+                            step=1,
+                            key=f"rec_inp_{selected_title}"
+                        )
 
-            if st.session_state["temp_verified_records"]:
-                st.markdown("---")
-                st.markdown(f"### 📋 தற்காலிகச் சரிபார்ப்புப் பட்டியல் ({len(st.session_state['temp_verified_records'])} தலைப்புகள்)")
-                
-                temp_df = pd.DataFrame(st.session_state["temp_verified_records"])
-                display_cols = ["Title", "Language", "Total Qty", "Received", "Not Received", "Short / Extra"]
-                
-                st.dataframe(temp_df[display_cols], use_container_width=True)
+                        if st.button("➕ தற்காலிகப் பட்டியலில் சேர்", use_container_width=True):
+                            diff = rec_qty - t_total_qty
+                            if diff < 0:
+                                not_rec = abs(diff)
+                                short_extra_val = str(diff)  # உ.ம்: -1, -3
+                            elif diff > 0:
+                                not_rec = 0
+                                short_extra_val = f"+{diff}"  # உ.ம்: +10
+                            else:
+                                not_rec = 0
+                                short_extra_val = "0"
 
-                col_clr, col_save = st.columns(2)
-                with col_clr:
-                    if st.button("🗑️ அழிக்க", use_container_width=True):
-                        st.session_state["temp_verified_records"] = []
-                        st.rerun()
+                            id_with_vendor = vendor_id_map.get(completed_vendor_name, completed_vendor_name)
 
-                with col_save:
-                    if st.button("💾 சீட் & Drive-ல் சேமி", use_container_width=True):
-                        if sheet_physically and sheet_vendor_wise:
-                            try:
-                                with st.spinner("சேமிக்கப்படுகிறது..."):
-                                    phys_data = sheet_physically.get_all_values()
-                                    rows_to_delete = []
-                                    for r_idx, row_item in enumerate(phys_data[1:], start=2):
-                                        if len(row_item) > 4 and (
-                                            target_vendor_clean in clean_text(row_item[4]) or 
-                                            target_vendor_clean in clean_text(row_item[0])
-                                        ):
-                                            rows_to_delete.append(r_idx)
-                                    
-                                    for r_num in sorted(rows_to_delete, reverse=True):
-                                        sheet_physically.delete_rows(r_num)
+                            st.session_state["temp_verified_records"].append({
+                                "Title": selected_title,
+                                "Language": t_lang,
+                                "Total Qty": t_total_qty,
+                                "Received": rec_qty,
+                                "Not Received": not_rec,
+                                "Short / Extra": short_extra_val,
+                                "ID with Vendor Name": id_with_vendor,
+                                "Author Name": t_author,
+                                "Vendor Name": completed_vendor_name,
+                                "Date": datetime.now().strftime("%d-%m-%y %H:%M:%S")
+                            })
+                            st.success(f"✅ '{selected_title}' சேர்க்கப்பட்டது!")
+                            time.sleep(0.3)
+                            st.rerun()
 
-                                    for item in st.session_state["temp_verified_records"]:
-                                        sheet_physically.append_row([
-                                            item["ID with Vendor Name"],
-                                            item["Title"],
-                                            item["Language"],
-                                            item["Author Name"],
-                                            item["Vendor Name"],
-                                            item["Total Qty"],
-                                            item["Received"],
-                                            item["Not Received"],
-                                            item["Short / Extra"],
-                                            item["Date"]
-                                        ])
+                if st.session_state["temp_verified_records"]:
+                    st.markdown("---")
+                    st.markdown(f"### 📋 தற்காலிகச் சரிபார்ப்புப் பட்டியல் ({len(st.session_state['temp_verified_records'])} தலைப்புகள்)")
+                    
+                    temp_df = pd.DataFrame(st.session_state["temp_verified_records"])
+                    display_cols = ["Title", "Language", "Total Qty", "Received", "Not Received", "Short / Extra"]
+                    
+                    st.dataframe(temp_df[display_cols], use_container_width=True)
 
-                                    ws_data = sheet_vendor_wise.get_all_values()
-                                    header_lower = [str(h).strip().lower() for h in ws_data[0]]
-                                    s_col = next((i + 1 for i, h in enumerate(header_lower) if "received" in h and "not" not in h), 19)
-                                    t_col = next((i + 1 for i, h in enumerate(header_lower) if "not received" in h or ("not" in h and "received" in h)), 20)
-                                    
-                                    # Batch update cells to avoid 429 Quota Exceeded error
-                                    cell_list = []
-                                    for item in st.session_state["temp_verified_records"]:
-                                        t_title_clean = clean_text(item["Title"])
-                                        rec_qty = int(item["Received"])
+                    col_clr, col_save = st.columns(2)
+                    with col_clr:
+                        if st.button("🗑️ அழிக்க", use_container_width=True):
+                            st.session_state["temp_verified_records"] = []
+                            st.rerun()
+
+                    with col_save:
+                        if st.button("💾 சீட் & Drive-ல் சேமி", use_container_width=True):
+                            if sheet_physically and sheet_vendor_wise:
+                                try:
+                                    with st.spinner("சேமிக்கப்படுகிறது..."):
+                                        phys_data = sheet_physically.get_all_values()
+                                        rows_to_delete = []
+                                        for r_idx, row_item in enumerate(phys_data[1:], start=2):
+                                            if len(row_item) > 4 and (
+                                                target_vendor_clean in clean_text(row_item[4]) or 
+                                                target_vendor_clean in clean_text(row_item[0])
+                                            ):
+                                                rows_to_delete.append(r_idx)
                                         
-                                        matching_row_numbers = []
-                                        for r_idx, row_item in enumerate(ws_data[1:], start=2):
-                                            row_vendor_match = target_vendor_clean in clean_text(row_item[10] if len(row_item) > 10 else "") or target_vendor_clean in clean_text(row_item[9] if len(row_item) > 9 else "")
-                                            row_title_match = t_title_clean == clean_text(row_item[4] if len(row_item) > 4 else "")
-                                            if row_vendor_match and row_title_match:
-                                                matching_row_numbers.append(r_idx)
+                                        for r_num in sorted(rows_to_delete, reverse=True):
+                                            sheet_physically.delete_rows(r_num)
+
+                                        for item in st.session_state["temp_verified_records"]:
+                                            sheet_physically.append_row([
+                                                item["ID with Vendor Name"],
+                                                item["Title"],
+                                                item["Language"],
+                                                item["Author Name"],
+                                                item["Vendor Name"],
+                                                item["Total Qty"],
+                                                item["Received"],
+                                                item["Not Received"],
+                                                item["Short / Extra"],
+                                                item["Date"]
+                                            ])
+
+                                        ws_data = sheet_vendor_wise.get_all_values()
+                                        header_lower = [str(h).strip().lower() for h in ws_data[0]]
+                                        s_col = next((i + 1 for i, h in enumerate(header_lower) if "received" in h and "not" not in h), 19)
+                                        t_col = next((i + 1 for i, h in enumerate(header_lower) if "not received" in h or ("not" in h and "received" in h)), 20)
                                         
-                                        for idx, r_num in enumerate(matching_row_numbers):
-                                            val_s = "1" if idx < rec_qty else "0"
-                                            val_t = "0" if idx < rec_qty else "1"
+                                        cell_list = []
+                                        for item in st.session_state["temp_verified_records"]:
+                                            t_title_clean = clean_text(item["Title"])
+                                            rec_qty = int(item["Received"])
                                             
-                                            c_s = sheet_vendor_wise.cell(r_num, s_col)
-                                            c_s.value = val_s
-                                            cell_list.append(c_s)
+                                            matching_row_numbers = []
+                                            for r_idx, row_item in enumerate(ws_data[1:], start=2):
+                                                row_vendor_match = target_vendor_clean in clean_text(row_item[10] if len(row_item) > 10 else "") or target_vendor_clean in clean_text(row_item[9] if len(row_item) > 9 else "")
+                                                row_title_match = t_title_clean == clean_text(row_item[4] if len(row_item) > 4 else "")
+                                                if row_vendor_match and row_title_match:
+                                                    matching_row_numbers.append(r_idx)
                                             
-                                            c_t = sheet_vendor_wise.cell(r_num, t_col)
-                                            c_t.value = val_t
-                                            cell_list.append(c_t)
+                                            for idx, r_num in enumerate(matching_row_numbers):
+                                                val_s = "1" if idx < rec_qty else "0"
+                                                val_t = "0" if idx < rec_qty else "1"
+                                                
+                                                c_s = sheet_vendor_wise.cell(r_num, s_col)
+                                                c_s.value = val_s
+                                                cell_list.append(c_s)
+                                                
+                                                c_t = sheet_vendor_wise.cell(r_num, t_col)
+                                                c_t.value = val_t
+                                                cell_list.append(c_t)
 
-                                    if cell_list:
-                                        sheet_vendor_wise.update_cells(cell_list)
+                                        if cell_list:
+                                            sheet_vendor_wise.update_cells(cell_list)
 
-                                    pdf_bytes = generate_pdf_bytes(temp_df[display_cols], completed_vendor_name)
-                                    file_name = f"{completed_vendor_name}_Verification_Report.pdf"
-                                    upload_pdf_to_drive(pdf_bytes, file_name, GOOGLE_DRIVE_FOLDER_ID)
+                                        pdf_bytes = generate_pdf_bytes(temp_df[display_cols], completed_vendor_name)
+                                        file_name = f"{completed_vendor_name}_Verification_Report.pdf"
+                                        upload_pdf_to_drive(pdf_bytes, file_name, GOOGLE_DRIVE_FOLDER_ID)
 
-                                st.success("✅ வெற்றிகரமாகச் சேமிக்கப்பட்டது மற்றும் Drive-ல் பதிவேற்றப்பட்டது!")
-                                st.session_state["selected_vendor"] = None
-                                st.session_state["temp_verified_records"] = []
-                                st.session_state["vendor_key"] += 1
-                                time.sleep(1)
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"❌ பிழை: {e}")
-                        else:
-                            st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
+                                    st.success("✅ வெற்றிகரமாகச் சேமிக்கப்பட்டது மற்றும் Drive-ல் பதிவேற்றப்பட்டது!")
+                                    st.session_state["selected_vendor"] = None
+                                    st.session_state["temp_verified_records"] = []
+                                    st.session_state["vendor_key"] += 1
+                                    time.sleep(1)
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"❌ பிழை: {e}")
+                            else:
+                                st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
 
     if st.button("🔄 மற்றொரு பதிப்பகத்தைத் தேர்ந்தெடுக்க", use_container_width=True):
         st.session_state["selected_vendor"] = None
