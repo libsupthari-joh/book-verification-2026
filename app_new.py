@@ -380,7 +380,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
     st.markdown("### 🏢 1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்")
     
     selected_vendor_raw = st.selectbox(
-        "பதிப்பகத்தின் முதல் எழுத்துகளை உள்ளீடு செய்யவும் (உள்ளே இரண்டு எழுத்துகள் இடவும்)",
+        "பதிப்பகத்தின் முதல் எழுத்துகளை உள்ளீடு செய்யவும்",
         ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + vendor_list,
         key=f"vendor_select_{st.session_state['vendor_key']}"
     )
@@ -436,9 +436,8 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                 if not remaining_book_titles:
                     st.success("🎉 இந்த பதிப்பகத்தில் உள்ள அனைத்துத் தலைப்புகளும் தற்காலிகப் பட்டியலில் சேர்க்கப்பட்டுவிட்டன!")
                 else:
-                    st.info("💡 தலைப்பின் முதல் எழுத்துகளை உள்ளிட்டுத் தேர்ந்து கொள்ளலாம்.")
                     selected_title = st.selectbox(
-                        "புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும் (உள்ளே இரண்டு எழுத்துகள் இடவும்)",
+                        "புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும்",
                         ["-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"] + remaining_book_titles,
                         key=f"title_select_{len(st.session_state['temp_verified_records'])}"
                     )
@@ -594,7 +593,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
 # --- TASK 2: VENDOR WISE BOOK DATA SYNC ---
 elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்":
     st.subheader("🔄 Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை ஒத்திசைவு (Sync)")
-    st.info("💡 Physically verified சீட்டில் சரிபார்க்கப்பட்ட பதிப்பகங்கள் மட்டுமே கீழே தோன்றும். ஒத்திசைவு முடிந்தவுடன் பட்டியலில் இருந்து மறைந்துவிடும்.")
+    st.info("💡 Physically verified சீட்டில் சரிபார்க்கப்பட்ட பதிப்பகங்கள் மட்டுமே கீழே தோன்றும்.")
 
     if sheet_physically is None or sheet_vendor_wise is None:
         st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
@@ -616,18 +615,16 @@ elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்க�
         available_vendors_t2 = [v for v in phys_vendors if v not in completed_syncs]
 
         if not available_vendors_t2:
-            st.success("🎉 Physically verified சீட்டில் உள்ள அனைத்து பதிப்பகங்களின் ஒத்திசைவுப் பணிகளும் வெற்றிகரமாக முடிவுற்றன!")
+            st.success("🎉 அனைத்து பதிப்பகங்களின் ஒத்திசைவுப் பணிகளும் முடிவுற்றன!")
         else:
             st.markdown("---")
-            st.markdown("### 🏢 ஒத்திசைவுக்கான பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்")
-            
             selected_vendor_t2 = st.selectbox(
-                "ஒத்திசைவு செய்ய வேண்டிய பதிப்பகத்தின் முதல் எழுத்துகளை உள்ளீடு செய்யவும் (உள்ளே இரண்டு எழுத்துகள் இடவும்)",
-                ["-- ஒத்திசைவுக்கான பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + available_vendors_t2,
+                "ஒத்திசைவு செய்ய வேண்டிய பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்",
+                ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + available_vendors_t2,
                 key="vendor_select_t2"
             )
 
-            if selected_vendor_t2 != "-- ஒத்திசைவுக்கான பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+            if selected_vendor_t2 != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
                 target_v_clean_t2 = clean_text(selected_vendor_t2)
 
                 title_idx = next((i for i, h in enumerate(phys_headers) if "title" in h), 1)
@@ -656,12 +653,7 @@ elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்க�
                                 "Date": p_row[date_idx] if len(p_row) > date_idx else ""
                             })
 
-                if not vendor_phys_records:
-                    st.warning(f"⚠️ **{selected_vendor_t2}** பதிப்பகத்திற்குத் தரவுகள் எதுவும் கிடைக்கவில்லை!")
-                else:
-                    st.success(f"✅ **{selected_vendor_t2}** பதிப்பகத்திற்காக {len(vendor_phys_records)} சரிபார்ப்புப் பதிவுகள் கண்டறியப்பட்டுள்ளன.")
-                    
-                    st.markdown("### 📋 சரிபார்க்கப்பட்ட நூல்களின் விவரங்கள்")
+                if vendor_phys_records:
                     disp_df = pd.DataFrame(display_records)
                     st.dataframe(disp_df, use_container_width=True, hide_index=True)
 
@@ -717,9 +709,56 @@ elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்க�
                             if cell_list:
                                 sheet_vendor_wise.update_cells(cell_list)
 
-                            st.success(f"✅ **{selected_vendor_t2}** பதிப்பகத்தின் தரவுகள் வெற்றிகரமாக ஒத்திசைவு செய்யப்பட்டன!")
+                            st.success(f"✅ **{selected_vendor_t2}** பதிப்பகத்தின் தரவுகள் ஒத்திசைவு செய்யப்பட்டன!")
                             st.session_state["completed_sync_vendors"].append(selected_vendor_t2)
                             time.sleep(1)
                             st.rerun()
     except Exception as e:
         st.error(f"❌ பிழை: {e}")
+
+# --- TASK 3: TOTAL VENDOR DETAILS (480) ---
+elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)":
+    st.subheader("🏢 மொத்த பதிப்பாளர் விவரங்கள் (480)")
+    st.info("💡 Excel கோப்பில் உள்ள அனைத்து பதிப்பகங்களின் (Vendors) முழு விவரங்களும் கீழே பட்டியலிடப்பட்டுள்ளன.")
+
+    if vendor_df is not None and not vendor_df.empty:
+        st.metric("📦 மொத்த பதிப்பகங்கள்", len(vendor_df))
+        st.markdown("---")
+        
+        # Search filter
+        search_v = st.text_input("🔍 பதிப்பாளர் பெயரைத் தேടவும் (Search Vendor)")
+        display_v_df = vendor_df
+        if search_v:
+            mask_v = vendor_df.astype(str).apply(lambda x: x.str.contains(search_v, case=False, na=False)).any(axis=1)
+            display_v_df = vendor_df[mask_v]
+
+        st.dataframe(display_v_df, use_container_width=True, hide_index=True)
+    else:
+        st.warning("⚠️ பதிப்பாளர் தரவுகள் (Vendor Name Sheet) கிடைக்கவில்லை.")
+
+# --- TASK 4: LIBRARY DISTRIBUTION (103) ---
+elif menu_choice == "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)":
+    st.subheader("🏛️ நூலகத்திற்கு விநியோகம் (103)")
+    st.info("💡 நூலக விநியோகம் மற்றும் விவரங்கள் தொடர்பான மேலாண்மைப் பகுதி.")
+
+    if sheet_library_details:
+        try:
+            lib_data = sheet_library_details.get_all_values()
+            if lib_data:
+                lib_df = pd.DataFrame(lib_data[1:], columns=lib_data[0]) if len(lib_data) > 1 else pd.DataFrame(lib_data)
+                st.metric("🏛️ மொத்த நூலகங்கள்", len(lib_df))
+                st.markdown("---")
+                st.dataframe(lib_df, use_container_width=True, hide_index=True)
+            else:
+                st.warning("⚠️ நூலக விவரங்கள் சீட்டில் தரவுகள் இல்லை.")
+        except Exception as e:
+            st.error(f"❌ பிழை: {e}")
+    else:
+        st.warning("⚠️ Google Sheet-ல் 'Library Details' சீட் இணைக்கப்படவில்லை.")
+
+# --- TASK 5: ACCESSION NUMBERS MANAGEMENT ---
+elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
+    st.subheader("⚙️ Accession எண்கள் மேலாண்மை")
+    st.info("💡 நூல்களுக்கான Accession எண்களை நிர்வகிக்கும் பகுதி.")
+    st.markdown("---")
+    st.success("✅ இந்த பிரிவு பயன்பாட்டிற்குத் தயாராக உள்ளது. கூடுதல் விவரங்களை விரைவில் சேர்க்கலாம்.")
