@@ -61,6 +61,8 @@ def get_custom_css():
     section[data-testid="stSidebar"] {
         background: linear-gradient(180deg, #071a38, #0b2e63 55%, #082044);
         border-right: 1px solid rgba(255,255,255,.15);
+        min-width: 280px !important;
+        max-width: 320px !important;
     }
 
     section[data-testid="stSidebar"] > div:first-child {
@@ -73,87 +75,89 @@ def get_custom_css():
         color: white !important;
     }
 
-    section[data-testid="stSidebar"] button {
+    /* Sidebar menu buttons - improved styling */
+    section[data-testid="stSidebar"] .stButton > button {
         width: 100% !important;
-        min-height: 56px !important;
-        margin: 9px 0 !important;
-        padding: 12px 15px !important;
-        border: 1px solid rgba(255,255,255,.28) !important;
-        border-radius: 16px !important;
+        min-height: 52px !important;
+        margin: 8px 0 !important;
+        padding: 14px 16px !important;
+        border: 1px solid rgba(255,255,255,.25) !important;
+        border-radius: 14px !important;
         color: white !important;
-        font-weight: 800 !important;
+        font-weight: 700 !important;
+        font-size: 14px !important;
         text-align: left !important;
-        transition: transform .18s ease, box-shadow .18s ease, filter .18s ease !important;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.38), 0 6px 0 rgba(0,0,0,.32), 0 12px 18px rgba(0,0,0,.25) !important;
+        transition: all 0.2s ease !important;
+        box-shadow: 0 4px 0 rgba(0,0,0,.25), 0 8px 12px rgba(0,0,0,.2) !important;
+        background: linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.05)) !important;
     }
 
-    section[data-testid="stSidebar"] button p {
-        color: white !important;
+    section[data-testid="stSidebar"] .stButton > button:hover {
+        transform: translateY(-2px) !important;
+        background: linear-gradient(145deg, rgba(255,255,255,.15), rgba(255,255,255,.1)) !important;
+        box-shadow: 0 6px 0 rgba(0,0,0,.25), 0 12px 18px rgba(0,0,0,.25) !important;
+    }
+
+    section[data-testid="stSidebar"] .stButton > button:active {
+        transform: translateY(1px) !important;
+        box-shadow: 0 2px 0 rgba(0,0,0,.25), 0 4px 8px rgba(0,0,0,.2) !important;
+    }
+
+    /* Active page highlight */
+    section[data-testid="stSidebar"] .stButton > button:focus {
+        background: linear-gradient(145deg, #1565c0, #0d47a1) !important;
+        border-color: rgba(255,255,255,.4) !important;
+    }
+
+    /* Logout button - red */
+    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:first-child .stButton > button {
+        background: linear-gradient(145deg, #ef5350, #b71c1c) !important;
+        text-align: center !important;
         font-weight: 800 !important;
     }
 
-    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-type(1) button {
-        background: linear-gradient(145deg, #ef5350, #b71c1c) !important;
-    }
-    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-type(2) button {
-        background: linear-gradient(145deg, #2e7d32, #124d17) !important;
-    }
-    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-type(3) button {
-        background: linear-gradient(145deg, #8e24aa, #4a148c) !important;
-    }
-    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-type(4) button {
-        background: linear-gradient(145deg, #ef6c00, #b23c00) !important;
-    }
-    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-type(5) button {
-        background: linear-gradient(145deg, #0288d1, #01579b) !important;
-    }
-    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-type(6) button {
-        background: linear-gradient(145deg, #546e7a, #263238) !important;
-    }
-
-    section[data-testid="stSidebar"] button:hover {
-        transform: translateY(-4px) scale(1.015) !important;
-        filter: brightness(1.16) saturate(1.12) !important;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.48), 0 9px 0 rgba(0,0,0,.30), 0 18px 25px rgba(0,0,0,.32) !important;
-    }
-
-    section[data-testid="stSidebar"] button:active {
-        transform: translateY(4px) !important;
-        box-shadow: inset 0 2px 4px rgba(0,0,0,.35), 0 2px 0 rgba(0,0,0,.3) !important;
+    /* Input fields */
+    div[data-testid="stSelectbox"] label,
+    div[data-testid="stNumberInput"] label,
+    div[data-testid="stTextInput"] label {
+        color: white !important;
+        font-weight: 600 !important;
     }
 
     div[data-baseweb="select"] > div,
     input, textarea {
-        border-radius: 13px !important;
+        border-radius: 12px !important;
         border: 1px solid #b7c9e5 !important;
-        background: rgba(255,255,255,.92) !important;
+        background: rgba(255,255,255,.95) !important;
     }
 
+    /* Main buttons */
     .stButton > button,
     .stDownloadButton > button {
-        min-height: 46px;
+        min-height: 44px;
         border: none !important;
-        border-radius: 13px !important;
+        border-radius: 12px !important;
         color: white !important;
-        font-weight: 800 !important;
+        font-weight: 700 !important;
         background: linear-gradient(145deg, #1565c0, #082b68) !important;
-        box-shadow: 0 5px 0 #061b42, 0 9px 15px rgba(8,43,104,.25) !important;
-        transition: all .18s ease !important;
+        box-shadow: 0 4px 0 #061b42, 0 8px 14px rgba(8,43,104,.25) !important;
+        transition: all 0.2s ease !important;
     }
 
     .stButton > button:hover,
     .stDownloadButton > button:hover {
-        transform: translateY(-3px);
+        transform: translateY(-2px);
         filter: brightness(1.12);
-        box-shadow: 0 8px 0 #061b42, 0 14px 22px rgba(8,43,104,.32) !important;
+        box-shadow: 0 6px 0 #061b42, 0 12px 20px rgba(8,43,104,.32) !important;
     }
 
+    /* Metric cards */
     div[data-testid="stMetric"] {
-        padding: 18px !important;
-        border-radius: 18px;
-        background: rgba(255,255,255,.84);
-        border: 1px solid rgba(255,255,255,.72);
-        box-shadow: 0 8px 20px rgba(30,70,120,.12);
+        padding: 16px !important;
+        border-radius: 16px;
+        background: rgba(255,255,255,.9);
+        border: 1px solid rgba(255,255,255,.8);
+        box-shadow: 0 6px 16px rgba(30,70,120,.12);
     }
 
     div[data-testid="stMetricValue"] {
@@ -161,70 +165,76 @@ def get_custom_css():
         font-weight: 900 !important;
     }
 
+    /* Dataframe */
     div[data-testid="stDataFrame"] {
-        border-radius: 15px;
+        border-radius: 14px;
         overflow: hidden;
-        box-shadow: 0 8px 20px rgba(30,70,120,.13);
+        box-shadow: 0 6px 16px rgba(30,70,120,.12);
     }
 
+    /* Alerts */
     div[data-testid="stAlert"] {
-        border-radius: 15px !important;
-        box-shadow: 0 5px 14px rgba(30,70,120,.10);
+        border-radius: 14px !important;
+        box-shadow: 0 4px 12px rgba(30,70,120,.1);
     }
 
+    /* Login card */
     .login-card {
-        max-width: 520px;
-        margin: 7vh auto 0 auto;
-        padding: 30px 30px 24px;
-        border-radius: 26px;
-        background: rgba(255,255,255,.92);
-        box-shadow: 0 18px 0 rgba(7,26,56,.16), 0 28px 45px rgba(7,26,56,.20);
+        max-width: 500px;
+        margin: 8vh auto 0 auto;
+        padding: 32px 32px 26px;
+        border-radius: 24px;
+        background: rgba(255,255,255,.95);
+        box-shadow: 0 16px 0 rgba(7,26,56,.14), 0 24px 40px rgba(7,26,56,.18);
         text-align: center;
     }
 
     .login-logo {
-        width: 78px;
-        height: 78px;
-        margin: 0 auto 14px;
+        width: 72px;
+        height: 72px;
+        margin: 0 auto 12px;
         display: flex;
         align-items: center;
         justify-content: center;
         border-radius: 50%;
-        font-size: 38px;
+        font-size: 36px;
         background: linear-gradient(145deg, #00acc1, #1565c0);
-        box-shadow: inset 0 3px 7px rgba(255,255,255,.4), 0 8px 0 #07366c, 0 14px 23px rgba(7,54,108,.25);
+        box-shadow: inset 0 2px 6px rgba(255,255,255,.4), 0 6px 0 #07366c, 0 12px 20px rgba(7,54,108,.22);
     }
 
     .login-title {
         margin: 0;
         color: #082653;
-        font-size: 26px;
+        font-size: 24px;
         font-weight: 900;
     }
 
     .login-subtitle {
-        margin: 7px 0 24px;
+        margin: 6px 0 22px;
         color: #60708a;
-        font-size: 14px;
+        font-size: 13px;
     }
 
-    @media (max-width: 768px) {
-        h1 { font-size: 1.35rem !important; padding: 17px !important; }
-        section[data-testid="stSidebar"] button { min-height: 52px !important; font-size: 13px !important; }
-    }
-    /* Sidebar திறக்கும் அம்புக்குறியை (>) தெளிவாகக் காட்ட */
+    /* Sidebar toggle button - FIXED */
     [data-testid="stSidebarCollapsedControl"] {
-        background: #1565c0 !important;
-        color: white !important;
-        border-radius: 10px !important;
+        background: linear-gradient(145deg, #1565c0, #0d47a1) !important;
+        border-radius: 8px !important;
         padding: 6px !important;
         margin: 8px !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
+        box-shadow: 0 3px 8px rgba(0,0,0,.25) !important;
+        opacity: 1 !important;
+        visibility: visible !important;
     }
     [data-testid="stSidebarCollapsedControl"] svg {
         fill: white !important;
-        width: 24px !important;
-        height: 24px !important;
+        width: 20px !important;
+        height: 20px !important;
+    }
+
+    @media (max-width: 768px) {
+        h1 { font-size: 1.3rem !important; padding: 16px !important; }
+        section[data-testid="stSidebar"] { min-width: 260px !important; }
+        section[data-testid="stSidebar"] .stButton > button { min-height: 48px !important; font-size: 13px !important; }
     }
     </style>
     """
@@ -240,10 +250,9 @@ def hash_password(password):
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
-# Admin மற்றும் User கணக்கு விவரங்கள்
 USERS_DATABASE = {
     "9842759306": {
-        "password_hash": hash_password("123456"),
+        "password_hash": hash_password("Hari@1979"),
         "role": "Admin",
         "name": "முதன்மை நிர்வாகி (Admin)",
     },
@@ -415,10 +424,13 @@ st.session_state.setdefault("vendor_key", 0)
 st.session_state.setdefault("book_key", 0)
 st.session_state.setdefault("selected_vendor", None)
 
+# User info in sidebar
 st.sidebar.markdown(f"### 👤 {st.session_state['user_name']}")
 role_badge = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
 st.sidebar.caption(f"அதிகார நிலை: **{role_badge}**")
+st.sidebar.markdown("---")
 
+# Logout button
 if st.sidebar.button("🚪 வெளியேறு (Logout)", use_container_width=True):
     st.session_state["logged_in"] = False
     st.session_state["user_role"] = None
@@ -429,7 +441,7 @@ if st.sidebar.button("🚪 வெளியேறு (Logout)", use_container_wid
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 📌 முதன்மைப் பணிகள்")
 
-# Admin மற்றும் User-க்கான மெனு உரிமைகள்
+# Menu items based on role
 if st.session_state["user_role"] == "Admin":
     menu_items = [
         "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு",
@@ -439,7 +451,6 @@ if st.session_state["user_role"] == "Admin":
         "⚙️ 5. Accession எண்கள் மேலாண்மை",
     ]
 else:
-    # User-க்குக் கட்டுப்பாடான பணிகள் மட்டுமே
     menu_items = [
         "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு",
         "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)",
