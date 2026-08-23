@@ -618,15 +618,16 @@ elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்க�
             st.success("🎉 Physically verified சீட்டில் உள்ள அனைத்து பதிப்பகங்களின் ஒத்திசைவுப் பணிகளும் வெற்றிகரமாக முடிவுற்றன!")
         else:
             st.markdown("---")
-            st.markdown("### 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்")
+            # தெளிவுக்காக இங்கே தலைப்பு மாற்றப்பட்டுள்ளது
+            st.markdown("### 🏢 ஒத்திசைவுக்கான பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்")
             
             selected_vendor_t2 = st.selectbox(
-                "பதிப்பகத்தின் முதல் எழுத்துகளை உள்ளீடு செய்யவும் (உள்ளே இரண்டு எழுத்துகள் இடவும்)",
-                ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + available_vendors_t2,
+                "ஒத்திசைவு செய்ய வேண்டிய பதிப்பகத்தின் முதல் எழுத்துகளை உள்ளீடு செய்யவும் (உள்ளே இரண்டு எழுத்துகள் இடவும்)",
+                ["-- ஒத்திசைவுக்கான பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + available_vendors_t2,
                 key="vendor_select_t2"
             )
 
-            if selected_vendor_t2 != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+            if selected_vendor_t2 != "-- ஒத்திசைவுக்கான பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
                 target_v_clean_t2 = clean_text(selected_vendor_t2)
 
                 title_idx = next((i for i, h in enumerate(phys_headers) if "title" in h), 1)
@@ -660,7 +661,6 @@ elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்க�
                 else:
                     st.success(f"✅ **{selected_vendor_t2}** பதிப்பகத்திற்காக {len(vendor_phys_records)} சரிபார்ப்புப் பதிவுகள் கண்டறியப்பட்டுள்ளன.")
                     
-                    # பதிப்பகத்தைத் தேர்ந்தெடுத்தவுடன் உடனடியாகச் சரிபார்க்கப்பட்ட விவரங்கள் அட்டவணையாகக் காட்டும் பகுதி
                     st.markdown("### 📋 சரிபார்க்கப்பட்ட நூல்களின் விவரங்கள்")
                     disp_df = pd.DataFrame(display_records)
                     st.dataframe(disp_df, use_container_width=True, hide_index=True)
