@@ -16,7 +16,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 # 1. PAGE SETTINGS
 # ============================================================
 st.set_page_config(
-    page_title="2026 புதிய நூல்கள் விநியோகம்",
+    page_title="2026 புதிய நூல்கள் பெறப்பட்டது / விநியோகம்",
     page_icon="📚",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -743,7 +743,6 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
         if st.session_state["selected_library"]:
             selected_library = st.session_state["selected_library"]
             
-            # Button to change/reset library selection (similar to vendor workflow)
             if st.button("🔄 மற்றொரு நூலகத்தைத் தேர்ந்தெடுக்க", use_container_width=True):
                 st.session_state["selected_library"] = None
                 st.session_state["library_key"] += 1
@@ -758,12 +757,20 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
             lib_name_col = next((col_map_lower[c] for c in col_map_lower if "library name" in c), base_df.columns[12] if len(base_df.columns) > 12 else None)
             lib_type_col = next((col_map_lower[c] for c in col_map_lower if "library type" in c), base_df.columns[10] if len(base_df.columns) > 10 else None)
 
+            # Build name to LibrarianId mapping to filter securely using LibrarianId
+            name_to_id = {}
+            if lib_name_col and lib_id_col:
+                for _, r in base_df.dropna(subset=[lib_name_col, lib_id_col]).iterrows():
+                    name_to_id[str(r[lib_name_col]).strip()] = str(r[lib_id_col]).strip()
+
             if selected_library == "-- அனைத்து நூலகங்களும் (All Libraries) --":
                 filtered_lib_df = base_df.copy()
             else:
-                lib_name_col_candidate = next((col for col in base_df.columns if "library name" in str(col).lower()), None)
-                if lib_name_col_candidate:
-                    filtered_lib_df = base_df[base_df[lib_name_col_candidate].astype(str).str.strip() == selected_library].copy()
+                target_lib_id = name_to_id.get(selected_library)
+                if target_lib_id and lib_id_col:
+                    filtered_lib_df = base_df[base_df[lib_id_col].astype(str).str.strip() == target_lib_id].copy()
+                elif lib_name_col:
+                    filtered_lib_df = base_df[base_df[lib_name_col].astype(str).str.strip() == selected_library].copy()
                 else:
                     filtered_lib_df = base_df.copy()
 
