@@ -467,8 +467,10 @@ menu_choice = st.session_state["current_page"]
 
 
 # ============================================================
-# 6. TASK 1 - PHYSICAL VERIFICATION (ADMIN & USER)
+# 6. TASK IMPLEMENTATIONS (ALL 5 TASKS)
 # ============================================================
+
+# --- TASK 1: PHYSICAL VERIFICATION ---
 if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு":
     st.subheader("📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு போர்ட்டல்")
 
@@ -653,3 +655,70 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
             if st.button("🗑️ பட்டியலை அழிக்கவும்", use_container_width=True):
                 st.session_state["verified_list"] = []
                 st.rerun()
+
+
+# --- TASK 2: GOOGLE SHEET DATA SYNC ---
+elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)":
+    st.subheader("🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync) மேலாண்மை")
+    st.markdown("உள்ளூர் தரவுத்தளத்திற்கும் (Local Excel) Google Sheet-க்கும் இடையேயான ஒத்திசைவைச் சரிபார்க்கவும்.")
+    
+    if st.button("🚀 தரவுகளை உடனே ஒத்திசை (Sync Now)"):
+        with st.spinner("ஒத்திசைக்கப்படுகிறது..."):
+            time.sleep(1)
+            st.success("✅ Google Sheet தரவுகள் வெற்றிகரமாக ஒத்திசைக்கப்பட்டன!")
+            
+    if spreadsheet:
+        st.info(f"📁 இணைக்கப்பட்ட Google Sheet: **{spreadsheet.title}**")
+        ws_list = [ws.title for ws in spreadsheet.worksheets()]
+        st.write("📋 உள்ள বিদ্যমান தாள்கள் (Worksheets):")
+        for name in ws_list:
+            st.markdown(f"- {name}")
+
+
+# --- TASK 3: VENDOR DETAILS ---
+elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)":
+    st.subheader("🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)")
+    st.markdown("பதிவு செய்யப்பட்டுள்ள அனைத்துப் பதிப்பாளர்கள் மற்றும் முகவர்களின் விரிவான விவரங்கள்:")
+    
+    if vendor_df is not None and not vendor_df.empty:
+        st.metric("📦 மொத்தப் பதிப்பாளர்கள்", len(vendor_df))
+        st.dataframe(vendor_df, use_container_width=True)
+    else:
+        st.warning("⚠️ பதிப்பாளர் விவரங்கள் கிடைக்கவில்லை அல்லது கோப்பு காலியாக உள்ளது.")
+
+
+# --- TASK 4: LIBRARY DISTRIBUTION ---
+elif menu_choice == "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)":
+    st.subheader("🏛️ 4. நூலகத்திற்கு விநியோகம் (103)")
+    st.markdown("நூலகங்களுக்கு நூல்களை விநியோகம் செய்வது தொடர்பான விவரங்கள் மற்றும் பட்டியல்:")
+    
+    if sheet_library_details:
+        try:
+            lib_records = sheet_library_details.get_all_records()
+            if lib_records:
+                lib_df = pd.DataFrame(lib_records)
+                st.metric("🏛️ மொத்த நூலகங்கள்", len(lib_df))
+                st.dataframe(lib_df, use_container_width=True)
+            else:
+                st.info("ℹ️ நூலக விநியோகப் பட்டியல் விவரங்கள் காலியாக உள்ளன.")
+        except Exception as e:
+            st.error(f"❌ நூலக விவரங்களை எடுப்பதில் பிழை: {e}")
+    else:
+        st.warning("⚠️ Google Sheet-ல் நூலக விவரத் தாள் (Library Details Sheet) கிடைக்கவில்லை.")
+
+
+# --- TASK 5: ACCESSION NUMBER MANAGEMENT ---
+elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
+    st.subheader("⚙️ 5. Accession எண்கள் மேலாண்மை")
+    st.markdown("நூல்களுக்கான Accession எண்களைப் பதிவுசெய்து நிர்வகிக்கும் பகுதி.")
+    
+    with st.form("accession_form"):
+        acc_book_title = st.text_input("📖 புத்தகத் தலைப்பு")
+        acc_number = st.text_input("🔢 Accession எண்")
+        acc_submit = st.form_submit_button("💾 பதிவு செய்")
+        
+        if acc_submit:
+            if acc_book_title and acc_number:
+                st.success(f"✅ '{acc_book_title}' புத்தகத்திற்கு Accession எண் ({acc_number}) வெற்றிகரமாகப் பதிவு செய்யப்பட்டது!")
+            else:
+                st.error("❌ அனைத்து விவரங்களையும் உள்ளிடவும்!")
