@@ -10,6 +10,7 @@ import gspread
 from gspread.cell import Cell
 import pandas as pd
 import streamlit as st
+from oauth2client.service_account import ServiceAccountCredentials
 
 # ============================================================
 # 1. PAGE SETTINGS (SIDEBAR EXPANDED & FIXED)
@@ -365,8 +366,8 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
     vendor_id_map = {}
     if not vendor_df.empty:
         for _, row in vendor_df.iterrows():
-            col_b = str(row.iloc[1]).strip() if len(row) > 1 and pd.notna(row.iloc[1]) else ""  
-            col_c = str(row.iloc[2]).strip() if len(row) > 2 and pd.notna(row.iloc[2]) else ""  
+            col_b = str(row.iloc[1]).strip() if len(row) > 1 and pd.notna(row.iloc[1]) else "" 
+            col_c = str(row.iloc[2]).strip() if len(row) > 2 and pd.notna(row.iloc[2]) else "" 
             
             vendor_name = col_c if col_c and col_c.lower() != "nan" else col_b
             full_id_name = col_b if col_b and col_b.lower() != "nan" else col_c
@@ -518,7 +519,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                                 target_vendor_clean in clean_text(row_item[0])
                                             ):
                                                 rows_to_delete.append(r_idx)
-                                        
+                                    
                                         for r_num in sorted(rows_to_delete, reverse=True):
                                             sheet_physically.delete_rows(r_num)
 
@@ -618,7 +619,6 @@ elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்க�
             st.success("🎉 Physically verified சீட்டில் உள்ள அனைத்து பதிப்பகங்களின் ஒத்திசைவுப் பணிகளும் வெற்றிகரமாக முடிவுற்றன!")
         else:
             st.markdown("---")
-            # தெளிவுக்காக இங்கே தலைப்பு மாற்றப்பட்டுள்ளது
             st.markdown("### 🏢 ஒத்திசைவுக்கான பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்")
             
             selected_vendor_t2 = st.selectbox(
@@ -710,40 +710,16 @@ elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்க�
                                     else:
                                         val_s = "0"
                                         val_t = str(row_qty)
-
+                                    
                                     cell_list.append(Cell(row=r_num, col=s_col, value=val_s))
                                     cell_list.append(Cell(row=r_num, col=t_col, value=val_t))
 
                             if cell_list:
                                 sheet_vendor_wise.update_cells(cell_list)
-                                if selected_vendor_t2 not in st.session_state["completed_sync_vendors"]:
-                                    st.session_state["completed_sync_vendors"].append(selected_vendor_t2)
-                                
-                                st.success(f"✅ **{selected_vendor_t2}** பதிப்பகத்திற்கான ஒத்திசைவு வெற்றிகரமாக முடிக்கப்பட்டது!")
-                                time.sleep(1)
-                                st.rerun()
-                            else:
-                                st.warning("⚠️ ஒத்திசைக்கத்தக்க பொருத்தமான தரவுகள் எதுவும் கிடைக்கவில்லை.")
+
+                            st.success(f"✅ **{selected_vendor_t2}** பதிப்பகத்தின் தரவுகள் வெற்றிகரமாக ஒத்திசைவு செய்யப்பட்டன!")
+                            st.session_state["completed_sync_vendors"].append(selected_vendor_t2)
+                            time.sleep(1)
+                            st.rerun()
     except Exception as e:
-        st.error(f"❌ ஒத்திசைவுப் பிழை: {e}")
-
-# --- TASK 3: VENDOR DETAILS ---
-elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)":
-    st.subheader("🏢 3. மொத்த பதிப்பாளர் விவரங்கள்")
-    if vendor_df is not None and not vendor_df.empty:
-        st.dataframe(vendor_df, use_container_width=True)
-
-# --- TASK 4: LIBRARY DISTRIBUTION ---
-elif menu_choice == "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)":
-    st.subheader("🏛️ 4. நூலகத்திற்கு விநியோகம்")
-    if sheet_library_details:
-        st.dataframe(pd.DataFrame(sheet_library_details.get_all_records()), use_container_width=True)
-
-# --- TASK 5: ACCESSION ---
-elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
-    st.subheader("⚙️ 5. Accession மேலாண்மை")
-    with st.form("acc_form"):
-        st.text_input("📖 தலைப்பு")
-        st.text_input("🔢 எண்")
-        if st.form_submit_button("💾 பதிவு செய்", use_container_width=True):
-            st.success("✅ பதிவு செய்யப்பட்டது!")
+        st.error(f"❌ பிழை: {e}")
