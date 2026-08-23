@@ -338,6 +338,7 @@ if not st.session_state["logged_in"]:
 EXCEL_FILE = "Book Supply-2026.xlsx"
 SPREADSHEET_ID = "1LNogKaLvdqkoITSLE971jTBIy9QO4s90j1WDxY1cDrc"
 
+
 @st.cache_data
 def load_data(file_path):
     if not os.path.exists(file_path):
@@ -618,29 +619,3 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
 
     if st.session_state["verified_list"]:
         st.markdown("---")
-        st.markdown("### 📋 சரிபார்க்கப்பட்ட தற்காலிகப் பட்டியல்")
-        verified_df = pd.DataFrame(st.session_state["verified_list"])
-        verified_df.index = range(1, len(verified_df) + 1)
-        st.dataframe(
-            verified_df[[
-                "Vendor", "Title", "Language", "Author",
-                "TotalQty", "ReceivedQty", "NotReceivedQty",
-            ]],
-            use_container_width=True,
-        )
-
-        col_save, col_clear = st.columns([3, 1])
-        with col_save:
-            if st.button("💾 Google Sheet-ல் சேமி", key="btn_save", use_container_width=True):
-                try:
-                    if not sheet_physically:
-                        st.error("❌ Physically Verified sheet கிடைக்கவில்லை!")
-                    else:
-                        current_date = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                        rows = [
-                            [
-                                item["Vendor"], item["Title"], item["Language"],
-                                item["Author"], item["Vendor"], item["TotalQty"],
-                                item["ReceivedQty"], item["NotReceivedQty"], current_date,
-                            ]
-                            for item in
