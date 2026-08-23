@@ -129,7 +129,7 @@ st.markdown(get_custom_css(), unsafe_allow_html=True)
 
 
 # ============================================================
-# 3. SECURITY AND LOGIN (ADMIN & USER ROLES)
+# 3. SECURITY AND LOGIN (ADMIN & USER ROLES WITH PERSISTENCE)
 # ============================================================
 def hash_password(password):
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
@@ -163,6 +163,22 @@ def authenticate_user(phone, password):
         ):
             return user_data
     return None
+
+
+# Restore login status from query parameters if available
+if "logged_in" not in st.session_state:
+    if st.query_params.get("logged_in") == "true":
+        st.session_state["logged_in"] = True
+        st.session_state["user_role"] = st.query_params.get("role", "User")
+        st.session_state["user_name"] = st.query_params.get("name", "பயனர்")
+    else:
+        st.session_state["logged_in"] = False
+        st.session_state["user_role"] = None
+        st.session_state["user_name"] = ""
+
+st.session_state.setdefault("logged_in", False)
+st.session_state.setdefault("user_role", None)
+st.session_state.setdefault("user_name", "")
 
 
 def show_login_page():
@@ -200,14 +216,15 @@ def show_login_page():
                 st.session_state["logged_in"] = True
                 st.session_state["user_role"] = user_info["role"]
                 st.session_state["user_name"] = user_info["name"]
+
+                # Save to query params to persist across refresh
+                st.query_params["logged_in"] = "true"
+                st.query_params["role"] = user_info["role"]
+                st.query_params["name"] = user_info["name"]
                 st.rerun()
             else:
                 st.error("❌ தவறான அலைபேசி எண் அல்லது கடவுச்சொல்!")
 
-
-st.session_state.setdefault("logged_in", False)
-st.session_state.setdefault("user_role", None)
-st.session_state.setdefault("user_name", "")
 
 if not st.session_state["logged_in"]:
     show_login_page()
@@ -410,6 +427,7 @@ if st.sidebar.button("🚪 வெளியேறு (Logout)", use_container_wid
     st.session_state["user_name"] = ""
     st.session_state["selected_vendor"] = None
     st.session_state["temp_verified_records"] = []
+    st.query_params.clear()
     st.rerun()
 
 st.sidebar.markdown("---")
@@ -450,7 +468,6 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         st.error("❌ 'Book Supply-2026.xlsx' கோப்பு காணப்படவில்லை!")
         st.stop()
 
-    # Fetch already completed vendors from Physically verified sheet
     already_verified_clean = set()
     if sheet_physically:
         try:
@@ -495,7 +512,6 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         completed_vendor_name = st.session_state["selected_vendor"]
         target_vendor_clean = clean_text(completed_vendor_name)
         
-        # Check if already completed -> BLOCKS further processing entirely
         if target_vendor_clean in already_verified_clean:
             st.error(f"⚠️ **{completed_vendor_name}** பதிப்பகத்தின் சரிபார்ப்பு பணி ஏற்கனவே முடிவுற்றது! எனவே இந்த பதிப்பகத்திற்கான புதிய தலைப்புகளைத் தேர்ந்தெடுக்கவோ அல்லது சேமிக்கவோ இயலாது.")
         else:
@@ -562,10 +578,10 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                             diff = rec_qty - t_total_qty
                             if diff < 0:
                                 not_rec = abs(diff)
-                                short_extra_val = str(diff)  # உ.ம்: -1, -3
+                                short_extra_val = str(diff)
                             elif diff > 0:
                                 not_rec = 0
-                                short_extra_val = f"+{diff}"  # உ.ம்: +10
+                                short_extra_val = f"+{diff}"
                             else:
                                 not_rec = 0
                                 short_extra_val = "0"
