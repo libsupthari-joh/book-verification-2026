@@ -466,7 +466,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
     st.markdown("### 🏢 1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்")
     
     selected_vendor_raw = st.selectbox(
-        "பதிப்பகத்தின் முதல் எழுத்துகளை உள்ளீடு செய்யவும்",
+        "பதிப்பகத்தின் முதல் எழுத்துகளை உள்ளீடு செய்யவும் (உள்ளே இரண்டு எழுத்துகள் இடவும்)",
         ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + vendor_list,
         key=f"vendor_select_{st.session_state['vendor_key']}"
     )
@@ -516,7 +516,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
             else:
                 st.info("💡 தலைப்பின் முதல் 2-3 எழுத்துகளை உள்ளிட்டுத் தேர்ந்து கொள்ளலாம்.")
                 selected_title = st.selectbox(
-                    "புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும்",
+                    "புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும் (உள்ளே இரண்டு எழுத்துகள் இடவும்)",
                     ["-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"] + remaining_book_titles,
                     key=f"title_select_{len(st.session_state['temp_verified_records'])}"
                 )
@@ -550,8 +550,8 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                             "Language": t_lang,
                             "Total Qty": t_total_qty,
                             "Received": rec_qty,
-                            "Not Received": not_rec,
-                            "Extra Qty": extra,
+                            "Short": not_rec,
+                            "Extra": extra,
                             "ID with Vendor Name": id_with_vendor,
                             "Author Name": t_author,
                             "Vendor Name": completed_vendor_name,
@@ -566,9 +566,13 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                 st.markdown(f"### 📋 தற்காலிகச் சரிபார்ப்புப் பட்டியல் ({len(st.session_state['temp_verified_records'])} தலைப்புகள்)")
                 
                 temp_df = pd.DataFrame(st.session_state["temp_verified_records"])
-                display_cols = ["Title", "Language", "Total Qty", "Received", "Not Received", "Extra Qty"]
+                # Combine Short and Extra into a single column
+                temp_df["Short / Extra Received"] = temp_df.apply(
+                    lambda r: f"Short: {r['Short']}" if r['Short'] > 0 else (f"Extra: {r['Extra']}" if r['Extra'] > 0 else "0"),
+                    axis=1
+                )
+                display_cols = ["Title", "Language", "Total Qty", "Received", "Short / Extra Received"]
                 
-                # Streamlit dataframe with clean columns order (Title, Language, Total Qty, Received, Not Received, Extra Qty)
                 st.dataframe(temp_df[display_cols], use_container_width=True)
 
                 col_clr, col_save = st.columns(2)
@@ -603,8 +607,8 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                             item["Vendor Name"],
                                             item["Total Qty"],
                                             item["Received"],
-                                            item["Not Received"],
-                                            item["Extra Qty"],
+                                            item["Short"],
+                                            item["Extra"],
                                             item["Date"]
                                         ])
 
@@ -632,16 +636,16 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                                 sheet_vendor_wise.update_cell(r_num, s_col, "0")
                                                 sheet_vendor_wise.update_cell(r_num, t_col, "1")
 
-                                    pdf_bytes = generate_pdf_bytes(temp_df[display_cols], completed_vendor_name)
-                                    file_name = f"{completed_vendor_name}_Verification_Report.pdf"
-                                    upload_pdf_to_drive(pdf_bytes, file_name, GOOGLE_DRIVE_FOLDER_ID)
+                                pdf_bytes = generate_pdf_bytes(temp_df[display_cols], completed_vendor_name)
+                                file_name = f"{completed_vendor_name}_Verification_Report.pdf"
+                                upload_pdf_to_drive(pdf_bytes, file_name, GOOGLE_DRIVE_FOLDER_ID)
 
-                                st.success("✅ வெற்றிகரமாகச் சேமிக்கப்பட்டது!")
-                                st.session_state["selected_vendor"] = None
-                                st.session_state["temp_verified_records"] = []
-                                st.session_state["vendor_key"] += 1
-                                time.sleep(1)
-                                st.rerun()
+                            st.success("✅ வெற்றிகரமாகச் சேமிக்கப்பட்டது!")
+                            st.session_state["selected_vendor"] = None
+                            st.session_state["temp_verified_records"] = []
+                            st.session_state["vendor_key"] += 1
+                            time.sleep(1)
+                            st.rerun()
                             except Exception as e:
                                 st.error(f"❌ பிழை: {e}")
                         else:
