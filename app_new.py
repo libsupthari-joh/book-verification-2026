@@ -161,8 +161,8 @@ def show_login_page():
             """
             <div style="text-align: center; padding: 10px 0;">
                 <div style="font-size: 36px; margin-bottom: 6px;">📚</div>
-                <div style="font-size: 22px; font-weight: 900; color: #082653;">பணி போர்ட்டல்</div>
-                <div style="font-size: 13px; color: #60708a; margin-top: 4px; margin-bottom: 16px;">2026 புதிய நூல்கள் விநியோகம்</div>
+                <div style="font-size: 22px; font-weight: 900; color: #082653;">பணி</div>
+                <div style="font-size: 13px; color: #60708a; margin-top: 4px; margin-bottom: 16px;">2026 புதிய நூல்கள் சரிபார்த்தல் / விநியோகம்</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -239,7 +239,7 @@ except Exception as error:
 # ============================================================
 # 5. SIDEBAR & NAVIGATION
 # ============================================================
-st.session_state.setdefault("current_page", "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
+st.session_state.setdefault("current_page", "📥 1. பதிப்பாளர் சரிபார்ப்பு")
 st.session_state.setdefault("vendor_key", 0)
 st.session_state.setdefault("selected_vendor", None)
 st.session_state.setdefault("temp_verified_records", [])
@@ -266,14 +266,14 @@ st.sidebar.markdown("### 📌 முதன்மைப் பணிகள்")
 
 if st.session_state["user_role"] == "Admin":
     menu_items = [
-        "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு",
-        "🔄 2. Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்",
+        "📥 1. பதிப்பளார் சரிபார்ப்பு",
+        "🔄 2. Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்",
         "🏢 3. பதிப்பாளர் விவரம் ",
         "🏛️ 4. நூலக விவரம் ",
         "⚙️ 5. Accession எண்கள் மேலாண்மை",
     ]
 else:
-    menu_items = ["📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு"]
+    menu_items = ["📥 1. பதிப்பளார் சரிபார்ப்பு"]
 
 if st.session_state["current_page"] not in menu_items:
     st.session_state["current_page"] = menu_items[0]
