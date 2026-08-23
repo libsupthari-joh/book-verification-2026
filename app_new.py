@@ -212,6 +212,20 @@ def get_custom_css():
         h1 { font-size: 1.35rem !important; padding: 17px !important; }
         section[data-testid="stSidebar"] button { min-height: 52px !important; font-size: 13px !important; }
     }
+    /* Sidebar திறக்கும் அம்புக்குறியை (>) தெளிவாகக் காட்ட */
+    [data-testid="stSidebarCollapsedControl"] {
+        background: #1565c0 !important;
+        color: white !important;
+        border-radius: 10px !important;
+        padding: 6px !important;
+        margin: 8px !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
+    }
+    [data-testid="stSidebarCollapsedControl"] svg {
+        fill: white !important;
+        width: 24px !important;
+        height: 24px !important;
+    }
     </style>
     """
 
