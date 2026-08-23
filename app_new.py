@@ -566,7 +566,6 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                 st.markdown(f"### 📋 தற்காலிகச் சரிபார்ப்புப் பட்டியல் ({len(st.session_state['temp_verified_records'])} தலைப்புகள்)")
                 
                 temp_df = pd.DataFrame(st.session_state["temp_verified_records"])
-                # Combine Short and Extra into a single column
                 temp_df["Short / Extra Received"] = temp_df.apply(
                     lambda r: f"Short: {r['Short']}" if r['Short'] > 0 else (f"Extra: {r['Extra']}" if r['Extra'] > 0 else "0"),
                     axis=1
@@ -636,16 +635,16 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                                 sheet_vendor_wise.update_cell(r_num, s_col, "0")
                                                 sheet_vendor_wise.update_cell(r_num, t_col, "1")
 
-                                pdf_bytes = generate_pdf_bytes(temp_df[display_cols], completed_vendor_name)
-                                file_name = f"{completed_vendor_name}_Verification_Report.pdf"
-                                upload_pdf_to_drive(pdf_bytes, file_name, GOOGLE_DRIVE_FOLDER_ID)
+                                    pdf_bytes = generate_pdf_bytes(temp_df[display_cols], completed_vendor_name)
+                                    file_name = f"{completed_vendor_name}_Verification_Report.pdf"
+                                    upload_pdf_to_drive(pdf_bytes, file_name, GOOGLE_DRIVE_FOLDER_ID)
 
-                            st.success("✅ வெற்றிகரமாகச் சேமிக்கப்பட்டது!")
-                            st.session_state["selected_vendor"] = None
-                            st.session_state["temp_verified_records"] = []
-                            st.session_state["vendor_key"] += 1
-                            time.sleep(1)
-                            st.rerun()
+                                st.success("✅ வெற்றிகரமாகச் சேமிக்கப்பட்டது!")
+                                st.session_state["selected_vendor"] = None
+                                st.session_state["temp_verified_records"] = []
+                                st.session_state["vendor_key"] += 1
+                                time.sleep(1)
+                                st.rerun()
                             except Exception as e:
                                 st.error(f"❌ பிழை: {e}")
                         else:
