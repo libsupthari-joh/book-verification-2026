@@ -863,9 +863,9 @@ elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் வ�
       st.markdown("### 📋 அனைத்து பதிப்பகங்களின் பொதுப் பட்டியல்")
       st.dataframe(vendor_df, use_container_width=True, hide_index=True)
 
-      # Excel Download for Vendor List
+      # Excel Download for Vendor List (using openpyxl engine)
       output = io.BytesIO()
-      with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+      with pd.ExcelWriter(output, engine="openpyxl") as writer:
         vendor_df.to_excel(writer, index=False, sheet_name="Vendor Summary")
       excel_data = output.getvalue()
 
@@ -895,7 +895,6 @@ elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் வ�
             else 0
         )
 
-        # Calculate Tamil and English books count based on Language column
         lang_col_idx = (
             next(
                 (
@@ -929,9 +928,9 @@ elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் வ�
         st.markdown(f"### 📋 {selected_vendor_t3} - நூல்களின் முழு விவரங்கள்")
         st.dataframe(filtered_books_t3, use_container_width=True)
 
-        # Excel Download for Specific Vendor
+        # Excel Download for Specific Vendor (using openpyxl engine)
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
           filtered_books_t3.to_excel(
               writer, index=False, sheet_name="Vendor Details"
           )
