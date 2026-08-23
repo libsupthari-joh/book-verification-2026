@@ -57,7 +57,6 @@ def get_custom_css():
 
     h2, h3 { color: #092653 !important; font-size: 18px !important; }
 
-    /* Force Sidebar to be fully visible and styled */
     section[data-testid="stSidebar"] {
         background: linear-gradient(180deg, #071a38, #0b2e63 55%, #082044) !important;
         border-right: 1px solid rgba(255,255,255,.15);
@@ -316,7 +315,7 @@ st.sidebar.markdown("### 📌 முதன்மைப் பணிகள்")
 if st.session_state["user_role"] == "Admin":
     menu_items = [
         "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு",
-        "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)",
+        "🔄 2. Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்",
         "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)",
         "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)",
         "⚙️ 5. Accession எண்கள் மேலாண்மை",
@@ -539,22 +538,38 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                         header_lower = [str(h).strip().lower() for h in ws_data[0]]
                                         s_col = next((i + 1 for i, h in enumerate(header_lower) if "received" in h and "not" not in h), 19)
                                         t_col = next((i + 1 for i, h in enumerate(header_lower) if "not received" in h or ("not" in h and "received" in h)), 20)
+                                        qty_col = next((i + 1 for i, h in enumerate(header_lower) if h == "quantity"), 18)
                                         
                                         cell_list = []
                                         for item in st.session_state["temp_verified_records"]:
                                             t_title_clean = clean_text(item["Title"])
                                             rec_qty = int(item["Received"])
                                             
-                                            matching_row_numbers = []
+                                            matching_rows = []
                                             for r_idx, row_item in enumerate(ws_data[1:], start=2):
                                                 row_vendor_match = target_vendor_clean in clean_text(row_item[10] if len(row_item) > 10 else "") or target_vendor_clean in clean_text(row_item[9] if len(row_item) > 9 else "")
                                                 row_title_match = t_title_clean == clean_text(row_item[4] if len(row_item) > 4 else "")
                                                 if row_vendor_match and row_title_match:
-                                                    matching_row_numbers.append(r_idx)
+                                                    matching_rows.append((r_idx, row_item))
                                             
-                                            for idx, r_num in enumerate(matching_row_numbers):
-                                                val_s = "1" if idx < rec_qty else "0"
-                                                val_t = "0" if idx < rec_qty else "1"
+                                            remaining_rec = rec_qty
+                                            for r_num, row_item in matching_rows:
+                                                try:
+                                                    row_qty = int(row_item[qty_col - 1]) if len(row_item) >= qty_col and row_item[qty_col - 1] != '' else 1
+                                                except ValueError:
+                                                    row_qty = 1
+
+                                                if remaining_rec >= row_qty:
+                                                    val_s = str(row_qty)
+                                                    val_t = "0"
+                                                    remaining_rec -= row_qty
+                                                elif remaining_rec > 0:
+                                                    val_s = str(remaining_rec)
+                                                    val_t = str(row_qty - remaining_rec)
+                                                    remaining_rec = 0
+                                                else:
+                                                    val_s = "0"
+                                                    val_t = str(row_qty)
                                                 
                                                 cell_list.append(Cell(row=r_num, col=s_col, value=val_s))
                                                 cell_list.append(Cell(row=r_num, col=t_col, value=val_t))
@@ -573,11 +588,84 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                             else:
                                 st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
 
-# --- TASK 2: GOOGLE SHEET SYNC ---
-elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)":
-    st.subheader("🔄 2. Google Sheet தரவு ஒத்திசைவு")
-    if st.button("🚀 உடனே ஒத்திசை", use_container_width=True):
-        st.success("✅ ஒத்திசைக்கப்பட்டது!")
+# --- TASK 2: VENDOR WISE BOOK DATA SYNC ---
+elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்":
+    st.subheader("🔄 Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை ஒத்திசைவு (Sync)")
+    st.info("💡 Physically verified சீட்டில் உள்ள விவரங்களின்படி, Vendor Wise Book Data சீட்டில் உள்ள S (Received) மற்றும் T (Not Received) காலம்களை நூலக வாரியாக உள்ள Quantity மதிப்பிற்கு ஏற்ப (1 அல்லது அதற்கு மேல்) மேலிருந்து கீழாகச் சரியாகப் புதுப்பிக்க இந்த பொத்தானை அழுத்தவும்.")
+
+    if st.button("🚀 உடனடியாக ஒத்திசைவு செய்க (Sync)", use_container_width=True):
+        if sheet_physically and sheet_vendor_wise:
+            try:
+                with st.spinner("தரவுகள் ஒத்திசைக்கப்படுகின்றன..."):
+                    phys_rows = sheet_physically.get_all_values()
+                    if len(phys_rows) <= 1:
+                        st.warning("⚠️ Physically verified சீட்டில் தரவுகள் எதுவும் இல்லை!")
+                    else:
+                        phys_headers = [str(h).strip().lower() for h in phys_rows[0]]
+                        
+                        v_name_idx = next((i for i, h in enumerate(phys_headers) if "vendor" in h), 4)
+                        title_idx = next((i for i, h in enumerate(phys_headers) if "title" in h), 1)
+                        rec_idx = next((i for i, h in enumerate(phys_headers) if "received" in h and "not" not in h), 6)
+
+                        ws_data = sheet_vendor_wise.get_all_values()
+                        ws_headers = [str(h).strip().lower() for h in ws_data[0]]
+                        
+                        s_col = next((i + 1 for i, h in enumerate(ws_headers) if "received" in h and "not" not in h), 19)
+                        t_col = next((i + 1 for i, h in enumerate(ws_headers) if "not received" in h or ("not" in h and "received" in h)), 20)
+                        qty_col = next((i + 1 for i, h in enumerate(ws_headers) if h == "quantity"), 18)
+
+                        cell_list = []
+                        for p_row in phys_rows[1:]:
+                            if len(p_row) > max(v_name_idx, title_idx, rec_idx):
+                                vendor_name_val = p_row[v_name_idx]
+                                title_val = p_row[title_idx]
+                                try:
+                                    rec_qty = int(p_row[rec_idx])
+                                except ValueError:
+                                    rec_qty = 0
+
+                                target_v_clean = clean_text(vendor_name_val)
+                                target_t_clean = clean_text(title_val)
+
+                                matching_rows = []
+                                for r_idx, row_item in enumerate(ws_data[1:], start=2):
+                                    row_v_clean = clean_text(row_item[10] if len(row_item) > 10 else (row_item[9] if len(row_item) > 9 else ""))
+                                    row_t_clean = clean_text(row_item[4] if len(row_item) > 4 else "")
+                                    
+                                    if target_v_clean in row_v_clean and target_t_clean == row_t_clean:
+                                        matching_rows.append((r_idx, row_item))
+
+                                remaining_rec = rec_qty
+                                for r_num, row_item in matching_rows:
+                                    try:
+                                        row_qty = int(row_item[qty_col - 1]) if len(row_item) >= qty_col and row_item[qty_col - 1] != '' else 1
+                                    except ValueError:
+                                        row_qty = 1
+
+                                    if remaining_rec >= row_qty:
+                                        val_s = str(row_qty)
+                                        val_t = "0"
+                                        remaining_rec -= row_qty
+                                    elif remaining_rec > 0:
+                                        val_s = str(remaining_rec)
+                                        val_t = str(row_qty - remaining_rec)
+                                        remaining_rec = 0
+                                    else:
+                                        val_s = "0"
+                                        val_t = str(row_qty)
+
+                                    cell_list.append(Cell(row=r_num, col=s_col, value=val_s))
+                                    cell_list.append(Cell(row=r_num, col=t_col, value=val_t))
+
+                        if cell_list:
+                            sheet_vendor_wise.update_cells(cell_list)
+                            st.success("✅ Vendor Wise Book Data சீட்டிற்கான Received மற்றும் Not Received மதிப்புகள் quantity-க்கு ஏற்ப வெற்றிகரமாக ஒத்திசைக்கப்பட்டன!")
+                        else:
+                            st.warning("⚠️ ஒத்திசைக்கத்தக்க பொருத்தமான தரவுகள் எதுவும் கிடைக்கவில்லை.")
+            except Exception as e:
+                st.error(f"❌ ஒத்திசைவுப் பிழை: {e}")
+        else:
+            st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
 
 # --- TASK 3: VENDOR DETAILS ---
 elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)":
