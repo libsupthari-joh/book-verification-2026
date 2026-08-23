@@ -836,7 +836,7 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
 # --- TASK 5: ACCESSION NUMBERS MANAGEMENT ---
 elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
     st.subheader("⚙️ 5. தானியங்கி மைய மற்றும் கிளை நூல் சேர்க்கை எண்கள் மேலாண்மை (Auto Accession)")
-    st.info("💡 நூலகத்தைத் தேர்ந்தெடுத்தவுடன், 'Lib_Detail' சீட்டில் உள்ள இறுதி எண்களின் அடிப்படையில் நூல்களின் எண்ணிக்கைக்கு ஏற்ப தொடர் எண்கள் தானாக உருவாக்கப்பட்டு **'Vendor Wise Book Data'** சீட்டின் **U மற்றும் V** தூண்களில் பதிவு செய்யப்படும்.")
+    st.info("💡 நூலகத்தைத் தேர்ந்தெடுத்தவுடன், 'Lib_Detail' சீட்டில் உள்ள எண்களின் அடிப்படையில் (மாவட்டம் முழுவதும் பொதுவான மைய எண்களும், அந்தந்த 103 நூலகங்களுக்குரிய தனித்தனி கிளை எண்களும்) நூல்களின் எண்ணிக்கைக்கு ஏற்ப தொடர் எண்கள் தானாக உருவாக்கப்பட்டு **'Vendor Wise Book Data'** சீட்டின் **U மற்றும் V** தூண்களில் பதிவு செய்யப்படும்.")
 
     if book_df is None or book_df.empty or sheet_vendor_wise is None:
         st.error("❌ புத்தகத் தரவுகள் அல்லது Google Sheet இணைப்பு கிடைக்கவில்லை!")
@@ -881,18 +881,22 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
             target_lib_id = lib_dict.get(selected_acc_lib)
             
             # Fetch last accession numbers automatically from Lib_Detail sheet
-            last_central_start = 0
-            last_branch_start = 0
+            last_central_start = None
+            last_branch_start = None
             
             if sheet_lib_detail:
                 try:
                     lib_detail_rows = sheet_lib_detail.get_all_values()
+                    
+                    # 1. Get District-wide Last Central Accession Number (Column F / index 5)
+                    for l_row in lib_detail_rows[1:]:
+                        if len(l_row) > 5 and str(l_row[5]).strip().isdigit():
+                            last_central_start = int(str(l_row[5]).strip())
+                            break
+                            
+                    # 2. Get specific library's Branch Accession Number (Column G / index 6)
                     for l_row in lib_detail_rows[1:]:
                         if len(l_row) > 1 and str(l_row[1]).strip() == target_lib_id:
-                            # Column F (index 5): Last Central Accession Number
-                            if len(l_row) > 5 and str(l_row[5]).strip().isdigit():
-                                last_central_start = int(str(l_row[5]).strip())
-                            # Column G (index 6): DCL / FTB / BL / VL Last Accession Number
                             if len(l_row) > 6 and str(l_row[6]).strip().isdigit():
                                 last_branch_start = int(str(l_row[6]).strip())
                             break
@@ -907,14 +911,17 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                 st.warning("⚠️ இந்த நூலகத்திற்குப் புத்தகங்கள் எதுவும் இல்லை.")
             else:
                 st.success(f"📚 **{selected_acc_lib}** நூலகத்திற்குரிய நூல்கள் ({len(lib_books_df)} தலைப்புகள்) கீழே உள்ளன.")
-                st.info(f"📌 தானாக எடுக்கப்பட்ட தொடக்க எண்கள் -> மைய நூல் சேர்க்கை எண் தொடக்கம்: **{last_central_start}** | கிளை நூல் சேர்க்கை எண் தொடக்கம்: **{last_branch_start}**")
+                
+                c_disp_text = str(last_central_start) if last_central_start is not None else "0"
+                b_disp_text = str(last_branch_start) if last_branch_start is not None else "0"
+                st.info(f"📌 தானாக எடுக்கப்பட்ட தொடக்க எண்கள் -> மைய நூல் சேர்க்கை எண் தொடக்கம்: **{c_disp_text}** | கிளை நூல் சேர்க்கை எண் தொடக்கம்: **{b_disp_text}**")
 
                 # Automatically generate accession numbers based on quantity
                 central_acc_list = []
                 branch_acc_list = []
                 
-                curr_c = last_central_start
-                curr_b = last_branch_start
+                curr_c = last_central_start if last_central_start is not None else 0
+                curr_b = last_branch_start if last_branch_start is not None else 0
 
                 for _, row in lib_books_df.iterrows():
                     try:
@@ -923,14 +930,14 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                         qty = 1
 
                     if qty > 0:
-                        # Generate central accession numbers
+                        # Central Accession Numbers
                         c_str_parts = []
                         for _ in range(qty):
                             curr_c += 1
                             c_str_parts.append(str(curr_c))
                         central_acc_list.append(", ".join(c_str_parts))
 
-                        # Generate branch accession numbers
+                        # Branch Accession Numbers
                         b_str_parts = []
                         for _ in range(qty):
                             curr_b += 1
@@ -955,8 +962,8 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                         try:
                             with st.spinner("Google Sheet-ல் U மற்றும் V தூண்களில் பதிவு செய்யப்படுகிறது..."):
                                 cell_list = []
-                                curr_c_save = last_central_start
-                                curr_b_save = last_branch_start
+                                curr_c_save = last_central_start if last_central_start is not None else 0
+                                curr_b_save = last_branch_start if last_branch_start is not None else 0
 
                                 for idx, original_df_idx in enumerate(lib_indices):
                                     sheet_row_num = original_df_idx + 2
@@ -968,11 +975,11 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
 
                                     if qty > 0:
                                         c_parts = [str(curr_c_save + i + 1) for i in range(qty)]
-                                        b_parts = [str(curr_b_save + i + 1) for i in range(qty)]
                                         curr_c_save += qty
-                                        curr_b_save += qty
-
                                         c_val = ", ".join(c_parts)
+
+                                        b_parts = [str(curr_b_save + i + 1) for i in range(qty)]
+                                        curr_b_save += qty
                                         b_val = ", ".join(b_parts)
                                     else:
                                         c_val = ""
