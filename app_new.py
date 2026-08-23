@@ -219,7 +219,7 @@ if not st.session_state["logged_in"]:
 
 
 # ============================================================
-# 4. PDF GENERATION HELPER (FIXED WITH AUTHOR & PROPER WIDTHS)
+# 4. PDF GENERATION HELPER (ROBUST TAMIL FONT FINDER)
 # ============================================================
 def generate_pdf_bytes(df, vendor_name):
     buffer = io.BytesIO()
@@ -234,9 +234,24 @@ def generate_pdf_bytes(df, vendor_name):
     elements = []
     styles = getSampleStyleSheet()
 
-    font_path = "/usr/share/fonts/truetype/noto/NotoSansTamil-Regular.ttf"
+    # Robust font search paths for Linux/Streamlit Cloud & Windows
+    possible_font_paths = [
+        "/usr/share/fonts/truetype/noto/NotoSansTamil-Regular.ttf",
+        "/usr/share/fonts/truetype/lohit/Lohit-Tamil.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+        "C:/Windows/Fonts/latha.ttf",
+        "C:/Windows/Fonts/Nirmala.ttf",
+        "C:/Windows/Fonts/Arial.ttf",
+    ]
+
+    font_path = None
+    for path in possible_font_paths:
+        if os.path.exists(path):
+            font_path = path
+            break
+
     font_name = "Helvetica"
-    if os.path.exists(font_path):
+    if font_path:
         try:
             pdfmetrics.registerFont(TTFont("TamilFont", font_path))
             font_name = "TamilFont"
@@ -273,7 +288,6 @@ def generate_pdf_bytes(df, vendor_name):
             [Paragraph(str(val) if pd.notna(val) else "", normal_style) for val in row]
         )
 
-    # Explicit column widths to fit page nicely and avoid text overlapping
     col_widths = [150, 110, 55, 50, 50, 50, 57]
     t = Table(table_data, colWidths=col_widths)
     t.setStyle(
@@ -667,7 +681,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                         if cell_list:
                                             sheet_vendor_wise.update_cells(cell_list)
 
-                                        # Generate PDF in memory with Author Name included
+                                        # Generate PDF in memory with proper font loading
                                         pdf_bytes = generate_pdf_bytes(temp_df[display_cols], completed_vendor_name)
                                         st.session_state["last_saved_pdf"] = pdf_bytes
                                         st.session_state["last_saved_filename"] = f"{completed_vendor_name}_Verification_Report.pdf"
