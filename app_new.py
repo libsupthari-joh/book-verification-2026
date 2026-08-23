@@ -9,9 +9,6 @@ from datetime import datetime
 import gspread
 from gspread.cell import Cell
 import pandas as pd
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-from oauth2client.service_account import ServiceAccountCredentials
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -222,7 +219,7 @@ if not st.session_state["logged_in"]:
 
 
 # ============================================================
-# 4. PDF GENERATION & GOOGLE DRIVE UPLOAD HELPERS
+# 4. PDF GENERATION HELPER
 # ============================================================
 def generate_pdf_bytes(df, vendor_name):
     buffer = io.BytesIO()
@@ -294,39 +291,11 @@ def generate_pdf_bytes(df, vendor_name):
     return buffer.getvalue()
 
 
-def upload_pdf_to_drive(pdf_bytes, file_name, folder_id):
-    try:
-        credentials_dict = dict(st.secrets["gcp_service_account"])
-        credentials = ServiceAccountCredentials.from_json_keyfile_dict(
-            credentials_dict,
-            [
-                "https://spreadsheets.google.com/feeds",
-                "https://www.googleapis.com/auth/drive",
-            ],
-        )
-        drive_service = build("drive", "v3", credentials=credentials)
-
-        file_metadata = {"name": file_name, "parents": [folder_id]}
-        media = MediaIoBaseUpload(
-            io.BytesIO(pdf_bytes), mimetype="application/pdf", resumable=True
-        )
-        file = (
-            drive_service.files()
-            .create(body=file_metadata, media_body=media, fields="id")
-            .execute()
-        )
-        return file.get("id")
-    except Exception as e:
-        st.error(f"❌ Google Drive Upload Error: {e}")
-        return None
-
-
 # ============================================================
 # 5. GOOGLE SHEETS & EXCEL CONFIGURATION
 # ============================================================
 EXCEL_FILE = "Book Supply-2026.xlsx"
 SPREADSHEET_ID = "1LNogKaLvdqkoITSLE971jTBIy9QO4s90j1WDxY1cDrc"
-GOOGLE_DRIVE_FOLDER_ID = "1XOTSn8f6ntfrG8rI0iSk0QVwDujGqs1f"
 
 
 @st.cache_data
@@ -405,6 +374,8 @@ st.session_state.setdefault("current_page", "📥 1. பெறப்பட்ட
 st.session_state.setdefault("vendor_key", 0)
 st.session_state.setdefault("selected_vendor", None)
 st.session_state.setdefault("temp_verified_records", [])
+st.session_state.setdefault("last_saved_pdf", None)
+st.session_state.setdefault("last_saved_filename", "")
 
 st.sidebar.markdown(f"### 👤 {st.session_state['user_name']}")
 role_badge = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
@@ -417,6 +388,7 @@ if st.sidebar.button("🚪 வெளியேறு (Logout)", use_container_wid
     st.session_state["user_name"] = ""
     st.session_state["selected_vendor"] = None
     st.session_state["temp_verified_records"] = []
+    st.session_state["last_saved_pdf"] = None
     st.query_params.clear()
     st.rerun()
 
@@ -497,6 +469,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         if st.session_state["selected_vendor"] != selected_vendor_raw:
             st.session_state["selected_vendor"] = selected_vendor_raw
             st.session_state["temp_verified_records"] = []
+            st.session_state["last_saved_pdf"] = None
 
     if st.session_state["selected_vendor"]:
         completed_vendor_name = st.session_state["selected_vendor"]
@@ -607,13 +580,14 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                     with col_clr:
                         if st.button("🗑️ அழிக்க", use_container_width=True):
                             st.session_state["temp_verified_records"] = []
+                            st.session_state["last_saved_pdf"] = None
                             st.rerun()
 
                     with col_save:
-                        if st.button("💾 சீட் & Drive-ல் சேமி", use_container_width=True):
+                        if st.button("💾 சீட்டில் சேமி & PDF உருவாக்கு", use_container_width=True):
                             if sheet_physically and sheet_vendor_wise:
                                 try:
-                                    with st.spinner("சேமிக்கப்படுகிறது..."):
+                                    with st.spinner("சீட்டில் சேமிக்கப்படுகிறது..."):
                                         phys_data = sheet_physically.get_all_values()
                                         rows_to_delete = []
                                         for r_idx, row_item in enumerate(phys_data[1:], start=2):
@@ -661,29 +635,42 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                                 val_s = "1" if idx < rec_qty else "0"
                                                 val_t = "0" if idx < rec_qty else "1"
                                                 
-                                                # Use local Cell objects to prevent 'Read requests' API quota limit (429 Error)
                                                 cell_list.append(Cell(row=r_num, col=s_col, value=val_s))
                                                 cell_list.append(Cell(row=r_num, col=t_col, value=val_t))
 
                                         if cell_list:
                                             sheet_vendor_wise.update_cells(cell_list)
 
+                                        # Generate PDF in memory for direct download
                                         pdf_bytes = generate_pdf_bytes(temp_df[display_cols], completed_vendor_name)
-                                        file_name = f"{completed_vendor_name}_Verification_Report.pdf"
-                                        upload_pdf_to_drive(pdf_bytes, file_name, GOOGLE_DRIVE_FOLDER_ID)
+                                        st.session_state["last_saved_pdf"] = pdf_bytes
+                                        st.session_state["last_saved_filename"] = f"{completed_vendor_name}_Verification_Report.pdf"
 
-                                    st.success("✅ வெற்றிகரமாகச் சேமிக்கப்பட்டது மற்றும் Drive-ல் பதிவேற்றப்பட்டது!")
-                                    st.session_state["selected_vendor"] = None
-                                    st.session_state["temp_verified_records"] = []
-                                    st.session_state["vendor_key"] += 1
-                                    time.sleep(1)
+                                    st.success("✅ Google Sheet-ல் வெற்றிகரமாகச் சேமிக்கப்பட்டது! கீழே உள்ள பொத்தானைக் கிளிக் செய்து PDF அறிக்கையைப் பதிவிறக்கம் செய்து கொள்ளலாம்.")
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"❌ பிழை: {e}")
                             else:
                                 st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
 
-    if st.button("🔄 மற்றொரு பதிப்பகத்தைத் தேர்ந்தெடுக்க", use_container_width=True):
+                # Show Download Button if PDF is ready
+                if st.session_state.get("last_saved_pdf"):
+                    st.markdown("---")
+                    st.download_button(
+                        label="📥 சரிபார்ப்பு அறிக்கையை (PDF) பதிவிறக்குக",
+                        data=st.session_state["last_saved_pdf"],
+                        file_name=st.session_state["last_saved_filename"],
+                        mime="application/pdf",
+                        use_container_width=True,
+                    )
+                    if st.button("🔄 அடுத்த பதிப்பகத்தைத் தேர்ந்தெடுக்க", use_container_width=True):
+                        st.session_state["selected_vendor"] = None
+                        st.session_state["temp_verified_records"] = []
+                        st.session_state["last_saved_pdf"] = None
+                        st.session_state["vendor_key"] += 1
+                        st.rerun()
+
+    if not st.session_state.get("last_saved_pdf") and st.button("🔄 மற்றொரு பதிப்பகத்தைத் தேர்ந்தெடுக்க", use_container_width=True):
         st.session_state["selected_vendor"] = None
         st.session_state["temp_verified_records"] = []
         st.session_state["vendor_key"] += 1
