@@ -219,7 +219,7 @@ if not st.session_state["logged_in"]:
 
 
 # ============================================================
-# 4. PDF GENERATION HELPER
+# 4. PDF GENERATION HELPER (FIXED WITH AUTHOR & PROPER WIDTHS)
 # ============================================================
 def generate_pdf_bytes(df, vendor_name):
     buffer = io.BytesIO()
@@ -247,7 +247,7 @@ def generate_pdf_bytes(df, vendor_name):
         "TamilTitle",
         parent=styles["Heading1"],
         fontName=font_name,
-        fontSize=12,
+        fontSize=14,
         alignment=1,
         textColor=colors.HexColor("#071a38"),
     )
@@ -262,7 +262,7 @@ def generate_pdf_bytes(df, vendor_name):
     elements.append(
         Paragraph(f"Physical Verification Report - {vendor_name}", title_style)
     )
-    elements.append(Spacer(1, 10))
+    elements.append(Spacer(1, 15))
 
     table_data = []
     headers = list(df.columns)
@@ -273,14 +273,16 @@ def generate_pdf_bytes(df, vendor_name):
             [Paragraph(str(val) if pd.notna(val) else "", normal_style) for val in row]
         )
 
-    t = Table(table_data)
+    # Explicit column widths to fit page nicely and avoid text overlapping
+    col_widths = [150, 110, 55, 50, 50, 50, 57]
+    t = Table(table_data, colWidths=col_widths)
     t.setStyle(
         TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#071a38")),
             ("ALIGN", (0, 0), (-1, -1), "LEFT"),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#b0bec5")),
         ])
     )
@@ -475,7 +477,6 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         completed_vendor_name = st.session_state["selected_vendor"]
         target_vendor_clean = clean_text(completed_vendor_name)
         
-        # FIX: Prioritize showing download button if PDF was just generated/saved
         if st.session_state.get("last_saved_pdf"):
             st.success("✅ Google Sheet-ல் வெற்றிகரமாகச் சேமிக்கப்பட்டது!")
             st.markdown("---")
@@ -578,13 +579,13 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
 
                             st.session_state["temp_verified_records"].append({
                                 "Title": selected_title,
+                                "Author Name": t_author,
                                 "Language": t_lang,
                                 "Total Qty": t_total_qty,
                                 "Received": rec_qty,
                                 "Not Received": not_rec,
                                 "Short / Extra": short_extra_val,
                                 "ID with Vendor Name": id_with_vendor,
-                                "Author Name": t_author,
                                 "Vendor Name": completed_vendor_name,
                                 "Date": datetime.now().strftime("%d-%m-%y %H:%M:%S")
                             })
@@ -597,7 +598,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                     st.markdown(f"### 📋 தற்காலிகச் சரிபார்ப்புப் பட்டியல் ({len(st.session_state['temp_verified_records'])} தலைப்புகள்)")
                     
                     temp_df = pd.DataFrame(st.session_state["temp_verified_records"])
-                    display_cols = ["Title", "Language", "Total Qty", "Received", "Not Received", "Short / Extra"]
+                    display_cols = ["Title", "Author Name", "Language", "Total Qty", "Received", "Not Received", "Short / Extra"]
                     
                     st.dataframe(temp_df[display_cols], use_container_width=True)
 
@@ -666,7 +667,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                         if cell_list:
                                             sheet_vendor_wise.update_cells(cell_list)
 
-                                        # Generate PDF in memory for direct download
+                                        # Generate PDF in memory with Author Name included
                                         pdf_bytes = generate_pdf_bytes(temp_df[display_cols], completed_vendor_name)
                                         st.session_state["last_saved_pdf"] = pdf_bytes
                                         st.session_state["last_saved_filename"] = f"{completed_vendor_name}_Verification_Report.pdf"
