@@ -617,5 +617,39 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                             st.session_state["book_key"] += 1
                             st.rerun()
 
+    # தற்காலிக சரிபார்ப்பு பட்டியல் மற்றும் Google Sheet சேமிப்புப் பகுதி
     if st.session_state["verified_list"]:
         st.markdown("---")
+        st.markdown("### 📋 தற்காலிக சரிபார்ப்பு பட்டியல் (Temporary List)")
+        temp_df = pd.DataFrame(st.session_state["verified_list"])
+        st.dataframe(temp_df, use_container_width=True)
+
+        col_save, col_clear = st.columns(2)
+        with col_save:
+            if st.button("💾 Google Sheet-ல் சேமி", use_container_width=True):
+                if sheet_physically:
+                    try:
+                        for item in st.session_state["verified_list"]:
+                            sheet_physically.append_row([
+                                item["Vendor"],
+                                item["Title"],
+                                item["Language"],
+                                item["Author"],
+                                str(item["TotalQty"]),
+                                str(item["ReceivedQty"]),
+                                str(item["NotReceivedQty"]),
+                                str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                            ])
+                        st.success("✅ அனைத்து விவரங்களும் Google Sheet-ல் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
+                        st.session_state["verified_list"] = []
+                        time.sleep(1)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ சேமிப்பதில் பிழை: {e}")
+                else:
+                    st.error("❌ Google Sheet இணைப்பு கிடைக்கவில்லை!")
+
+        with col_clear:
+            if st.button("🗑️ பட்டியலை அழிக்கவும்", use_container_width=True):
+                st.session_state["verified_list"] = []
+                st.rerun()
