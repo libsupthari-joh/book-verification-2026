@@ -316,9 +316,10 @@ st.sidebar.markdown("### 📌 முதன்மைப் பணிகள்")
 if st.session_state["user_role"] == "Admin":
     menu_items = [
         "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு",
-        "🏢 2. மொத்த பதிப்பாளர் விவரங்கள் (480)",
-        "🏛️ 3. நூலகத்திற்கு விநியோகம் (103)",
-        "⚙️ 4. Accession எண்கள் மேலாண்மை",
+        "🔄 2. Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்",
+        "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)",
+        "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)",
+        "⚙️ 5. Accession எண்கள் மேலாண்மை",
     ]
 else:
     menu_items = ["📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு"]
@@ -504,10 +505,9 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
 
                     with col_save:
                         if st.button("💾 சீட்டில் சேமி", use_container_width=True):
-                            if sheet_physically and sheet_vendor_wise:
+                            if sheet_physically:
                                 try:
-                                    with st.spinner("சீட்டில் சேமிக்கப்படுகிறது மற்றும் ஒத்திசைவு செய்யப்படுகிறது..."):
-                                        # 1. Append records to physically verified sheet (history preserved)
+                                    with st.spinner("சீட்டில் சேமிக்கப்படுகிறது..."):
                                         for item in st.session_state["temp_verified_records"]:
                                             sheet_physically.append_row([
                                                 item["ID with Vendor Name"],
@@ -522,51 +522,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                                 item["Date"]
                                             ])
 
-                                        # 2. Update Vendor Wise Book Data sheet directly
-                                        ws_data = sheet_vendor_wise.get_all_values()
-                                        header_lower = [str(h).strip().lower() for h in ws_data[0]]
-                                        s_col = next((i + 1 for i, h in enumerate(header_lower) if "received" in h and "not" not in h), 19)
-                                        t_col = next((i + 1 for i, h in enumerate(header_lower) if "not received" in h or ("not" in h and "received" in h)), 20)
-                                        qty_col = next((i + 1 for i, h in enumerate(header_lower) if h == "quantity"), 18)
-                                        
-                                        cell_list = []
-                                        for item in st.session_state["temp_verified_records"]:
-                                            t_title_clean = clean_text(item["Title"])
-                                            rec_qty = int(item["Received"])
-                                            
-                                            matching_rows = []
-                                            for r_idx, row_item in enumerate(ws_data[1:], start=2):
-                                                row_vendor_match = target_vendor_clean in clean_text(row_item[10] if len(row_item) > 10 else "") or target_vendor_clean in clean_text(row_item[9] if len(row_item) > 9 else "")
-                                                row_title_match = t_title_clean == clean_text(row_item[4] if len(row_item) > 4 else "")
-                                                if row_vendor_match and row_title_match:
-                                                    matching_rows.append((r_idx, row_item))
-                                            
-                                            remaining_rec = rec_qty
-                                            for r_num, row_item in matching_rows:
-                                                try:
-                                                    row_qty = int(row_item[qty_col - 1]) if len(row_item) >= qty_col and row_item[qty_col - 1] != '' else 1
-                                                except ValueError:
-                                                    row_qty = 1
-
-                                                if remaining_rec >= row_qty:
-                                                    val_s = str(row_qty)
-                                                    val_t = "0"
-                                                    remaining_rec -= row_qty
-                                                elif remaining_rec > 0:
-                                                    val_s = str(remaining_rec)
-                                                    val_t = str(row_qty - remaining_rec)
-                                                    remaining_rec = 0
-                                                else:
-                                                    val_s = "0"
-                                                    val_t = str(row_qty)
-                                                
-                                                cell_list.append(Cell(row=r_num, col=s_col, value=val_s))
-                                                cell_list.append(Cell(row=r_num, col=t_col, value=val_t))
-
-                                        if cell_list:
-                                            sheet_vendor_wise.update_cells(cell_list)
-
-                                    st.success("✅ Google Sheet-ல் தரவுகள் வெற்றிகரமாகச் சேமிக்கப்பட்டு புதுப்பிக்கப்பட்டன!")
+                                    st.success("✅ Google Sheet-ல் தரவுகள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
                                     time.sleep(1)
                                     st.session_state["selected_vendor"] = None
                                     st.session_state["temp_verified_records"] = []
@@ -575,10 +531,158 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                 except Exception as e:
                                     st.error(f"❌ பிழை: {e}")
                             else:
-                                st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
+                                st.error("❌ Google Sheet இணைப்பு கிடைக்கவில்லை!")
 
-# --- TASK 2: TOTAL VENDOR DETAILS (480) ---
-elif menu_choice == "🏢 2. மொத்த பதிப்பாளர் விவரங்கள் (480)":
+# --- TASK 2: VENDOR WISE BOOK DATA SYNC ---
+elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்":
+    st.subheader("🔄 Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை ஒத்திசைவு (Sync)")
+    st.info("💡 Physically verified சீட்டில் உள்ள பதிப்பகங்களில், இன்னும் ஒத்திசைவு செய்யப்படாதவை மட்டுமே கீழே தோன்றும்.")
+
+    if sheet_physically is None or sheet_vendor_wise is None:
+        st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
+        st.stop()
+
+    try:
+        phys_rows = sheet_physically.get_all_values()
+        phys_headers = [str(h).strip().lower() for h in phys_rows[0]] if phys_rows else []
+        v_name_idx = next((i for i, h in enumerate(phys_headers) if "vendor" in h), 4)
+
+        ws_data = sheet_vendor_wise.get_all_values()
+        ws_headers = [str(h).strip().lower() for h in ws_data[0]]
+        s_col = next((i for i, h in enumerate(ws_headers) if "received" in h and "not" not in h), 18)
+
+        # Group physical records by vendor and check if already synced
+        vendor_records_map = {}
+        for p_row in phys_rows[1:]:
+            if len(p_row) > v_name_idx and p_row[v_name_idx].strip():
+                v_name = p_row[v_name_idx].strip()
+                vendor_records_map.setdefault(v_name, []).append(p_row)
+
+        title_idx = next((i for i, h in enumerate(phys_headers) if "title" in h), 1)
+        rec_idx = next((i for i, h in enumerate(phys_headers) if "received" in h and "not" not in h), 6)
+
+        unsynced_vendors = []
+        for v_name, records in vendor_records_map.items():
+            v_clean = clean_text(v_name)
+            all_synced = True
+            for p_row in records:
+                p_title = clean_text(p_row[title_idx] if len(p_row) > title_idx else "")
+                matched_and_filled = False
+                for w_row in ws_data[1:]:
+                    w_v_clean = clean_text(w_row[10] if len(w_row) > 10 else (w_row[9] if len(w_row) > 9 else ""))
+                    w_t_clean = clean_text(w_row[4] if len(w_row) > 4 else "")
+                    if v_clean in w_v_clean and p_title == w_t_clean:
+                        if len(w_row) > s_col and str(w_row[s_col]).strip() != "":
+                            matched_and_filled = True
+                            break
+                if not matched_and_filled:
+                    all_synced = False
+                    break
+            
+            if not all_synced:
+                unsynced_vendors.append(v_name)
+
+        if not unsynced_vendors:
+            st.warning("⚠️ ஒத்திசைவு செய்ய வேண்டிய புதிய பதிப்பகங்கள் எதுவும் இல்லை (அனைத்தும் ஒத்திசைவு செய்யப்பட்டுவிட்டன).")
+        else:
+            st.markdown("---")
+            selected_vendor_t2 = st.selectbox(
+                "ஒத்திசைவு செய்ய வேண்டிய பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்",
+                ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + unsynced_vendors,
+                key="vendor_select_t2"
+            )
+
+            if selected_vendor_t2 != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+                target_v_clean_t2 = clean_text(selected_vendor_t2)
+
+                lang_idx = next((i for i, h in enumerate(phys_headers) if "language" in h), 2)
+                author_idx = next((i for i, h in enumerate(phys_headers) if "author" in h), 3)
+                total_qty_idx = next((i for i, h in enumerate(phys_headers) if "total" in h or h == "quantity"), 5)
+                not_rec_idx = next((i for i, h in enumerate(phys_headers) if "not received" in h), 7)
+                short_extra_idx = next((i for i, h in enumerate(phys_headers) if "short" in h), 8)
+                date_idx = next((i for i, h in enumerate(phys_headers) if "date" in h), 9)
+
+                vendor_phys_records = []
+                display_records = []
+                for p_row in phys_rows[1:]:
+                    if len(p_row) > max(v_name_idx, title_idx, rec_idx):
+                        if target_v_clean_t2 in clean_text(p_row[v_name_idx]):
+                            vendor_phys_records.append(p_row)
+                            display_records.append({
+                                "Title": p_row[title_idx] if len(p_row) > title_idx else "",
+                                "Author Name": p_row[author_idx] if len(p_row) > author_idx else "",
+                                "Language": p_row[lang_idx] if len(p_row) > lang_idx else "",
+                                "Total Qty": p_row[total_qty_idx] if len(p_row) > total_qty_idx else "",
+                                "Received": p_row[rec_idx] if len(p_row) > rec_idx else "",
+                                "Not Received": p_row[not_rec_idx] if len(p_row) > not_rec_idx else "",
+                                "Short / Extra": p_row[short_extra_idx] if len(p_row) > short_extra_idx else "",
+                                "Date": p_row[date_idx] if len(p_row) > date_idx else ""
+                            })
+
+                if vendor_phys_records:
+                    disp_df = pd.DataFrame(display_records)
+                    st.dataframe(disp_df, use_container_width=True, hide_index=True)
+
+                    if st.button("🚀 இந்த பதிப்பகத்திற்கு மட்டும் ஒத்திசைவு செய்க (Sync)", use_container_width=True):
+                        with st.spinner("ஒத்திசைக்கப்படுகிறது மற்றும் தரவுகள் புதுப்பிக்கப்படுகின்றன..."):
+                            ws_data = sheet_vendor_wise.get_all_values()
+                            ws_headers = [str(h).strip().lower() for h in ws_data[0]]
+                            
+                            s_col = next((i + 1 for i, h in enumerate(ws_headers) if "received" in h and "not" not in h), 19)
+                            t_col = next((i + 1 for i, h in enumerate(ws_headers) if "not received" in h or ("not" in h and "received" in h)), 20)
+                            qty_col = next((i + 1 for i, h in enumerate(ws_headers) if h == "quantity"), 18)
+
+                            cell_list = []
+                            for p_row in vendor_phys_records:
+                                title_val = p_row[title_idx]
+                                try:
+                                    rec_qty = int(p_row[rec_idx])
+                                except ValueError:
+                                    rec_qty = 0
+
+                                target_t_clean = clean_text(title_val)
+
+                                matching_rows = []
+                                for r_idx, row_item in enumerate(ws_data[1:], start=2):
+                                    row_v_clean = clean_text(row_item[10] if len(row_item) > 10 else (row_item[9] if len(row_item) > 9 else ""))
+                                    row_t_clean = clean_text(row_item[4] if len(row_item) > 4 else "")
+                                    
+                                    if target_v_clean_t2 in row_v_clean and target_t_clean == row_t_clean:
+                                        matching_rows.append((r_idx, row_item))
+
+                                remaining_rec = rec_qty
+                                for r_num, row_item in matching_rows:
+                                    try:
+                                        row_qty = int(row_item[qty_col - 1]) if len(row_item) >= qty_col and row_item[qty_col - 1] != '' else 1
+                                    except ValueError:
+                                        row_qty = 1
+
+                                    if remaining_rec >= row_qty:
+                                        val_s = str(row_qty)
+                                        val_t = "0"
+                                        remaining_rec -= row_qty
+                                    elif remaining_rec > 0:
+                                        val_s = str(remaining_rec)
+                                        val_t = str(row_qty - remaining_rec)
+                                        remaining_rec = 0
+                                    else:
+                                        val_s = "0"
+                                        val_t = str(row_qty)
+                                    
+                                    cell_list.append(Cell(row=r_num, col=s_col, value=val_s))
+                                    cell_list.append(Cell(row=r_num, col=t_col, value=val_t))
+
+                            if cell_list:
+                                sheet_vendor_wise.update_cells(cell_list)
+
+                            st.success(f"✅ **{selected_vendor_t2}** பதிப்பகத்தின் தரவுகள் வெற்றிகரமாக ஒத்திசைவு செய்யப்பட்டன! (physically சீட்டில் உள்ள பதிவுகள் பாதுகாப்பாக உள்ளன)")
+                            time.sleep(1.5)
+                            st.rerun()
+    except Exception as e:
+        st.error(f"❌ பிழை: {e}")
+
+# --- TASK 3: TOTAL VENDOR DETAILS (480) ---
+elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)":
     st.subheader("🏢 மொத்த பதிப்பாளர் விவரங்கள் (480)")
     st.info("💡 Excel கோப்பில் உள்ள அனைத்து பதிப்பகங்களின் (Vendors) முழு விவரங்களும் கீழே பட்டியலிடப்பட்டுள்ளன.")
 
@@ -596,8 +700,8 @@ elif menu_choice == "🏢 2. மொத்த பதிப்பாளர் வ�
     else:
         st.warning("⚠️ பதிப்பாளர் தரவுகள் (Vendor Name Sheet) கிடைக்கவில்லை.")
 
-# --- TASK 3: LIBRARY DISTRIBUTION (103) ---
-elif menu_choice == "🏛️ 3. நூலகத்திற்கு விநியோகம் (103)":
+# --- TASK 4: LIBRARY DISTRIBUTION (103) ---
+elif menu_choice == "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)":
     st.subheader("🏛️ நூலகத்திற்கு விநியோகம் (103)")
     st.info("💡 நூலக விநியோகம் மற்றும் விவரங்கள் தொடர்பான மேலாண்மைப் பகுதி.")
 
@@ -616,8 +720,8 @@ elif menu_choice == "🏛️ 3. நூலகத்திற்கு விந�
     else:
         st.warning("⚠️ Google Sheet-ல் 'Library Details' சீட் இணைக்கப்படவில்லை.")
 
-# --- TASK 4: ACCESSION NUMBERS MANAGEMENT ---
-elif menu_choice == "⚙️ 4. Accession எண்கள் மேலாண்மை":
+# --- TASK 5: ACCESSION NUMBERS MANAGEMENT ---
+elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
     st.subheader("⚙️ Accession எண்கள் மேலாண்மை")
     st.info("💡 நூல்களுக்கான Accession எண்களை நிர்வகிக்கும் பகுதி.")
     st.markdown("---")
