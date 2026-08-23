@@ -58,11 +58,14 @@ def get_custom_css():
 
     h2, h3 { color: #092653 !important; }
 
+    /* Sidebar - FIXED & ALWAYS VISIBLE */
     section[data-testid="stSidebar"] {
         background: linear-gradient(180deg, #071a38, #0b2e63 55%, #082044);
         border-right: 1px solid rgba(255,255,255,.15);
         min-width: 280px !important;
         max-width: 320px !important;
+        display: block !important;
+        visibility: visible !important;
     }
 
     section[data-testid="stSidebar"] > div:first-child {
@@ -75,7 +78,7 @@ def get_custom_css():
         color: white !important;
     }
 
-    /* Sidebar menu buttons - improved styling */
+    /* Sidebar menu buttons */
     section[data-testid="stSidebar"] .stButton > button {
         width: 100% !important;
         min-height: 52px !important;
@@ -103,13 +106,6 @@ def get_custom_css():
         box-shadow: 0 2px 0 rgba(0,0,0,.25), 0 4px 8px rgba(0,0,0,.2) !important;
     }
 
-    /* Active page highlight */
-    section[data-testid="stSidebar"] .stButton > button:focus {
-        background: linear-gradient(145deg, #1565c0, #0d47a1) !important;
-        border-color: rgba(255,255,255,.4) !important;
-    }
-
-    /* Logout button - red */
     section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:first-child .stButton > button {
         background: linear-gradient(145deg, #ef5350, #b71c1c) !important;
         text-align: center !important;
@@ -215,20 +211,24 @@ def get_custom_css():
         font-size: 13px;
     }
 
-    /* Sidebar toggle button - FIXED */
+    /* Sidebar toggle button - FIXED & VISIBLE */
     [data-testid="stSidebarCollapsedControl"] {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        z-index: 9999 !important;
+        position: fixed !important;
+        left: 8px !important;
+        top: 8px !important;
         background: linear-gradient(145deg, #1565c0, #0d47a1) !important;
         border-radius: 8px !important;
-        padding: 6px !important;
-        margin: 8px !important;
-        box-shadow: 0 3px 8px rgba(0,0,0,.25) !important;
-        opacity: 1 !important;
-        visibility: visible !important;
+        padding: 8px !important;
+        box-shadow: 0 3px 10px rgba(0,0,0,.3) !important;
     }
     [data-testid="stSidebarCollapsedControl"] svg {
         fill: white !important;
-        width: 20px !important;
-        height: 20px !important;
+        width: 22px !important;
+        height: 22px !important;
     }
 
     @media (max-width: 768px) {
@@ -252,7 +252,7 @@ def hash_password(password):
 
 USERS_DATABASE = {
     "9842759306": {
-        "password_hash": hash_password("Hari@1979"),
+        "password_hash": hash_password("123456"),
         "role": "Admin",
         "name": "முதன்மை நிர்வாகி (Admin)",
     },
@@ -337,7 +337,6 @@ if not st.session_state["logged_in"]:
 # ============================================================
 EXCEL_FILE = "Book Supply-2026.xlsx"
 SPREADSHEET_ID = "1LNogKaLvdqkoITSLE971jTBIy9QO4s90j1WDxY1cDrc"
-
 
 @st.cache_data
 def load_data(file_path):
@@ -644,273 +643,4 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                 item["Author"], item["Vendor"], item["TotalQty"],
                                 item["ReceivedQty"], item["NotReceivedQty"], current_date,
                             ]
-                            for item in st.session_state["verified_list"]
-                        ]
-                        sheet_physically.append_rows(rows)
-                        st.success("🎉 தரவுகள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
-                        st.session_state["verified_list"] = []
-                        st.rerun()
-                except Exception as error:
-                    st.error(f"❌ சேமிப்பு பிழை: {error}")
-
-        with col_clear:
-            if st.button("🗑️ பட்டியலை அழி", key="btn_clear", use_container_width=True):
-                st.session_state["verified_list"] = []
-                st.rerun()
-
-
-# ============================================================
-# 7. TASK 2 - SYNC (ADMIN ONLY)
-# ============================================================
-elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)":
-    if st.session_state["user_role"] != "Admin":
-        st.warning("🔒 இந்தப் பக்கத்தை அணுக **Admin** அனுமதி தேவை!")
-        st.stop()
-
-    st.subheader("🔄 2. பதிப்பகம் வாரியாக பெறப்பட்ட நூல்கள் ஒத்திசைவு")
-
-    if not sheet_physically or not sheet_vendor_wise:
-        st.error("❌ Google Sheet இணைப்புகள் சரியாக இல்லை!")
-    else:
-        try:
-            physical_records = sheet_physically.get_all_values()
-            vendor_data = sheet_vendor_wise.get_all_values()
-            synced_vendors = set()
-
-            for row in vendor_data[1:]:
-                if len(row) > 18 and str(row[18]).strip() == "1":
-                    synced_vendors.add(clean_text(row[10]))
-
-            physical_vendors = []
-            for row in physical_records[1:]:
-                if len(row) >= 1:
-                    vendor = row[0]
-                    if (
-                        vendor
-                        and clean_text(vendor) not in synced_vendors
-                        and vendor not in physical_vendors
-                    ):
-                        physical_vendors.append(vendor)
-
-            if not physical_vendors:
-                st.success("🟢 அனைத்துப் பதிப்பகங்களும் ஏற்கனவே ஒத்திசைக்கப்பட்டுள்ளன!")
-            else:
-                selected_vendor = st.selectbox(
-                    "ஒத்திசைவு செய்ய வேண்டிய பதிப்பகம்",
-                    ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + physical_vendors,
-                )
-
-                if selected_vendor != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
-                    selected_clean = clean_text(selected_vendor)
-                    vendor_books = [
-                        row for row in physical_records[1:]
-                        if clean_text(row[0]) == selected_clean
-                    ]
-                    display_df = pd.DataFrame(
-                        vendor_books,
-                        columns=[
-                            "Vendor", "Title", "Lang", "Auth", "V2",
-                            "Total", "Rec", "NotRec", "Date",
-                        ],
-                    )
-                    st.dataframe(display_df[["Title", "Total", "Rec"]], use_container_width=True)
-
-                    if st.button(
-                        f"🚀 {selected_vendor} தரவை ஒத்திசைவு செய்",
-                        key="btn_sync_single",
-                        use_container_width=True,
-                    ):
-                        updates = []
-                        for record in vendor_books:
-                            target_title = clean_text(record[1])
-                            received_quantity = int(record[6]) if str(record[6]).isdigit() else 0
-                            matched_count = 0
-
-                            for row_index, sheet_row in enumerate(vendor_data[1:], start=2):
-                                if len(sheet_row) > 10:
-                                    sheet_title = clean_text(sheet_row[4])
-                                    sheet_publisher = clean_text(sheet_row[9])
-                                    sheet_vendor = clean_text(sheet_row[10])
-                                    if (
-                                        selected_clean in {sheet_publisher, sheet_vendor}
-                                        and target_title == sheet_title
-                                        and matched_count < received_quantity
-                                    ):
-                                        updates.append({
-                                            "range": f"S{row_index}:T{row_index}",
-                                            "values": [[1, 0]],
-                                        })
-                                        matched_count += 1
-
-                        if updates:
-                            sheet_vendor_wise.batch_update(updates)
-                            st.success("✅ தேர்ந்தெடுக்கப்பட்ட பதிப்பகம் ஒத்திசைக்கப்பட்டது!")
-                            time.sleep(1)
-                            st.rerun()
-                        else:
-                            st.warning("⚠️ பொருந்தும் தரவுகள் கிடைக்கவில்லை!")
-        except Exception as error:
-            st.error(f"❌ ஒத்திசைவு பிழை: {error}")
-
-
-# ============================================================
-# 8. TASK 3 - VENDOR DETAILS (ADMIN & USER)
-# ============================================================
-elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)":
-    st.subheader("🏢 3. 480 பதிப்பாளர் வாரியான நூல் விவரங்கள்")
-
-    if not sheet_vendor_wise:
-        st.error("❌ Vendor Wise Book Data sheet கிடைக்கவில்லை!")
-    else:
-        with st.spinner("⏳ நேரலைத் தரவை ஏற்றுகிறது..."):
-            data = sheet_vendor_wise.get_all_values()
-
-        if len(data) > 1:
-            live_df = pd.DataFrame(data[1:], columns=data[0])
-            vendor_column = live_df.columns[10] if len(live_df.columns) > 10 else live_df.columns[9]
-            vendors = sorted(set(live_df[vendor_column].astype(str).str.strip()))
-            selected_vendor = st.selectbox(
-                "🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்",
-                ["-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + vendors,
-            )
-
-            if selected_vendor != "-- 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
-                filtered_df = live_df[
-                    live_df[vendor_column].astype(str).str.strip() == selected_vendor
-                ]
-                st.markdown(f"### 📋 {selected_vendor} - மொத்தப் புத்தகங்கள் ({len(filtered_df)})")
-                st.dataframe(filtered_df, use_container_width=True)
-
-
-# ============================================================
-# 9. TASK 4 - LIBRARY DELIVERY REPORT (ADMIN & USER)
-# ============================================================
-elif menu_choice == "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)":
-    st.subheader("🏛️ 4. 103 நூலகங்கள் வாரியான விநியோக அறிக்கை")
-
-    if not sheet_vendor_wise or not sheet_library_details:
-        st.error("❌ தேவையான Google Sheet தரவுகள் கிடைக்கவில்லை!")
-    else:
-        with st.spinner("⏳ தரவுகளை ஏற்றுகிறது..."):
-            vendor_data = sheet_vendor_wise.get_all_values()
-            live_df = pd.DataFrame(vendor_data[1:], columns=vendor_data[0])
-            library_records = sheet_library_details.get_all_values()
-
-        library_map = {}
-        library_names = []
-        for row in library_records[1:]:
-            if len(row) >= 3:
-                code = str(row[1]).strip()
-                name = str(row[2]).strip()
-                if name and name.lower() != "nan":
-                    library_map[code] = name
-                    if name not in library_names:
-                        library_names.append(name)
-
-        selected_library = st.selectbox(
-            "🏛️ நூலகத்தைத் தேர்ந்தெடுக்கவும்",
-            ["-- 🏛️ நூலகத்தைத் தேர்ந்தெடுக்கவும் --"] + sorted(library_names),
-        )
-
-        if selected_library != "-- 🏛️ நூலகத்தைத் தேர்ந்தெடுக்கவும் --":
-            selected_code = next(
-                (code for code, name in library_map.items() if name == selected_library),
-                "",
-            )
-            name_clean = clean_text(selected_library)
-            code_clean = clean_text(selected_code)
-            column_o = live_df.columns[14] if len(live_df.columns) > 14 else None
-            column_p = live_df.columns[15] if len(live_df.columns) > 15 else None
-
-            def library_match(row):
-                p_value = clean_text(row[column_p]) if column_p else ""
-                o_value = clean_text(row[column_o]) if column_o else ""
-                return (
-                    name_clean in p_value
-                    or p_value in name_clean
-                    or (code_clean and (code_clean in o_value or o_value in code_clean))
-                )
-
-            filtered_df = live_df[live_df.apply(library_match, axis=1)]
-
-            if filtered_df.empty:
-                st.warning("⚠️ இந்த நூலகத்திற்கு ஒதுக்கீடு இல்லை!")
-            else:
-                received_column = live_df.columns[18] if len(live_df.columns) > 18 else None
-                received_df = (
-                    filtered_df[filtered_df[received_column].astype(str).str.strip() == "1"]
-                    if received_column
-                    else filtered_df
-                )
-
-                c1, c2, c3 = st.columns(3)
-                c1.metric("📖 மொத்த ஒதுக்கீடு", len(filtered_df))
-                c2.metric("✅ பெறப்பட்ட புத்தகங்கள்", len(received_df))
-                c3.metric("🏛️ நூலகக் குறியீடு", selected_code or "N/A")
-
-                st.markdown(f"### 📋 {selected_library} - விநியோக அறிக்கை")
-                st.dataframe(filtered_df, use_container_width=True)
-
-                csv_data = filtered_df.to_csv(index=False).encode("utf-8-sig")
-                st.download_button(
-                    f"📄 {selected_library} - CSV பதிவிறக்கம்",
-                    csv_data,
-                    f"{selected_library}_Book_Delivery_Report.csv",
-                    "text/csv",
-                    use_container_width=True,
-                )
-
-
-# ============================================================
-# 10. TASK 5 - ACCESSION MANAGEMENT (ADMIN ONLY)
-# ============================================================
-elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
-    if st.session_state["user_role"] != "Admin":
-        st.warning("🔒 இந்தப் பக்கத்தை அணுக **Admin** அனுமதி தேவை!")
-        st.stop()
-
-    st.subheader("⚙️ 5. Accession எண்கள் மற்றும் Batch ஒதுக்கீடு மேலாண்மை")
-    st.info("💡 சரிபார்ப்பு மற்றும் ஒத்திசைவு பணிகள் முடிந்த பிறகு இந்தப் பணியைச் செய்யவும்.")
-
-    if not sheet_vendor_wise:
-        st.error("❌ Google Sheet இணைப்புகள் சரியாக இல்லை!")
-    else:
-        with st.spinner("⏳ Accession தரவுகளை ஏற்றுகிறது..."):
-            try:
-                vendor_data = sheet_vendor_wise.get_all_values()
-                if len(vendor_data) > 1:
-                    live_df = pd.DataFrame(vendor_data[1:], columns=vendor_data[0])
-
-                    col_acc1, col_acc2 = st.columns(2)
-                    with col_acc1:
-                        prefix = st.text_input("Accession Prefix (எ.கா: LIB-2026-)", value="LIB-2026-")
-                        start_num = st.number_input("தொடக்க Accession எண்", min_value=1, value=1001, step=1)
-                    with col_acc2:
-                        batch_name = st.text_input("தொகுதி / Batch பெயர்", value="Batch-01")
-
-                    st.markdown("---")
-                    st.markdown("### 📝 Accession எண்கள் ஒதுக்கீடு முன்னோட்டம்")
-
-                    if st.button("🔢 Accession எண்களை உருவாக்கு / Generate", use_container_width=True):
-                        live_df["Accession No"] = [
-                            f"{prefix}{start_num + i}" for i in range(len(live_df))
-                        ]
-                        live_df["Batch Name"] = batch_name
-                        st.session_state["acc_preview_df"] = live_df
-                        st.success("✅ Accession எண்கள் வெற்றிகரமாக உருவாக்கப்பட்டன!")
-
-                    if "acc_preview_df" in st.session_state:
-                        st.dataframe(st.session_state["acc_preview_df"], use_container_width=True)
-
-                        acc_csv = st.session_state["acc_preview_df"].to_csv(index=False).encode("utf-8-sig")
-                        st.download_button(
-                            "📄 Accession அறிக்கையைப் பதிவிறக்குக (CSV)",
-                            acc_csv,
-                            "Accession_Numbers_Report.csv",
-                            "text/csv",
-                            use_container_width=True,
-                        )
-                else:
-                    st.warning("⚠️ தரவுகள் எதுவும் கிடைக்கவில்லை!")
-            except Exception as error:
-                st.error(f"❌ Accession மேலாண்மை பிழை: {error}")
+                            for item in
