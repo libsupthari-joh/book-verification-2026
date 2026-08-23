@@ -61,28 +61,12 @@ def get_custom_css():
         background: linear-gradient(180deg, #071a38, #0b2e63 55%, #082044) !important;
         border-right: 1px solid rgba(255,255,255,.15);
         min-width: 280px !important;
-        visibility: visible !important;
-        display: block !important;
     }
 
     section[data-testid="stSidebar"] h3, 
     section[data-testid="stSidebar"] p, 
     section[data-testid="stSidebar"] label {
         color: white !important;
-    }
-
-    section[data-testid="stSidebar"] .stButton > button {
-        width: 100% !important;
-        min-height: 48px !important;
-        margin: 6px 0 !important;
-        padding: 10px 14px !important;
-        border-radius: 12px !important;
-        color: white !important;
-        font-weight: 700 !important;
-        font-size: 14px !important;
-        text-align: left !important;
-        background: linear-gradient(145deg, rgba(255,255,255,.12), rgba(255,255,255,.06)) !important;
-        border: 1px solid rgba(255,255,255,0.2) !important;
     }
 
     .stButton > button, .stDownloadButton > button {
@@ -240,7 +224,7 @@ except Exception as error:
     st.error(f"❌ Google Sheet இணைப்புப் பிழை: {error}")
 
 # ============================================================
-# 5. SIDEBAR & NAVIGATION
+# 5. SIDEBAR & MAIN NAVIGATION SETUP
 # ============================================================
 st.session_state.setdefault("current_page", "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
 st.session_state.setdefault("vendor_key", 0)
@@ -251,6 +235,7 @@ st.session_state.setdefault("selected_library", None)
 st.session_state.setdefault("acc_library_key", 0)
 st.session_state.setdefault("selected_acc_library", None)
 
+# Sidebar info
 st.sidebar.markdown(f"### 👤 {st.session_state['user_name']}")
 role_badge = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
 st.sidebar.caption(f"அதிகார நிலை: **{role_badge}**")
@@ -267,9 +252,7 @@ if st.sidebar.button("🚪 வெளியேறு (Logout)", use_container_wid
     st.query_params.clear()
     st.rerun()
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 📌 முதன்மைப் பணிகள்")
-
+# Menu items list
 if st.session_state["user_role"] == "Admin":
     menu_items = [
         "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு",
@@ -284,12 +267,31 @@ else:
 if st.session_state["current_page"] not in menu_items:
     st.session_state["current_page"] = menu_items[0]
 
+# Sidebar navigation buttons
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 📌 முதன்மைப் பணிகள்")
 for item in menu_items:
-    if st.sidebar.button(item, use_container_width=True):
+    if st.sidebar.button(item, use_container_width=True, key=f"sidebar_{item}"):
         st.session_state["current_page"] = item
         st.rerun()
 
+# Title
 st.title("📚 நூல்கள் சரிபார்ப்புப் போர்ட்டல்")
+
+# --- MAIN SCREEN FALLBACK NAVIGATION SELECTOR (Solves Mobile/Sidebar hidden issue) ---
+st.markdown("---")
+selected_main_menu = st.selectbox(
+    "🧭 செய்ய வேண்டிய பணியைத் தேர்ந்தெடுக்கவும் (Main Navigation Menu)",
+    menu_items,
+    index=menu_items.index(st.session_state["current_page"]) if st.session_state["current_page"] in menu_items else 0,
+    key="main_screen_menu_selectbox"
+)
+
+if selected_main_menu != st.session_state["current_page"]:
+    st.session_state["current_page"] = selected_main_menu
+    st.rerun()
+
+st.markdown("---")
 menu_choice = st.session_state["current_page"]
 
 # ============================================================
@@ -327,7 +329,6 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                 vendor_list.append(vendor_name)
                 vendor_id_map[vendor_name] = full_id_name
 
-    st.markdown("---")
     st.markdown("### 🏢 1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்")
     selected_vendor_raw = st.selectbox(
         "பதிப்பகத்தின் முதல் எழுத்துகளை உள்ளீடு செய்யவும்",
@@ -534,7 +535,6 @@ elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்க�
         if not unsynced_vendors:
             st.warning("⚠️ ஒத்திசைவு செய்ய வேண்டிய புதிய பதிப்பகங்கள் எதுவும் இல்லை.")
         else:
-            st.markdown("---")
             selected_vendor_t2 = st.selectbox(
                 "ஒத்திசைவு செய்ய வேண்டிய பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்",
                 ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + unsynced_vendors,
@@ -642,7 +642,6 @@ elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் வ�
             if vendor_name and vendor_name.lower() != "nan" and vendor_name not in vendor_list:
                 vendor_list.append(vendor_name)
 
-        st.markdown("---")
         selected_vendor_t3 = st.selectbox(
             "பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் (Select Publisher)",
             ["-- அனைத்து பதிப்பாளர்களும் (All Publishers) --"] + vendor_list,
@@ -734,9 +733,7 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
 
         lib_name_list = sorted(lib_name_list)
 
-        st.markdown("---")
         st.markdown("### 🏢 நூலகத்தைத் தேர்ந்தெடுக்கவும் (Select Library)")
-        
         selected_library_raw = st.selectbox(
             "நூலகத்தின் பெயரினை உள்ளீடு செய்யவும் அல்லது தேர்ந்தெடுக்கவும்",
             ["-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --", "-- அனைத்து நூலகங்களும் (All Libraries) --"] + lib_name_list,
@@ -833,7 +830,7 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
             else:
                 st.warning("⚠️ தரவுகள் எதுவும் இல்லை.")
 
-# --- TASK 5: ACCESSION NUMBERS MANAGEMENT (UPDATED STRICTLY FOR RECEIVED QTY) ---
+# --- TASK 5: ACCESSION NUMBERS MANAGEMENT (RECEIVED QTY ONLY) ---
 elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
     st.subheader("⚙️ 5. தானியங்கி மைய மற்றும் கிளை நூல் சேர்க்கை எண்கள் மேலாண்மை (Auto Accession)")
     st.error("🚨 **முக்கிய எச்சரிக்கை:** பெறப்பட்ட நூல்களுக்கு (`Received Qty`) மட்டுமே சேர்க்கை எண்கள் உருவாக்கப்படும். பெறப்படாத நூல்களுக்கு எந்தக் காரணத்திற்காகவும் எண்கள் வழங்கப்படாது (காலி விடப்படும்).")
@@ -859,7 +856,6 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
 
         lib_name_list = sorted(lib_name_list)
 
-        st.markdown("---")
         selected_acc_library = st.selectbox(
             "சேர்க்கை எண்களைப் பதிவு செய்ய நூலகத்தைத் தேர்ந்தெடுக்கவும்",
             ["-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --"] + lib_name_list,
@@ -880,21 +876,16 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
 
             target_lib_id = lib_dict.get(selected_acc_lib)
             
-            # Fetch last accession numbers automatically from Lib_Detail sheet
             last_central_start = None
             last_branch_start = None
             
             if sheet_lib_detail:
                 try:
                     lib_detail_rows = sheet_lib_detail.get_all_values()
-                    
-                    # 1. Get District-wide Last Central Accession Number (Column F / index 5)
                     for l_row in lib_detail_rows[1:]:
                         if len(l_row) > 5 and str(l_row[5]).strip().isdigit():
                             last_central_start = int(str(l_row[5]).strip())
                             break
-                            
-                    # 2. Get specific library's Branch Accession Number (Column G / index 6)
                     for l_row in lib_detail_rows[1:]:
                         if len(l_row) > 1 and str(l_row[1]).strip() == target_lib_id:
                             if len(l_row) > 6 and str(l_row[6]).strip().isdigit():
@@ -903,7 +894,6 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                 except Exception as e:
                     st.warning(f"⚠️ Lib_Detail சீட்டிலிருந்து எண்களை எடுப்பதில் சிக்கல்: {e}")
 
-            # Read from Vendor Wise Book Data to get exact Received Qty for this library
             try:
                 ws_data = sheet_vendor_wise.get_all_values()
                 ws_headers = [str(h).strip().lower() for h in ws_data[0]]
@@ -946,18 +936,13 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                     b_disp_text = str(last_branch_start) if last_branch_start is not None else "0"
                     st.info(f"📌 தொடக்க எண்கள் -> மைய எண் தொடக்கம்: **{c_disp_text}** | கிளை எண் தொடக்கம்: **{b_disp_text}**")
 
-                    # Generate Accession Numbers STRICTLY based on Received Qty
                     display_rows = []
-                    central_acc_list = []
-                    branch_acc_list = []
-                    
                     curr_c = last_central_start if last_central_start is not None else 0
                     curr_b = last_branch_start if last_branch_start is not None else 0
 
                     for item in library_rows_data:
                         rec_qty = item["Received"]
                         
-                        # STRICT CONDITION: If received quantity is greater than 0, generate accession numbers for those received copies.
                         if rec_qty > 0:
                             c_parts = []
                             for _ in range(rec_qty):
@@ -971,12 +956,8 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                                 b_parts.append(str(curr_b))
                             b_str = ", ".join(b_parts)
                         else:
-                            # If received is 0 or empty, leave completely BLANK! No accession number.
                             c_str = ""
                             b_str = ""
-
-                        central_acc_list.append(c_str)
-                        branch_acc_list.append(b_str)
 
                         display_rows.append({
                             "Sheet Row": item["sheet_row"],
@@ -1006,14 +987,13 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                                         c_val = row_info["Central Accession No"]
                                         b_val = row_info["Branch Accession No"]
 
-                                        # Column U is 21, Column V is 22
                                         cell_list.append(Cell(row=r_num, col=21, value=c_val))
                                         cell_list.append(Cell(row=r_num, col=22, value=b_val))
                                     
                                     if cell_list:
                                         sheet_vendor_wise.update_cells(cell_list)
                                         
-                                st.success(f"✅ **{selected_acc_lib}** நூலகத்திற்கான சேர்க்கை எண்கள் 'Vendor Wise Book Data' சீட்டின் U மற்றும் V தூண்களில் வெற்றிகரமாகப் பதிவு செய்யப்பட்டன (பெறப்படாத நூல்களுக்கு எண்கள் தவிர்க்கப்பட்டுள்ளன)!")
+                                st.success(f"✅ **{selected_acc_lib}** நூலகத்திற்கான சேர்க்கை எண்கள் 'Vendor Wise Book Data' சீட்டின் U மற்றும் V தூண்களில் வெற்றிகரமாகப் பதிவு செய்யப்பட்டன!")
                             except Exception as e:
                                 st.error(f"❌ சேமிப்பதில் பிழை ஏற்பட்டது: {e}")
                     
