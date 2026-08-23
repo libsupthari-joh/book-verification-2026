@@ -588,35 +588,66 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                             else:
                                 st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
 
-# --- TASK 2: VENDOR WISE BOOK DATA SYNC ---
+# --- TASK 2: VENDOR WISE BOOK DATA SYNC (VENDOR BY VENDOR) ---
 elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்":
     st.subheader("🔄 Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை ஒத்திசைவு (Sync)")
-    st.info("💡 Physically verified சீட்டில் உள்ள விவரங்களின்படி, Vendor Wise Book Data சீட்டில் உள்ள S (Received) மற்றும் T (Not Received) காலம்களை நூலக வாரியாக உள்ள Quantity மதிப்பிற்கு ஏற்ப (1 அல்லது அதற்கு மேல்) மேலிருந்து கீழாகச் சரியாகப் புதுப்பிக்க இந்த பொத்தானை அழுத்தவும்.")
+    st.info("💡 முதல் பணியைப் போலவே, ஒவ்வொரு பதிப்பகமாகத் (Vendor) தேர்ந்தெடுத்து, அந்தப் பதிப்பகத்திற்கு மட்டும் Physically Verified சீட்டின் அடிப்படையில் Vendor Wise Book Data சீட்டை ஒத்திசைவு செய்யலாம்.")
 
-    if st.button("🚀 உடனடியாக ஒத்திசைவு செய்க (Sync)", use_container_width=True):
+    if vendor_df is None or book_df is None:
+        st.error("❌ 'Book Supply-2026.xlsx' கோப்பு காணப்படவில்லை!")
+        st.stop()
+
+    vendor_list = []
+    if not vendor_df.empty:
+        for _, row in vendor_df.iterrows():
+            col_b = str(row.iloc[1]).strip() if len(row) > 1 and pd.notna(row.iloc[1]) else ""  
+            col_c = str(row.iloc[2]).strip() if len(row) > 2 and pd.notna(row.iloc[2]) else ""  
+            vendor_name = col_c if col_c and col_c.lower() != "nan" else col_b
+            if vendor_name and vendor_name.lower() != "nan" and vendor_name not in vendor_list:
+                vendor_list.append(vendor_name)
+
+    st.markdown("---")
+    st.markdown("### 🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்")
+    
+    selected_vendor_t2 = st.selectbox(
+        "பதிப்பகத்தின் முதல் எழுத்துகளை உள்ளீடு செய்யவும் (உள்ளே இரண்டு எழுத்துகள் இடவும்)",
+        ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + vendor_list,
+        key="vendor_select_t2"
+    )
+
+    if selected_vendor_t2 != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+        target_v_clean_t2 = clean_text(selected_vendor_t2)
+
         if sheet_physically and sheet_vendor_wise:
             try:
-                with st.spinner("தரவுகள் ஒத்திசைக்கப்படுகின்றன..."):
-                    phys_rows = sheet_physically.get_all_values()
-                    if len(phys_rows) <= 1:
-                        st.warning("⚠️ Physically verified சீட்டில் தரவுகள் எதுவும் இல்லை!")
-                    else:
-                        phys_headers = [str(h).strip().lower() for h in phys_rows[0]]
-                        
-                        v_name_idx = next((i for i, h in enumerate(phys_headers) if "vendor" in h), 4)
-                        title_idx = next((i for i, h in enumerate(phys_headers) if "title" in h), 1)
-                        rec_idx = next((i for i, h in enumerate(phys_headers) if "received" in h and "not" not in h), 6)
+                phys_rows = sheet_physically.get_all_values()
+                phys_headers = [str(h).strip().lower() for h in phys_rows[0]] if phys_rows else []
+                v_name_idx = next((i for i, h in enumerate(phys_headers) if "vendor" in h), 4)
+                title_idx = next((i for i, h in enumerate(phys_headers) if "title" in h), 1)
+                rec_idx = next((i for i, h in enumerate(phys_headers) if "received" in h and "not" not in h), 6)
 
-                        ws_data = sheet_vendor_wise.get_all_values()
-                        ws_headers = [str(h).strip().lower() for h in ws_data[0]]
-                        
-                        s_col = next((i + 1 for i, h in enumerate(ws_headers) if "received" in h and "not" not in h), 19)
-                        t_col = next((i + 1 for i, h in enumerate(ws_headers) if "not received" in h or ("not" in h and "received" in h)), 20)
-                        qty_col = next((i + 1 for i, h in enumerate(ws_headers) if h == "quantity"), 18)
+                vendor_phys_records = []
+                for p_row in phys_rows[1:]:
+                    if len(p_row) > max(v_name_idx, title_idx, rec_idx):
+                        if target_v_clean_t2 in clean_text(p_row[v_name_idx]):
+                            vendor_phys_records.append(p_row)
 
-                        cell_list = []
-                        for p_row in phys_rows[1:]:
-                            if len(p_row) > max(v_name_idx, title_idx, rec_idx):
+                if not vendor_phys_records:
+                    st.warning(f"⚠️ **{selected_vendor_t2}** பதிப்பகத்திற்கு Physically Verified சீட்டில் தரவுகள் எதுவும் கிடைக்கவில்லை!")
+                else:
+                    st.success(f"✅ **{selected_vendor_t2}** பதிப்பகத்திற்காக {len(vendor_phys_records)} சரிபார்ப்புப் பதிவுகள் கண்டறியப்பட்டுள்ளன.")
+                    
+                    if st.button("🚀 இந்த பதிப்பகத்திற்கு மட்டும் ஒத்திசைவு செய்க (Sync)", use_container_width=True):
+                        with st.spinner("ஒத்திசைக்கப்படுகிறது..."):
+                            ws_data = sheet_vendor_wise.get_all_values()
+                            ws_headers = [str(h).strip().lower() for h in ws_data[0]]
+                            
+                            s_col = next((i + 1 for i, h in enumerate(ws_headers) if "received" in h and "not" not in h), 19)
+                            t_col = next((i + 1 for i, h in enumerate(ws_headers) if "not received" in h or ("not" in h and "received" in h)), 20)
+                            qty_col = next((i + 1 for i, h in enumerate(ws_headers) if h == "quantity"), 18)
+
+                            cell_list = []
+                            for p_row in vendor_phys_records:
                                 vendor_name_val = p_row[v_name_idx]
                                 title_val = p_row[title_idx]
                                 try:
@@ -624,7 +655,6 @@ elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்க�
                                 except ValueError:
                                     rec_qty = 0
 
-                                target_v_clean = clean_text(vendor_name_val)
                                 target_t_clean = clean_text(title_val)
 
                                 matching_rows = []
@@ -632,7 +662,7 @@ elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்க�
                                     row_v_clean = clean_text(row_item[10] if len(row_item) > 10 else (row_item[9] if len(row_item) > 9 else ""))
                                     row_t_clean = clean_text(row_item[4] if len(row_item) > 4 else "")
                                     
-                                    if target_v_clean in row_v_clean and target_t_clean == row_t_clean:
+                                    if target_v_clean_t2 in row_v_clean and target_t_clean == row_t_clean:
                                         matching_rows.append((r_idx, row_item))
 
                                 remaining_rec = rec_qty
@@ -657,11 +687,11 @@ elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்க�
                                     cell_list.append(Cell(row=r_num, col=s_col, value=val_s))
                                     cell_list.append(Cell(row=r_num, col=t_col, value=val_t))
 
-                        if cell_list:
-                            sheet_vendor_wise.update_cells(cell_list)
-                            st.success("✅ Vendor Wise Book Data சீட்டிற்கான Received மற்றும் Not Received மதிப்புகள் quantity-க்கு ஏற்ப வெற்றிகரமாக ஒத்திசைக்கப்பட்டன!")
-                        else:
-                            st.warning("⚠️ ஒத்திசைக்கத்தக்க பொருத்தமான தரவுகள் எதுவும் கிடைக்கவில்லை.")
+                            if cell_list:
+                                sheet_vendor_wise.update_cells(cell_list)
+                                st.success(f"✅ **{selected_vendor_t2}** பதிப்பகத்திற்கான Received மற்றும் Not Received மதிப்புகள் quantity-க்கு ஏற்ப வெற்றிகரமாக ஒத்திசைக்கப்பட்டன!")
+                            else:
+                                st.warning("⚠️ ஒத்திசைக்கத்தக்க பொருத்தமான தரவுகள் எதுவும் கிடைக்கவில்லை.")
             except Exception as e:
                 st.error(f"❌ ஒத்திசைவுப் பிழை: {e}")
         else:
