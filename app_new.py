@@ -955,17 +955,35 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
     try:
       lib_data = sheet_library_details.get_all_values()
       if lib_data and len(lib_data) > 1:
-        lib_df_local = pd.DataFrame(lib_data[1:], columns=lib_data[0])
+        raw_headers = lib_data[0]
+        cleaned_headers = []
+        seen_headers = {}
+        for i, h in enumerate(raw_headers):
+          h_str = str(h).strip()
+          if not h_str or h_str.lower() == "nan":
+            h_str = f"Column_{i+1}"
+          if h_str in seen_headers:
+            seen_headers[h_str] += 1
+            h_str = f"{h_str}_{seen_headers[h_str]}"
+          else:
+            seen_headers[h_str] = 0
+          cleaned_headers.append(h_str)
+
+        lib_df_local = pd.DataFrame(lib_data[1:], columns=cleaned_headers)
+        for col in lib_df_local.columns:
+          lib_df_local[col] = lib_df_local[col].astype(str)
+
         lib_name_col = next(
             (
                 col
                 for col in lib_df_local.columns
-                if "library name" in str(col).lower()
-                or "library" in str(col).lower()
+                if "library name" in col.lower()
+                or "library" in col.lower()
+                or "நூலகம்" in col
             ),
             (
-                lib_df_local.columns[2]
-                if len(lib_df_local.columns) > 2
+                lib_df_local.columns[1]
+                if len(lib_df_local.columns) > 1
                 else lib_df_local.columns[0]
             ),
         )
@@ -973,14 +991,16 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
             lib_df_local[lib_name_col].dropna().astype(str).tolist()
         )
         lib_list = [
-            l.strip() for l in lib_list if l.strip() and l.strip().lower() != "nan"
+            l.strip()
+            for l in lib_list
+            if l.strip() and l.strip().lower() != "nan"
         ]
     except Exception as e:
       st.error(f"❌ நூலகத் தரவுகளை ஏற்றுவதில் பிழை: {e}")
 
     st.markdown("---")
     selected_library = st.selectbox(
-        "নூலகத்தைத் தேர்ந்தெடுக்கவும் (Select Library)",
+        "நூலகத்தைத் தேர்ந்தெடுக்கவும் (Select Library)",
         ["-- அனைத்து நூலகங்களும் (All Libraries) --"] + lib_list,
         key="library_select_t4",
     )
