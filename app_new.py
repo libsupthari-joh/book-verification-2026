@@ -18,7 +18,6 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 import streamlit as st
-import streamlit.components.v1 as components
 
 # ============================================================
 # 1. PAGE SETTINGS
@@ -255,8 +254,8 @@ def generate_pdf_bytes(df, vendor_name):
     doc = SimpleDocTemplate(
         buffer,
         pagesize=letter,
-        rightMargin=30,
-        leftMargin=30,
+        rightMargin=20,
+        leftMargin=20,
         topMargin=30,
         bottomMargin=30,
     )
@@ -276,7 +275,7 @@ def generate_pdf_bytes(df, vendor_name):
         "TamilTitle",
         parent=styles["Heading1"],
         fontName=font_name,
-        fontSize=14,
+        fontSize=13,
         alignment=1,
         textColor=colors.HexColor("#071a38"),
     )
@@ -284,7 +283,7 @@ def generate_pdf_bytes(df, vendor_name):
         "TamilNormal",
         parent=styles["Normal"],
         fontName=font_name,
-        fontSize=9,
+        fontSize=8,
         textColor=colors.HexColor("#222222"),
     )
 
@@ -302,14 +301,14 @@ def generate_pdf_bytes(df, vendor_name):
             [Paragraph(str(val) if pd.notna(val) else "", normal_style) for val in row]
         )
 
-    t = Table(table_data, colWidths=[90, 110, 55, 85, 45, 45, 45])
+    t = Table(table_data, colWidths=[75, 110, 50, 75, 40, 40, 40, 45, 65])
     t.setStyle(
         TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#071a38")),
             ("ALIGN", (0, 0), (-1, -1), "LEFT"),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#b0bec5")),
         ])
     )
@@ -542,20 +541,21 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
 
             c1, c2 = st.columns(2)
             c1.metric("📚 மொத்தத் தலைப்புகள்", len(grouped))
-            c2.metric("📦 மொத்தப் படிகள்", int(grouped["Quantity"].sum()))
+            c2.metric("📦 மொத்தப் படிகள் (Total Qty)", int(grouped["Quantity"].sum()))
 
             st.markdown("---")
             st.markdown(f"### 📋 {completed_vendor_name} - புத்தகங்களின் சரிபார்ப்புப் பட்டியல்")
-            st.info("💡 கீழேயுள்ள அட்டவணையில் ஒவ்வொரு புத்தகத்திற்கும் பெறப்பட்ட படிகளின் எண்ணிக்கையை (Received Qty) சரிபார்த்து மாற்றிக்கொள்ளலாம்.")
+            st.info("💡 தற்காலிகப் பட்டியலின்படி பெறப்பட வேண்டிய எண்ணிக்கை (Total Qty) தானாக வரும். நீங்கள் நேரில் பெற்ற எண்ணிக்கையை (Received Qty) மட்டும் உள்ளீடு செய்யவும்; பெறப்படாத / கூடுதலாகப் பெறப்பட்ட எண்ணிக்கை தானாகக் கணக்கிடப்படும்.")
 
             display_data = []
             for idx, row in grouped.iterrows():
+                tot_q = int(row["Quantity"])
                 display_data.append({
                     "Title": row["Title"],
                     "Author": row["Author Name"] if pd.notna(row["Author Name"]) else "",
                     "Language": row["Language"],
-                    "Total Qty": int(row["Quantity"]),
-                    "Received Qty": int(row["Quantity"]),
+                    "Total Qty": tot_q,
+                    "Received Qty": tot_q,  # பயனாளர் மாற்றி அமைக்கக்கூடியது
                 })
 
             edit_df = pd.DataFrame(display_data)
@@ -578,15 +578,30 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                         
                         final_records_for_pdf = []
 
-                        # 1. 'Physically verified' சீட்டில் சேமித்தல் (A1:I1 Header order: ID with Vendor Name, Title, Language, Author Name, Vendor Name, Quantity, Received, Not Received, Date)
-                        with st.spinner("படி 1: 'Physically verified' சீட்டில் பதிப்பாளர் தரவுகள் சேமிக்கப்படுகின்றன..."):
+                        # 1. 'Physically verified' சீட்டில் பழைய பதிவுகள் நீக்கப்பட்டு புதிய தரவுகள் சேமிக்கப்படுதல்
+                        with st.spinner("படி 1: பழைய பதிவுகள் நீக்கப்பட்டு புதிய தரவுகள் சேமிக்கப்படுகின்றன..."):
+                            phys_data = sheet_physically.get_all_values()
+                            rows_to_delete = []
+                            for r_idx, row_item in enumerate(phys_data[1:], start=2):
+                                if len(row_item) > 4 and (
+                                    target_vendor_clean in clean_text(row_item[4]) or 
+                                    target_vendor_clean in clean_text(row_item[0])
+                                ):
+                                    rows_to_delete.append(r_idx)
+                            
+                            for r_num in sorted(rows_to_delete, reverse=True):
+                                sheet_physically.delete_rows(r_num)
+
                             for _, row in edited_df.iterrows():
                                 t_title = row["Title"]
                                 t_author = row["Author"]
                                 t_lang = row["Language"]
                                 total_q = int(row["Total Qty"])
                                 rec_q = int(row["Received Qty"])
+                                
+                                # பெறப்படாத எண்ணிக்கை மற்றும் கூடுதலாகப் பெறப்பட்ட எண்ணிக்கை கணக்கீடு
                                 not_rec_q = max(0, total_q - rec_q)
+                                extra_q = max(0, rec_q - total_q)
 
                                 sheet_physically.append_row([
                                     id_with_vendor,         # A: ID with Vendor Name
@@ -594,10 +609,11 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                     t_lang,                 # C: Language
                                     t_author,               # D: Author Name
                                     completed_vendor_name,  # E: Vendor Name
-                                    total_q,                # F: Quantity
-                                    rec_q,                  # G: Received
-                                    not_rec_q,              # H: Not Received
-                                    current_time_str        # I: Date
+                                    total_q,                # F: Total Qty
+                                    rec_q,                  # G: Received Qty
+                                    not_rec_q,              # H: Not Received Qty
+                                    extra_q,                # I: Extra Qty
+                                    current_time_str        # J: Date
                                 ])
 
                                 final_records_for_pdf.append({
@@ -606,14 +622,15 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                     "Language": t_lang,
                                     "Author Name": t_author,
                                     "Vendor Name": completed_vendor_name,
-                                    "Quantity": total_q,
+                                    "Total Qty": total_q,
                                     "Received": rec_q,
                                     "Not Received": not_rec_q,
+                                    "Extra Qty": extra_q,
                                     "Date": current_time_str
                                 })
 
-                        # 2. 'Vendor Wise Book Data' சீட்டில் குறிப்பிட்ட பதிப்பகத்திற்கு மட்டும் ஒத்திசைவு செய்தல்
-                        with st.spinner("படி 2: 'Vendor Wise Book Data' சீட்டில் இந்த பதிப்பகத்திற்கு மட்டும் ஒத்திசைவு செய்யப்படுகிறது..."):
+                        # 2. 'Vendor Wise Book Data' சீட்டில் ஒத்திசைவு செய்றது
+                        with st.spinner("படி 2: 'Vendor Wise Book Data' சீட்டில் ஒத்திசைவு செய்யப்படுகிறது..."):
                             ws_data = sheet_vendor_wise.get_all_values()
                             header = ws_data[0]
                             header_lower = [str(h).strip().lower() for h in header]
@@ -626,7 +643,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                 
                                 matching_row_numbers = []
                                 for r_idx, row_item in enumerate(ws_data[1:], start=2):
-                                    row_vendor_match = target_v_clean in clean_text(row_item[10] if len(row_item) > 10 else "") or target_v_clean in clean_text(row_item[9] if len(row_item) > 9 else "")
+                                    row_vendor_match = target_vendor_clean in clean_text(row_item[10] if len(row_item) > 10 else "") or target_vendor_clean in clean_text(row_item[9] if len(row_item) > 9 else "")
                                     row_title_match = t_title == clean_text(row_item[4] if len(row_item) > 4 else "")
                                     if row_vendor_match and row_title_match:
                                         matching_row_numbers.append(r_idx)
@@ -647,7 +664,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                             file_name = f"{vendor_name_clean}_Verification_Report.pdf"
                             upload_pdf_to_drive(pdf_bytes, file_name, GOOGLE_DRIVE_FOLDER_ID)
 
-                        st.success(f"✅ வெற்றிகரமாக முடிக்கப்பட்டது!\n1. '{completed_vendor_name}' பதிப்பாளர் தரவுகள் 'Physically verified' சீட்டில் சரியான தலைப்பு வரிசையில் சேமிக்கப்பட்டன.\n2. 'Vendor Wise Book Data' சீட்டில் ஒத்திசைவு செய்யப்பட்டது.\n3. Google Drive-ல் PDF சேமிக்கப்பட்டது!")
+                        st.success(f"✅ வெற்றிகரமாக முடிக்கப்பட்டது!\n1. '{completed_vendor_name}' பதிப்பாளர் தரவுகள் 'Physically verified' சீட்டில் பழைய பதிவுகள் நீக்கப்பட்டு சரியாகச் சேமிக்கப்பட்டன.\n2. 'Vendor Wise Book Data' சீட்டில் ஒத்திசைவு செய்யப்பட்டது.\n3. Google Drive-ல் PDF சேமிக்கப்பட்டது!")
                         
                         st.session_state["selected_vendor"] = None
                         st.session_state["vendor_key"] += 1
