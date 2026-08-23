@@ -9,12 +9,6 @@ from datetime import datetime
 import gspread
 from gspread.cell import Cell
 import pandas as pd
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 import streamlit as st
 
 # ============================================================
@@ -219,96 +213,7 @@ if not st.session_state["logged_in"]:
 
 
 # ============================================================
-# 4. PDF GENERATION HELPER (ROBUST TAMIL FONT FINDER)
-# ============================================================
-def generate_pdf_bytes(df, vendor_name):
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=letter,
-        rightMargin=20,
-        leftMargin=20,
-        topMargin=30,
-        bottomMargin=30,
-    )
-    elements = []
-    styles = getSampleStyleSheet()
-
-    # Robust font search paths for Linux/Streamlit Cloud & Windows
-    possible_font_paths = [
-        "/usr/share/fonts/truetype/noto/NotoSansTamil-Regular.ttf",
-        "/usr/share/fonts/truetype/lohit/Lohit-Tamil.ttf",
-        "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
-        "C:/Windows/Fonts/latha.ttf",
-        "C:/Windows/Fonts/Nirmala.ttf",
-        "C:/Windows/Fonts/Arial.ttf",
-    ]
-
-    font_path = None
-    for path in possible_font_paths:
-        if os.path.exists(path):
-            font_path = path
-            break
-
-    font_name = "Helvetica"
-    if font_path:
-        try:
-            pdfmetrics.registerFont(TTFont("TamilFont", font_path))
-            font_name = "TamilFont"
-        except Exception:
-            pass
-
-    title_style = ParagraphStyle(
-        "TamilTitle",
-        parent=styles["Heading1"],
-        fontName=font_name,
-        fontSize=14,
-        alignment=1,
-        textColor=colors.HexColor("#071a38"),
-    )
-    normal_style = ParagraphStyle(
-        "TamilNormal",
-        parent=styles["Normal"],
-        fontName=font_name,
-        fontSize=8,
-        textColor=colors.HexColor("#222222"),
-    )
-
-    elements.append(
-        Paragraph(f"Physical Verification Report - {vendor_name}", title_style)
-    )
-    elements.append(Spacer(1, 15))
-
-    table_data = []
-    headers = list(df.columns)
-    table_data.append([Paragraph(f"<b>{h}</b>", normal_style) for h in headers])
-
-    for _, row in df.iterrows():
-        table_data.append(
-            [Paragraph(str(val) if pd.notna(val) else "", normal_style) for val in row]
-        )
-
-    col_widths = [150, 110, 55, 50, 50, 50, 57]
-    t = Table(table_data, colWidths=col_widths)
-    t.setStyle(
-        TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#071a38")),
-            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-            ("TOPPADDING", (0, 0), (-1, -1), 6),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#b0bec5")),
-        ])
-    )
-
-    elements.append(t)
-    doc.build(elements)
-    buffer.seek(0)
-    return buffer.getvalue()
-
-
-# ============================================================
-# 5. GOOGLE SHEETS & EXCEL CONFIGURATION
+# 4. GOOGLE SHEETS & EXCEL CONFIGURATION
 # ============================================================
 EXCEL_FILE = "Book Supply-2026.xlsx"
 SPREADSHEET_ID = "1LNogKaLvdqkoITSLE971jTBIy9QO4s90j1WDxY1cDrc"
@@ -384,14 +289,12 @@ except Exception as error:
 
 
 # ============================================================
-# 6. SIDEBAR & ROLE-BASED NAVIGATION (FIXED & VISIBLE)
+# 5. SIDEBAR & ROLE-BASED NAVIGATION (FIXED & VISIBLE)
 # ============================================================
 st.session_state.setdefault("current_page", "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
 st.session_state.setdefault("vendor_key", 0)
 st.session_state.setdefault("selected_vendor", None)
 st.session_state.setdefault("temp_verified_records", [])
-st.session_state.setdefault("last_saved_pdf", None)
-st.session_state.setdefault("last_saved_filename", "")
 
 st.sidebar.markdown(f"### 👤 {st.session_state['user_name']}")
 role_badge = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
@@ -404,7 +307,6 @@ if st.sidebar.button("🚪 வெளியேறு (Logout)", use_container_wid
     st.session_state["user_name"] = ""
     st.session_state["selected_vendor"] = None
     st.session_state["temp_verified_records"] = []
-    st.session_state["last_saved_pdf"] = None
     st.query_params.clear()
     st.rerun()
 
@@ -435,7 +337,7 @@ menu_choice = st.session_state["current_page"]
 
 
 # ============================================================
-# 7. TASK IMPLEMENTATIONS
+# 6. TASK IMPLEMENTATIONS
 # ============================================================
 
 # --- TASK 1: PHYSICAL VERIFICATION ---
@@ -485,36 +387,16 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         if st.session_state["selected_vendor"] != selected_vendor_raw:
             st.session_state["selected_vendor"] = selected_vendor_raw
             st.session_state["temp_verified_records"] = []
-            st.session_state["last_saved_pdf"] = None
 
     if st.session_state["selected_vendor"]:
         completed_vendor_name = st.session_state["selected_vendor"]
         target_vendor_clean = clean_text(completed_vendor_name)
         
-        if st.session_state.get("last_saved_pdf"):
-            st.success("✅ Google Sheet-ல் வெற்றிகரமாகச் சேமிக்கப்பட்டது!")
-            st.markdown("---")
-            st.download_button(
-                label="📥 சரிபார்ப்பு அறிக்கையை (PDF) பதிவிறக்குக",
-                data=st.session_state["last_saved_pdf"],
-                file_name=st.session_state["last_saved_filename"],
-                mime="application/pdf",
-                use_container_width=True,
-            )
-            st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("🔄 அடுத்த பதிப்பகத்தைத் தேர்ந்தெடுக்க", use_container_width=True):
-                st.session_state["selected_vendor"] = None
-                st.session_state["temp_verified_records"] = []
-                st.session_state["last_saved_pdf"] = None
-                st.session_state["vendor_key"] += 1
-                st.rerun()
-                
-        elif target_vendor_clean in already_verified_clean:
+        if target_vendor_clean in already_verified_clean:
             st.error(f"⚠️ **{completed_vendor_name}** பதிப்பகத்தின் சரிபார்ப்பு பணி ஏற்கனவே முடிவுற்றது! எனவே இந்த பதிப்பகத்திற்கான புதிய தலைப்புகளைத் தேர்ந்தெடுக்கவோ அல்லது சேமிக்கவோ இயலாது.")
             if st.button("🔄 மற்றொரு பதிப்பகத்தைத் தேர்ந்தெடுக்க", use_container_width=True):
                 st.session_state["selected_vendor"] = None
                 st.session_state["temp_verified_records"] = []
-                st.session_state["last_saved_pdf"] = None
                 st.session_state["vendor_key"] += 1
                 st.rerun()
         else:
@@ -620,11 +502,10 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                     with col_clr:
                         if st.button("🗑️ அழிக்க", use_container_width=True):
                             st.session_state["temp_verified_records"] = []
-                            st.session_state["last_saved_pdf"] = None
                             st.rerun()
 
                     with col_save:
-                        if st.button("💾 சீட்டில் சேமி & PDF உருவாக்கு", use_container_width=True):
+                        if st.button("💾 சீட்டில் சேமி", use_container_width=True):
                             if sheet_physically and sheet_vendor_wise:
                                 try:
                                     with st.spinner("சீட்டில் சேமிக்கப்படுகிறது..."):
@@ -681,12 +562,11 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                         if cell_list:
                                             sheet_vendor_wise.update_cells(cell_list)
 
-                                        # Generate PDF in memory with proper font loading
-                                        pdf_bytes = generate_pdf_bytes(temp_df[display_cols], completed_vendor_name)
-                                        st.session_state["last_saved_pdf"] = pdf_bytes
-                                        st.session_state["last_saved_filename"] = f"{completed_vendor_name}_Verification_Report.pdf"
-
-                                    st.success("✅ Google Sheet-ல் வெற்றிகரமாகச் சேமிக்கப்பட்டது!")
+                                    st.success("✅ Google Sheet-ல் தரவுகள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
+                                    time.sleep(1)
+                                    st.session_state["selected_vendor"] = None
+                                    st.session_state["temp_verified_records"] = []
+                                    st.session_state["vendor_key"] += 1
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"❌ பிழை: {e}")
