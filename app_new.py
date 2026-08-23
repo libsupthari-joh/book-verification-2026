@@ -23,7 +23,7 @@ st.set_page_config(
 
 
 # ============================================================
-# 2. UI DESIGN & STYLES (STABLE SIDEBAR & BOLD HEADERS)
+# 2. UI DESIGN & STYLES
 # ============================================================
 def get_custom_css():
     return """
@@ -110,7 +110,7 @@ st.markdown(get_custom_css(), unsafe_allow_html=True)
 
 
 # ============================================================
-# 3. SECURITY AND LOGIN (ADMIN & USER ROLES WITH PERSISTENCE)
+# 3. SECURITY AND LOGIN
 # ============================================================
 def hash_password(password):
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
@@ -288,7 +288,7 @@ except Exception as error:
 
 
 # ============================================================
-# 5. SIDEBAR & ROLE-BASED NAVIGATION (FIXED & VISIBLE)
+# 5. SIDEBAR & ROLE-BASED NAVIGATION
 # ============================================================
 st.session_state.setdefault("current_page", "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
 st.session_state.setdefault("vendor_key", 0)
@@ -394,7 +394,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         target_vendor_clean = clean_text(completed_vendor_name)
         
         if target_vendor_clean in already_verified_clean:
-            st.error(f"⚠️ **{completed_vendor_name}** பதிப்பகத்தின் சரிபார்ப்பு பணி ஏற்கனவே முடிவுற்றது! எனவே இந்த பதிப்பகத்திற்கான புதிய தலைப்புகளைத் தேர்ந்தெடுக்கவோ அல்லது சேமிக்கவோ இயலாது.")
+            st.error(f"⚠️ **{completed_vendor_name}** பதிப்பகத்தின் சரிபார்ப்பு பணி ஏற்கனவே முடிவுற்றது!")
             if st.button("🔄 மற்றொரு பதிப்பகத்தைத் தேர்ந்தெடுக்க", use_container_width=True):
                 st.session_state["selected_vendor"] = None
                 st.session_state["temp_verified_records"] = []
@@ -435,7 +435,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                 if not remaining_book_titles:
                     st.success("🎉 இந்த பதிப்பகத்தில் உள்ள அனைத்துத் தலைப்புகளும் தற்காலிகப் பட்டியலில் சேர்க்கப்பட்டுவிட்டன!")
                 else:
-                    st.info("💡 தலைப்பின் முதல் 2-3 எழுத்துகளை உள்ளிட்டுத் தேர்ந்து கொள்ளலாம்.")
+                    st.info("💡 தலைப்பின் முதல் எழுத்துகளை உள்ளிட்டுத் தேர்ந்து கொள்ளலாம்.")
                     selected_title = st.selectbox(
                         "புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும் (உள்ளே இரண்டு எழுத்துகள் இடவும்)",
                         ["-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"] + remaining_book_titles,
@@ -490,22 +490,36 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                             time.sleep(0.3)
                             st.rerun()
 
+                # --- தற்காலிகச் சரிபார்ப்புப் பட்டியல் முழுமையாகத் தோன்ற மற்றும் நிர்வகிக்க ---
                 if st.session_state["temp_verified_records"]:
                     st.markdown("---")
                     st.markdown(f"### 📋 தற்காலிகச் சரிபார்ப்புப் பட்டியல் ({len(st.session_state['temp_verified_records'])} தலைப்புகள்)")
                     
                     temp_df = pd.DataFrame(st.session_state["temp_verified_records"])
-                    display_cols = ["Title", "Author Name", "Language", "Total Qty", "Received", "Not Received", "Short / Extra"]
+                    display_cols = ["Title", "Author Name", "Language", "Total Qty", "Received", "Not Received", "Short / Extra", "Date"]
                     
-                    st.dataframe(temp_df[display_cols], use_container_width=True)
+                    st.dataframe(temp_df[display_cols], use_container_width=True, hide_index=True)
 
-                    col_clr, col_save = st.columns(2)
+                    # தனிப்பட்ட பதிவை நீக்க அல்லது முழுமையாக அழிக்க
+                    col_del_single, col_clr, col_save = st.columns([1.5, 1, 1])
+                    with col_del_single:
+                        titles_in_temp = [item["Title"] for item in st.session_state["temp_verified_records"]]
+                        title_to_remove = st.selectbox("நீக்க வேண்டிய தலைப்பைத் தேர்ந்தெடுக்கவும்", ["-- நீக்க தலைப்பைத் தேர்ந்தெடு --"] + titles_in_temp, key="del_single_title")
+                        if title_to_remove != "-- நீக்க தலைப்பைத் தேர்ந்தெடு --":
+                            if st.button("❌ குறிப்பிட்ட நூலை நீக்கு", use_container_width=True):
+                                st.session_state["temp_verified_records"] = [item for item in st.session_state["temp_verified_records"] if item["Title"] != title_to_remove]
+                                st.success(f"🗑️ '{title_to_remove}' நீக்கப்பட்டது!")
+                                time.sleep(0.3)
+                                st.rerun()
+
                     with col_clr:
-                        if st.button("🗑️ அழிக்க", use_container_width=True):
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        if st.button("🗑️ அனைத்தையும் அழி", use_container_width=True):
                             st.session_state["temp_verified_records"] = []
                             st.rerun()
 
                     with col_save:
+                        st.markdown("<br>", unsafe_allow_html=True)
                         if st.button("💾 சீட்டில் சேமி", use_container_width=True):
                             if sheet_physically and sheet_vendor_wise:
                                 try:
@@ -590,10 +604,10 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                             else:
                                 st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
 
-# --- TASK 2: VENDOR WISE BOOK DATA SYNC (VENDOR BY VENDOR) ---
+# --- TASK 2: VENDOR WISE BOOK DATA SYNC ---
 elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்":
     st.subheader("🔄 Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை ஒத்திசைவு (Sync)")
-    st.info("💡 Physically verified சீட்டில் சரிபார்க்கப்பட்ட பதிப்பகங்கள் மட்டுமே கீழே தோன்றும். ஒரு பதிப்பகத்தின் ஒத்திசைவு முடிந்தவுடன் அது பட்டியலில் இருந்து தானாகவே மறைந்துவிடும்.")
+    st.info("💡 Physically verified சீட்டில் சரிபார்க்கப்பட்ட பதிப்பகங்கள் மட்டுமே கீழே தோன்றும். ஒத்திசைவு முடிந்தவுடன் பட்டியலில் இருந்து மறைந்துவிடும்.")
 
     if sheet_physically is None or sheet_vendor_wise is None:
         st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
