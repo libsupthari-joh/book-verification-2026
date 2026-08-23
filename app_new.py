@@ -7,6 +7,7 @@ import time
 from datetime import datetime
 
 import gspread
+from gspread.cell import Cell
 import pandas as pd
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
@@ -155,7 +156,6 @@ def authenticate_user(phone, password):
     return None
 
 
-# Restore login status from query parameters if available
 if "logged_in" not in st.session_state:
     if st.query_params.get("logged_in") == "true":
         st.session_state["logged_in"] = True
@@ -208,7 +208,6 @@ def show_login_page():
                 st.session_state["user_role"] = user_info["role"]
                 st.session_state["user_name"] = user_info["name"]
 
-                # Save to query params to persist across refresh
                 st.query_params["logged_in"] = "true"
                 st.query_params["role"] = user_info["role"]
                 st.query_params["name"] = user_info["name"]
@@ -662,13 +661,9 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                                 val_s = "1" if idx < rec_qty else "0"
                                                 val_t = "0" if idx < rec_qty else "1"
                                                 
-                                                c_s = sheet_vendor_wise.cell(r_num, s_col)
-                                                c_s.value = val_s
-                                                cell_list.append(c_s)
-                                                
-                                                c_t = sheet_vendor_wise.cell(r_num, t_col)
-                                                c_t.value = val_t
-                                                cell_list.append(c_t)
+                                                # Use local Cell objects to prevent 'Read requests' API quota limit (429 Error)
+                                                cell_list.append(Cell(row=r_num, col=s_col, value=val_s))
+                                                cell_list.append(Cell(row=r_num, col=t_col, value=val_t))
 
                                         if cell_list:
                                             sheet_vendor_wise.update_cells(cell_list)
