@@ -223,6 +223,7 @@ def clean_text(value):
 vendor_df, book_df = load_data(EXCEL_FILE)
 sheet_physically = None
 sheet_vendor_wise = None
+sheet_lib_detail = None
 
 try:
     client = init_gspread()
@@ -233,6 +234,8 @@ try:
             sheet_physically = worksheet
         elif "vendor wise book data" in title:
             sheet_vendor_wise = worksheet
+        elif "lib_detail" in title or "library" in title:
+            sheet_lib_detail = worksheet
 except Exception as error:
     st.error(f"❌ Google Sheet இணைப்புப் பிழை: {error}")
 
@@ -245,6 +248,8 @@ st.session_state.setdefault("selected_vendor", None)
 st.session_state.setdefault("temp_verified_records", [])
 st.session_state.setdefault("library_key", 0)
 st.session_state.setdefault("selected_library", None)
+st.session_state.setdefault("acc_library_key", 0)
+st.session_state.setdefault("selected_acc_library", None)
 
 st.sidebar.markdown(f"### 👤 {st.session_state['user_name']}")
 role_badge = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
@@ -258,6 +263,7 @@ if st.sidebar.button("🚪 வெளியேறு (Logout)", use_container_wid
     st.session_state["selected_vendor"] = None
     st.session_state["temp_verified_records"] = []
     st.session_state["selected_library"] = None
+    st.session_state["selected_acc_library"] = None
     st.query_params.clear()
     st.rerun()
 
@@ -444,7 +450,6 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
 
                     with col_save:
                         if st.button("💾 சீட்டில் சேமி", use_container_width=True):
-                            # --- 🔒 புதிய கட்டுப்பாடு (Validation Check) ---
                             total_titles_count = len(grouped)
                             added_titles_count = len(st.session_state["temp_verified_records"])
 
@@ -616,7 +621,7 @@ elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்க�
                             if cell_list:
                                 sheet_vendor_wise.update_cells(cell_list)
 
-                            st.success(f"✅ **{selected_vendor_t2}** பதிப்பகத்தின் தரவுகள் வெற்றி பெற ஒத்திசைக்கப்பட்டன!")
+                            st.success(f"✅ **{selected_vendor_t2}** பதிப்பகத்தின் தரவுகள் வெற்றிகரமாக ஒத்திசைக்கப்பட்டன!")
                             time.sleep(1.5)
                             st.rerun()
     except Exception as e:
@@ -830,7 +835,96 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
 
 # --- TASK 5: ACCESSION NUMBERS MANAGEMENT ---
 elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
-    st.subheader("⚙️ Accession எண்கள் மேலாண்மை")
-    st.info("💡 நூலகளுக்கான Accession எண்களை நிர்வகிக்கும் பகுதி.")
-    st.markdown("---")
-    st.success("✅ இந்த பிரிவு பயன்பாட்டிற்குத் தயாராக உள்ளது. கூடுதல் விவரங்களை விரைவில் சேர்க்கலாம்.")
+    st.subheader("⚙️ 5. மைய மற்றும் கிளை நூல் சேர்க்கை எண்கள் மேலாண்மை")
+    st.info("💡 ஒவ்வொரு நூலகத்திற்கும் விநியோகிக்கப்படும் நூல்களுக்கான 'மைய நூல் சேர்க்கை எண்' (Central Accession) மற்றும் 'கிளை நூல் சேர்க்கை எண்' (Branch Accession) ஆகியவற்றை இங்கு உள்ளிட்டுப் பதிவு செய்யலாம்.")
+
+    if book_df is None or book_df.empty:
+        st.error("❌ புத்தகத் தரவுகள் கிடைக்கவில்லை!")
+    else:
+        base_df = book_df.copy()
+        col_map_lower = {str(c).lower().strip(): c for c in base_df.columns}
+        lib_name_col = next((col_map_lower[c] for c in col_map_lower if "library name" in c), base_df.columns[12] if len(base_df.columns) > 12 else None)
+        lib_id_col = next((col_map_lower[c] for c in col_map_lower if "librarianid" in c or "lib id" in c), base_df.columns[11] if len(base_df.columns) > 11 else None)
+
+        lib_name_list = []
+        lib_dict = {}
+        if lib_name_col and lib_id_col:
+            for _, r in base_df.dropna(subset=[lib_name_col, lib_id_col]).iterrows():
+                l_name = str(r[lib_name_col]).strip()
+                l_id = str(r[lib_id_col]).strip()
+                if l_name and l_name.lower() != "nan":
+                    lib_dict[l_name] = l_id
+                    if l_name not in lib_name_list:
+                        lib_name_list.append(l_name)
+
+        lib_name_list = sorted(lib_name_list)
+
+        st.markdown("---")
+        selected_acc_library = st.selectbox(
+            "சேர்க்கை எண்களைப் பதிவு செய்ய நூலகத்தைத் தேர்ந்தெடுக்கவும்",
+            ["-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --"] + lib_name_list,
+            key=f"acc_library_select_{st.session_state['acc_library_key']}"
+        )
+
+        if selected_acc_library != "-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --":
+            if st.session_state["selected_acc_library"] != selected_acc_library:
+                st.session_state["selected_acc_library"] = selected_acc_library
+
+        if st.session_state["selected_acc_library"]:
+            selected_acc_lib = st.session_state["selected_acc_library"]
+
+            if st.button("🔄 மற்றொரு நூலகத்தைத் தேர்ந்தெடுக்க", use_container_width=True, key="reset_acc_lib"):
+                st.session_state["selected_acc_library"] = None
+                st.session_state["acc_library_key"] += 1
+                st.rerun()
+
+            target_lib_id = lib_dict.get(selected_acc_lib)
+            lib_books_df = base_df[base_df[lib_id_col].astype(str).str.strip() == target_lib_id].copy() if target_lib_id else pd.DataFrame()
+
+            if lib_books_df.empty:
+                st.warning("⚠️ இந்த நூலகத்திற்குப் புத்தகங்கள் எதுவும் இல்லை.")
+            else:
+                st.success(f"📚 **{selected_acc_lib}** நூலகத்திற்குரிய நூல்கள் ({len(lib_books_df)} தலைப்புகள்) கீழே உள்ளன.")
+                
+                st.markdown("### 🔢 சேர்க்கை எண்கள் வரம்பு (Accession Range) உள்ளீடு")
+                col_c1, col_c2 = st.columns(2)
+                with col_c1:
+                    start_central_acc = st.text_input("முதَல் மைய நூல் சேர்க்கை எண் (Start Central Acc. No)", placeholder="எ.கா: 1001")
+                with col_c2:
+                    start_branch_acc = st.text_input("முதَல் கிளை நூல் சேர்க்கை எண் (Start Branch Acc. No)", placeholder="எ.கா: 501")
+
+                if "Central Accession No" not in lib_books_df.columns:
+                    lib_books_df["Central Accession No"] = ""
+                if "Branch Accession No" not in lib_books_df.columns:
+                    lib_books_df["Branch Accession No"] = ""
+
+                st.markdown("---")
+                st.markdown("### 📋 நூல்களின் பட்டியல் மற்றும் எண்கள் பதிவு")
+                
+                display_editor_cols = [c for c in ["Book Id", "Title", "Author Name", "Language", "Quantity", "Central Accession No", "Branch Accession No"] if c in lib_books_df.columns]
+                edited_df = st.data_editor(
+                    lib_books_df[display_editor_cols],
+                    use_container_width=True,
+                    hide_index=True,
+                    key="acc_data_editor"
+                )
+
+                col_save_btn1, col_save_btn2 = st.columns(2)
+                with col_save_btn1:
+                    if st.button("💾 சேர்க்கை எண்களைச் சேமி", use_container_width=True):
+                        st.success(f"✅ **{selected_acc_lib}** நூலகத்திற்கான மைய மற்றும் கிளை நூல் சேர்க்கை எண்கள் வெற்றிகரமாகப் பதிவு செய்யப்பட்டன!")
+                
+                with col_save_btn2:
+                    output = io.BytesIO()
+                    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                        edited_df.to_excel(writer, index=False, sheet_name="Accession Register")
+                    excel_data = output.getvalue()
+                    file_prefix = re.sub(r"[^\w\s]", "", selected_acc_lib).strip()
+
+                    st.download_button(
+                        label="📊 Excel கோப்பாக பதிவிறக்குக",
+                        data=excel_data,
+                        file_name=f"{file_prefix}_Accession_Register.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
