@@ -475,8 +475,33 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         completed_vendor_name = st.session_state["selected_vendor"]
         target_vendor_clean = clean_text(completed_vendor_name)
         
-        if target_vendor_clean in already_verified_clean:
+        # FIX: Prioritize showing download button if PDF was just generated/saved
+        if st.session_state.get("last_saved_pdf"):
+            st.success("✅ Google Sheet-ல் வெற்றிகரமாகச் சேமிக்கப்பட்டது!")
+            st.markdown("---")
+            st.download_button(
+                label="📥 சரிபார்ப்பு அறிக்கையை (PDF) பதிவிறக்குக",
+                data=st.session_state["last_saved_pdf"],
+                file_name=st.session_state["last_saved_filename"],
+                mime="application/pdf",
+                use_container_width=True,
+            )
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("🔄 அடுத்த பதிப்பகத்தைத் தேர்ந்தெடுக்க", use_container_width=True):
+                st.session_state["selected_vendor"] = None
+                st.session_state["temp_verified_records"] = []
+                st.session_state["last_saved_pdf"] = None
+                st.session_state["vendor_key"] += 1
+                st.rerun()
+                
+        elif target_vendor_clean in already_verified_clean:
             st.error(f"⚠️ **{completed_vendor_name}** பதிப்பகத்தின் சரிபார்ப்பு பணி ஏற்கனவே முடிவுற்றது! எனவே இந்த பதிப்பகத்திற்கான புதிய தலைப்புகளைத் தேர்ந்தெடுக்கவோ அல்லது சேமிக்கவோ இயலாது.")
+            if st.button("🔄 மற்றொரு பதிப்பகத்தைத் தேர்ந்தெடுக்க", use_container_width=True):
+                st.session_state["selected_vendor"] = None
+                st.session_state["temp_verified_records"] = []
+                st.session_state["last_saved_pdf"] = None
+                st.session_state["vendor_key"] += 1
+                st.rerun()
         else:
             vendor_mask = (
                 book_df.iloc[:, 9].apply(clean_text) == target_vendor_clean
@@ -646,35 +671,12 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                         st.session_state["last_saved_pdf"] = pdf_bytes
                                         st.session_state["last_saved_filename"] = f"{completed_vendor_name}_Verification_Report.pdf"
 
-                                    st.success("✅ Google Sheet-ல் வெற்றிகரமாகச் சேமிக்கப்பட்டது! கீழே உள்ள பொத்தானைக் கிளிக் செய்து PDF அறிக்கையைப் பதிவிறக்கம் செய்து கொள்ளலாம்.")
+                                    st.success("✅ Google Sheet-ல் வெற்றிகரமாகச் சேமிக்கப்பட்டது!")
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"❌ பிழை: {e}")
                             else:
                                 st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
-
-                # Show Download Button if PDF is ready
-                if st.session_state.get("last_saved_pdf"):
-                    st.markdown("---")
-                    st.download_button(
-                        label="📥 சரிபார்ப்பு அறிக்கையை (PDF) பதிவிறக்குக",
-                        data=st.session_state["last_saved_pdf"],
-                        file_name=st.session_state["last_saved_filename"],
-                        mime="application/pdf",
-                        use_container_width=True,
-                    )
-                    if st.button("🔄 அடுத்த பதிப்பகத்தைத் தேர்ந்தெடுக்க", use_container_width=True):
-                        st.session_state["selected_vendor"] = None
-                        st.session_state["temp_verified_records"] = []
-                        st.session_state["last_saved_pdf"] = None
-                        st.session_state["vendor_key"] += 1
-                        st.rerun()
-
-    if not st.session_state.get("last_saved_pdf") and st.button("🔄 மற்றொரு பதிப்பகத்தைத் தேர்ந்தெடுக்க", use_container_width=True):
-        st.session_state["selected_vendor"] = None
-        st.session_state["temp_verified_records"] = []
-        st.session_state["vendor_key"] += 1
-        st.rerun()
 
 # --- TASK 2: GOOGLE SHEET SYNC ---
 elif menu_choice == "🔄 2. Google Sheet தரவு ஒத்திசைவு (Sync)":
