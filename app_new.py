@@ -223,7 +223,6 @@ def clean_text(value):
 vendor_df, book_df = load_data(EXCEL_FILE)
 sheet_physically = None
 sheet_vendor_wise = None
-sheet_library_details = None
 
 try:
     client = init_gspread()
@@ -234,8 +233,6 @@ try:
             sheet_physically = worksheet
         elif "vendor wise book data" in title:
             sheet_vendor_wise = worksheet
-        elif any(name in title for name in ["lib_detail", "library detail", "library details"]):
-            sheet_library_details = worksheet
 except Exception as error:
     st.error(f"❌ Google Sheet இணைப்புப் பிழை: {error}")
 
@@ -712,7 +709,7 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
         lib_name_col = next((col_map_lower[c] for c in col_map_lower if "library name" in c), base_df.columns[12] if len(base_df.columns) > 12 else None)
         lib_type_col = next((col_map_lower[c] for c in col_map_lower if "library type" in c), base_df.columns[10] if len(base_df.columns) > 10 else None)
 
-        # Build library name list and mapping directly from Vendor Wise Book Data to ensure perfect matching
+        # Build library name list and mapping directly from Vendor Wise Book Data
         lib_dict = {}
         lib_name_list = []
         if lib_name_col and lib_id_col:
@@ -787,52 +784,6 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
                 col2.metric("📦 மொத்தப் படிகள்", total_qty)
                 col3.metric("🇮🇳 தமிழ் நூல்கள்", tamil_count)
                 col4.metric("🇬🇧 ஆங்கில நூல்கள்", english_count)
-
-                # --- Edit Library Details Section ---
-                if selected_library != "-- அனைத்து நூலகங்களும் (All Libraries) --":
-                    st.markdown("---")
-                    st.markdown("### ✏️ நூலகத்தின் விவரங்கள் / பெயரினை மாற்ற")
-                    if sheet_library_details:
-                        try:
-                            lib_details_rows = sheet_library_details.get_all_values()
-                            if len(lib_details_rows) > 1:
-                                lib_headers = [str(h).strip() for h in lib_details_rows[0]]
-                                lib_name_col_idx_sheet = next((i for i, h in enumerate(lib_headers) if "library name" in h.lower() or "lib name" in h.lower()), 1)
-                                
-                                target_row_idx = None
-                                target_row_data = None
-                                for idx, row in enumerate(lib_details_rows[1:], start=2):
-                                    if len(row) > lib_name_col_idx_sheet and str(row[lib_name_col_idx_sheet]).strip() == selected_library:
-                                        target_row_idx = idx
-                                        target_row_data = row
-                                        break
-                                
-                                if target_row_data:
-                                    with st.form(f"edit_lib_form_{selected_library}"):
-                                        st.write(f"நூலகம்: **{selected_library}** (வரிசை எண்: {target_row_idx})")
-                                        form_cols = st.columns(2)
-                                        input_cells = {}
-                                        for c_idx, (header_name, cell_val) in enumerate(zip(lib_headers, target_row_data)):
-                                            with form_cols[c_idx % 2]:
-                                                new_val = st.text_input(header_name, value=cell_val, key=f"edit_col_{target_row_idx}_{c_idx}")
-                                                input_cells[c_idx] = new_val
-                                        
-                                        save_lib_changes = st.form_submit_button("💾 மாற்றங்களைச் சேமி", use_container_width=True)
-                                        if save_lib_changes:
-                                            try:
-                                                cell_updates = [Cell(row=target_row_idx, col=c_idx + 1, value=val) for c_idx, val in input_cells.items()]
-                                                sheet_library_details.update_cells(cell_updates)
-                                                st.success("✅ நூலக விவரங்கள் வெற்றிகரமாக மாற்றப்பட்டன!")
-                                                time.sleep(1)
-                                                st.rerun()
-                                            except Exception as e:
-                                                st.error(f"❌ சேமிப்பதில் பிழை: {e}")
-                                else:
-                                    st.warning("⚠️ Lib_Detail சீட்டில் இந்த நூலகத்திற்கான வரிசை கிடைக்கவில்லை.")
-                        except Exception as e:
-                            st.warning(f"⚠️ Lib_Detail சீட்டை வாசிப்பதில் பிழை: {e}")
-                    else:
-                        st.warning("⚠️ Lib_Detail Google Sheet இணைப்பு கிடைக்கவில்லை.")
 
                 st.markdown("---")
                 title_header_text = f"📋 {selected_library} - நூல்களின் முழு விவரங்கள்" if selected_library != "-- அனைத்து நூலகங்களும் (All Libraries) --" else "📋 அனைத்து நூலகங்களின் விநியோக விவரங்கள்"
