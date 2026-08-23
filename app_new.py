@@ -490,7 +490,6 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                             time.sleep(0.3)
                             st.rerun()
 
-                # --- தற்காலிகச் சரிபார்ப்புப் பட்டியல் முழுமையாகத் தோன்ற மற்றும் நிர்வகிக்க ---
                 if st.session_state["temp_verified_records"]:
                     st.markdown("---")
                     st.markdown(f"### 📋 தற்காலிகச் சரிபார்ப்புப் பட்டியல் ({len(st.session_state['temp_verified_records'])} தலைப்புகள்)")
@@ -500,26 +499,13 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                     
                     st.dataframe(temp_df[display_cols], use_container_width=True, hide_index=True)
 
-                    # தனிப்பட்ட பதிவை நீக்க அல்லது முழுமையாக அழிக்க
-                    col_del_single, col_clr, col_save = st.columns([1.5, 1, 1])
-                    with col_del_single:
-                        titles_in_temp = [item["Title"] for item in st.session_state["temp_verified_records"]]
-                        title_to_remove = st.selectbox("நீக்க வேண்டிய தலைப்பைத் தேர்ந்தெடுக்கவும்", ["-- நீக்க தலைப்பைத் தேர்ந்தெடு --"] + titles_in_temp, key="del_single_title")
-                        if title_to_remove != "-- நீக்க தலைப்பைத் தேர்ந்தெடு --":
-                            if st.button("❌ குறிப்பிட்ட நூலை நீக்கு", use_container_width=True):
-                                st.session_state["temp_verified_records"] = [item for item in st.session_state["temp_verified_records"] if item["Title"] != title_to_remove]
-                                st.success(f"🗑️ '{title_to_remove}' நீக்கப்பட்டது!")
-                                time.sleep(0.3)
-                                st.rerun()
-
+                    col_clr, col_save = st.columns(2)
                     with col_clr:
-                        st.markdown("<br>", unsafe_allow_html=True)
                         if st.button("🗑️ அனைத்தையும் அழி", use_container_width=True):
                             st.session_state["temp_verified_records"] = []
                             st.rerun()
 
                     with col_save:
-                        st.markdown("<br>", unsafe_allow_html=True)
                         if st.button("💾 சீட்டில் சேமி", use_container_width=True):
                             if sheet_physically and sheet_vendor_wise:
                                 try:
@@ -644,19 +630,41 @@ elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்க�
                 target_v_clean_t2 = clean_text(selected_vendor_t2)
 
                 title_idx = next((i for i, h in enumerate(phys_headers) if "title" in h), 1)
+                lang_idx = next((i for i, h in enumerate(phys_headers) if "language" in h), 2)
+                author_idx = next((i for i, h in enumerate(phys_headers) if "author" in h), 3)
+                total_qty_idx = next((i for i, h in enumerate(phys_headers) if "total" in h or h == "quantity"), 5)
                 rec_idx = next((i for i, h in enumerate(phys_headers) if "received" in h and "not" not in h), 6)
+                not_rec_idx = next((i for i, h in enumerate(phys_headers) if "not received" in h), 7)
+                short_extra_idx = next((i for i, h in enumerate(phys_headers) if "short" in h), 8)
+                date_idx = next((i for i, h in enumerate(phys_headers) if "date" in h), 9)
 
                 vendor_phys_records = []
+                display_records = []
                 for p_row in phys_rows[1:]:
                     if len(p_row) > max(v_name_idx, title_idx, rec_idx):
                         if target_v_clean_t2 in clean_text(p_row[v_name_idx]):
                             vendor_phys_records.append(p_row)
+                            display_records.append({
+                                "Title": p_row[title_idx] if len(p_row) > title_idx else "",
+                                "Author Name": p_row[author_idx] if len(p_row) > author_idx else "",
+                                "Language": p_row[lang_idx] if len(p_row) > lang_idx else "",
+                                "Total Qty": p_row[total_qty_idx] if len(p_row) > total_qty_idx else "",
+                                "Received": p_row[rec_idx] if len(p_row) > rec_idx else "",
+                                "Not Received": p_row[not_rec_idx] if len(p_row) > not_rec_idx else "",
+                                "Short / Extra": p_row[short_extra_idx] if len(p_row) > short_extra_idx else "",
+                                "Date": p_row[date_idx] if len(p_row) > date_idx else ""
+                            })
 
                 if not vendor_phys_records:
                     st.warning(f"⚠️ **{selected_vendor_t2}** பதிப்பகத்திற்குத் தரவுகள் எதுவும் கிடைக்கவில்லை!")
                 else:
                     st.success(f"✅ **{selected_vendor_t2}** பதிப்பகத்திற்காக {len(vendor_phys_records)} சரிபார்ப்புப் பதிவுகள் கண்டறியப்பட்டுள்ளன.")
                     
+                    # பதிப்பகத்தைத் தேர்ந்தெடுத்தவுடன் உடனடியாகச் சரிபார்க்கப்பட்ட விவரங்கள் அட்டவணையாகக் காட்டும் பகுதி
+                    st.markdown("### 📋 சரிபார்க்கப்பட்ட நூல்களின் விவரங்கள்")
+                    disp_df = pd.DataFrame(display_records)
+                    st.dataframe(disp_df, use_container_width=True, hide_index=True)
+
                     if st.button("🚀 இந்த பதிப்பகத்திற்கு மட்டும் ஒத்திசைவு செய்க (Sync)", use_container_width=True):
                         with st.spinner("ஒத்திசைக்கப்படுகிறது..."):
                             ws_data = sheet_vendor_wise.get_all_values()
