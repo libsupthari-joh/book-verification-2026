@@ -310,7 +310,7 @@ def upload_pdf_to_drive(pdf_bytes, file_name, folder_id):
         )
         return file.get("id")
     except Exception as e:
-        st.error(f"Google Drive Upload Error: {e}")
+        st.error(f"❌ Google Drive Upload Error: {e}")
         return None
 
 
@@ -542,10 +542,17 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                     )
 
                     if st.button("➕ தற்காலிகப் பட்டியலில் சேர்", use_container_width=True):
-                        not_rec = max(0, t_total_qty - rec_qty)
-                        extra = max(0, rec_qty - t_total_qty)
-                        
-                        # Full ID with vendor name for Sheet and PDF
+                        diff = rec_qty - t_total_qty
+                        if diff < 0:
+                            not_rec = abs(diff)
+                            short_extra_val = str(diff)  # உ.ம்: -1, -3
+                        elif diff > 0:
+                            not_rec = 0
+                            short_extra_val = f"+{diff}"  # உ.ம்: +10
+                        else:
+                            not_rec = 0
+                            short_extra_val = "0"
+
                         id_with_vendor = vendor_id_map.get(completed_vendor_name, completed_vendor_name)
 
                         st.session_state["temp_verified_records"].append({
@@ -553,8 +560,8 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                             "Language": t_lang,
                             "Total Qty": t_total_qty,
                             "Received": rec_qty,
-                            "Short": not_rec,
-                            "Extra": extra,
+                            "Not Received": not_rec,
+                            "Short / Extra": short_extra_val,
                             "ID with Vendor Name": id_with_vendor,
                             "Author Name": t_author,
                             "Vendor Name": completed_vendor_name,
@@ -569,11 +576,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                 st.markdown(f"### 📋 தற்காலிகச் சரிபார்ப்புப் பட்டியல் ({len(st.session_state['temp_verified_records'])} தலைப்புகள்)")
                 
                 temp_df = pd.DataFrame(st.session_state["temp_verified_records"])
-                temp_df["Short / Extra Received"] = temp_df.apply(
-                    lambda r: f"Short: {r['Short']}" if r['Short'] > 0 else (f"Extra: {r['Extra']}" if r['Extra'] > 0 else "0"),
-                    axis=1
-                )
-                display_cols = ["Title", "Language", "Total Qty", "Received", "Short / Extra Received"]
+                display_cols = ["Title", "Language", "Total Qty", "Received", "Not Received", "Short / Extra"]
                 
                 st.dataframe(temp_df[display_cols], use_container_width=True)
 
@@ -609,8 +612,8 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                             item["Vendor Name"],
                                             item["Total Qty"],
                                             item["Received"],
-                                            item["Short"],
-                                            item["Extra"],
+                                            item["Not Received"],
+                                            item["Short / Extra"],
                                             item["Date"]
                                         ])
 
@@ -642,7 +645,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                     file_name = f"{completed_vendor_name}_Verification_Report.pdf"
                                     upload_pdf_to_drive(pdf_bytes, file_name, GOOGLE_DRIVE_FOLDER_ID)
 
-                                st.success("✅ வெற்றிகரமாகச் சேமிக்கப்பட்டது!")
+                                st.success("✅ வெற்றிகரமாகச் சேமிக்கப்பட்டது மற்றும் Drive-ல் பதிவேற்றப்பட்டது!")
                                 st.session_state["selected_vendor"] = None
                                 st.session_state["temp_verified_records"] = []
                                 st.session_state["vendor_key"] += 1
