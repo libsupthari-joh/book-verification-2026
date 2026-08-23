@@ -37,7 +37,7 @@ def get_custom_css():
 
     .stApp {
         background: 
-            radial-gradient(circle at 8% 8%, rgba(0,188,212,.12), transparent 28%),
+            radial-gradient(circle at 8% 8%, rgba(0,188,212,.10), transparent 28%),
             linear-gradient(135deg, #eef5ff, #f8fbff 48%, #edf3ff);
     }
 
@@ -45,17 +45,30 @@ def get_custom_css():
     [data-testid="stToolbar"] { visibility: hidden; }
 
     h1 {
-        font-size: 22px !important;
-        padding: 16px 18px !important;
-        border-radius: 16px;
+        font-size: 24px !important;
+        padding: 16px 20px !important;
+        border-radius: 14px;
         color: white !important;
         background: linear-gradient(135deg, #071a38, #1565c0 58%, #00acc1);
-        box-shadow: 0 6px 0 #041127, 0 12px 20px rgba(7,26,56,.2);
-        text-shadow: 1px 2px 2px rgba(0,0,0,.3);
+        box-shadow: 0 6px 15px rgba(7,26,56,.18);
+        text-shadow: 1px 2px 3px rgba(0,0,0,.3);
         text-align: center;
+        margin-bottom: 20px !important;
     }
 
     h2, h3 { color: #092653 !important; font-size: 18px !important; }
+
+    .user-profile-card {
+        background: linear-gradient(135deg, #ffffff, #f4f7fc);
+        padding: 14px 22px;
+        border-radius: 14px;
+        border: 1px solid #d1e3f8;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
+    }
 
     .stButton > button, .stDownloadButton > button {
         min-height: 45px !important;
@@ -64,8 +77,15 @@ def get_custom_css():
         font-weight: 700 !important;
         color: white !important;
         background: linear-gradient(145deg, #1565c0, #082b68) !important;
-        box-shadow: 0 4px 0 #041430, 0 6px 12px rgba(8,43,104,.25) !important;
+        box-shadow: 0 4px 10px rgba(8,43,104,.2) !important;
         width: 100% !important;
+        border: none !important;
+        transition: all 0.3s ease;
+    }
+
+    .stButton > button:hover {
+        background: linear-gradient(145deg, #1976d2, #0b3c91) !important;
+        box-shadow: 0 6px 15px rgba(8,43,104,.3) !important;
     }
 
     div[data-testid="stSelectbox"] label, 
@@ -73,6 +93,7 @@ def get_custom_css():
     div[data-testid="stTextInput"] label {
         font-size: 14px !important;
         font-weight: 600 !important;
+        color: #092653 !important;
     }
     </style>
     """
@@ -126,15 +147,15 @@ st.session_state.setdefault("user_role", None)
 st.session_state.setdefault("user_name", "")
 
 def show_login_page():
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<br><br>", unsafe_allow_html=True)
     _, form_col, _ = st.columns([1, 1.2, 1])
     with form_col:
         st.markdown(
             """
-            <div style="text-align: center; padding: 10px 0;">
-                <div style="font-size: 36px; margin-bottom: 6px;">📚</div>
-                <div style="font-size: 22px; font-weight: 900; color: #082653;">பணி போர்ட்டல்</div>
-                <div style="font-size: 13px; color: #60708a; margin-top: 4px; margin-bottom: 16px;">2026 புதிய நூல்கள் விநியோகம்</div>
+            <div style="text-align: center; padding: 20px; background: white; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.08);">
+                <div style="font-size: 42px; margin-bottom: 8px;">📚</div>
+                <div style="font-size: 24px; font-weight: 900; color: #082653;">பணி போர்ட்டல்</div>
+                <div style="font-size: 13px; color: #60708a; margin-top: 4px; margin-bottom: 20px;">2026 புதிய நூல்கள் விநியோகம்</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -241,12 +262,25 @@ if st.session_state["current_page"] not in menu_items:
 # Title
 st.title("📚 நூல்கள் சரிபார்ப்புப் போர்ட்டல்")
 
-# --- USER PROFILE & LOGOUT BAR (Main Screen Top) ---
-user_col1, user_col2 = st.columns([3, 1])
-with user_col1:
-    role_badge = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
-    st.markdown(f"**👤 பயனர்:** {st.session_state['user_name']} &nbsp;|&nbsp; **அதிகாரம்:** {role_badge}")
-with user_col2:
+# --- USER PROFILE & LOGOUT CARD (Main Screen Top) ---
+role_badge = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
+col_info, col_logout = st.columns([3.2, 0.8])
+
+with col_info:
+    st.markdown(
+        f"""
+        <div style="background: white; padding: 10px 18px; border-radius: 12px; border: 1px solid #d1e3f8; box-shadow: 0 4px 10px rgba(0,0,0,0.03); display: flex; align-items: center; height: 45px;">
+            <span style="font-size: 14px; font-weight: 700; color: #071a38;">👤 பயனர்:</span>&nbsp;
+            <span style="font-size: 14px; color: #1565c0; font-weight: 600;">{st.session_state['user_name']}</span>
+            &nbsp;&nbsp;|&nbsp;&nbsp;
+            <span style="font-size: 14px; font-weight: 700; color: #071a38;">அதிகாரம்:</span>&nbsp;
+            <span style="font-size: 14px; color: #2e7d32; font-weight: 600;">{role_badge}</span>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+with col_logout:
     if st.button("🚪 வெளியேறு (Logout)", use_container_width=True, key="main_logout_btn"):
         st.session_state["logged_in"] = False
         st.session_state["user_role"] = None
@@ -258,7 +292,7 @@ with user_col2:
         st.query_params.clear()
         st.rerun()
 
-st.markdown("---")
+st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
 
 # --- MAIN SCREEN NAVIGATION SELECTOR ---
 selected_main_menu = st.selectbox(
