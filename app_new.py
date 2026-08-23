@@ -111,16 +111,6 @@ def get_custom_css():
         font-size: 14px !important;
         font-weight: 600 !important;
     }
-
-    .login-card {
-        max-width: 420px;
-        margin: 5vh auto 0 auto;
-        padding: 24px;
-        border-radius: 20px;
-        background: rgba(255,255,255,.98);
-        box-shadow: 0 12px 0 rgba(7,26,56,.1), 0 20px 30px rgba(7,26,56,.15);
-        text-align: center;
-    }
     </style>
     """
 
@@ -182,18 +172,19 @@ st.session_state.setdefault("user_name", "")
 
 
 def show_login_page():
-    st.markdown(
-        """
-        <div class="login-card">
-            <div style="font-size: 32px; margin-bottom: 8px;">📚</div>
-            <div style="font-size: 20px; font-weight: 900; color: #082653;">பணி போர்ட்டல்</div>
-            <div style="font-size: 12px; color: #60708a; margin-top: 4px;">2026 புதிய நூல்கள் விநியோகம்</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    _, form_col, _ = st.columns([0.1, 2.8, 0.1])
+    st.markdown("<br>", unsafe_allow_html=True)
+    _, form_col, _ = st.columns([1, 1.2, 1])
     with form_col:
+        st.markdown(
+            """
+            <div style="text-align: center; padding: 10px 0;">
+                <div style="font-size: 36px; margin-bottom: 6px;">📚</div>
+                <div style="font-size: 22px; font-weight: 900; color: #082653;">பணி போர்ட்டல்</div>
+                <div style="font-size: 13px; color: #60708a; margin-top: 4px; margin-bottom: 16px;">2026 புதிய நூல்கள் விநியோகம்</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         with st.form("secure_login_form"):
             phone = st.text_input(
                 "📱 அலைபேசி எண்",
