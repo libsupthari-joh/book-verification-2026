@@ -450,12 +450,25 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         st.error("❌ 'Book Supply-2026.xlsx' கோப்பு காணப்படவில்லை!")
         st.stop()
 
+    # Fetch already completed vendors from Physically verified sheet
+    already_verified_clean = set()
+    if sheet_physically:
+        try:
+            p_rows = sheet_physically.get_all_values()
+            for r in p_rows[1:]:
+                if len(r) > 4 and r[4]:
+                    already_verified_clean.add(clean_text(r[4]))
+                elif len(r) > 0 and r[0]:
+                    already_verified_clean.add(clean_text(r[0]))
+        except Exception:
+            pass
+
     vendor_list = []
     vendor_id_map = {}
     if not vendor_df.empty:
         for _, row in vendor_df.iterrows():
-            col_b = str(row.iloc[1]).strip() if len(row) > 1 and pd.notna(row.iloc[1]) else ""  # Col B: Id with Vendor Name
-            col_c = str(row.iloc[2]).strip() if len(row) > 2 and pd.notna(row.iloc[2]) else ""  # Col C: Vendor Name only
+            col_b = str(row.iloc[1]).strip() if len(row) > 1 and pd.notna(row.iloc[1]) else ""  
+            col_c = str(row.iloc[2]).strip() if len(row) > 2 and pd.notna(row.iloc[2]) else ""  
             
             vendor_name = col_c if col_c and col_c.lower() != "nan" else col_b
             full_id_name = col_b if col_b and col_b.lower() != "nan" else col_c
@@ -481,6 +494,10 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
     if st.session_state["selected_vendor"]:
         completed_vendor_name = st.session_state["selected_vendor"]
         target_vendor_clean = clean_text(completed_vendor_name)
+        
+        # Check if already completed
+        if target_vendor_clean in already_verified_clean:
+            st.warning(f"⚠️ **{completed_vendor_name}** பதிப்பகத்தின் சரிபார்ப்பு பணி ஏற்கனவே முடிவுற்றது! (Verification already completed)")
         
         vendor_mask = (
             book_df.iloc[:, 9].apply(clean_text) == target_vendor_clean
@@ -622,6 +639,8 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                     s_col = next((i + 1 for i, h in enumerate(header_lower) if "received" in h and "not" not in h), 19)
                                     t_col = next((i + 1 for i, h in enumerate(header_lower) if "not received" in h or ("not" in h and "received" in h)), 20)
                                     
+                                    # Batch update cells to avoid 429 Quota Exceeded error
+                                    cell_list = []
                                     for item in st.session_state["temp_verified_records"]:
                                         t_title_clean = clean_text(item["Title"])
                                         rec_qty = int(item["Received"])
@@ -634,12 +653,19 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                                 matching_row_numbers.append(r_idx)
                                         
                                         for idx, r_num in enumerate(matching_row_numbers):
-                                            if idx < rec_qty:
-                                                sheet_vendor_wise.update_cell(r_num, s_col, "1")
-                                                sheet_vendor_wise.update_cell(r_num, t_col, "0")
-                                            else:
-                                                sheet_vendor_wise.update_cell(r_num, s_col, "0")
-                                                sheet_vendor_wise.update_cell(r_num, t_col, "1")
+                                            val_s = "1" if idx < rec_qty else "0"
+                                            val_t = "0" if idx < rec_qty else "1"
+                                            
+                                            c_s = sheet_vendor_wise.cell(r_num, s_col)
+                                            c_s.value = val_s
+                                            cell_list.append(c_s)
+                                            
+                                            c_t = sheet_vendor_wise.cell(r_num, t_col)
+                                            c_t.value = val_t
+                                            cell_list.append(c_t)
+
+                                    if cell_list:
+                                        sheet_vendor_wise.update_cells(cell_list)
 
                                     pdf_bytes = generate_pdf_bytes(temp_df[display_cols], completed_vendor_name)
                                     file_name = f"{completed_vendor_name}_Verification_Report.pdf"
