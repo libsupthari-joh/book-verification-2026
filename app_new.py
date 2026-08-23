@@ -8,6 +8,7 @@ from datetime import datetime
 import gspread
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 from oauth2client.service_account import ServiceAccountCredentials
 
 # ============================================================
@@ -22,7 +23,7 @@ st.set_page_config(
 
 
 # ============================================================
-# 2. COMPLETE UI DESIGN
+# 2. COMPLETE UI DESIGN & PRINT STYLES
 # ============================================================
 def get_custom_css():
     return """
@@ -78,7 +79,6 @@ def get_custom_css():
         color: white !important;
     }
 
-    /* Sidebar menu buttons */
     section[data-testid="stSidebar"] .stButton > button {
         width: 100% !important;
         min-height: 52px !important;
@@ -101,18 +101,12 @@ def get_custom_css():
         box-shadow: 0 6px 0 rgba(0,0,0,.25), 0 12px 18px rgba(0,0,0,.25) !important;
     }
 
-    section[data-testid="stSidebar"] .stButton > button:active {
-        transform: translateY(1px) !important;
-        box-shadow: 0 2px 0 rgba(0,0,0,.25), 0 4px 8px rgba(0,0,0,.2) !important;
-    }
-
     section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:first-child .stButton > button {
         background: linear-gradient(145deg, #ef5350, #b71c1c) !important;
         text-align: center !important;
         font-weight: 800 !important;
     }
 
-    /* Input fields */
     div[data-testid="stSelectbox"] label,
     div[data-testid="stNumberInput"] label,
     div[data-testid="stTextInput"] label {
@@ -127,7 +121,6 @@ def get_custom_css():
         background: rgba(255,255,255,.95) !important;
     }
 
-    /* Main buttons */
     .stButton > button,
     .stDownloadButton > button {
         min-height: 44px;
@@ -147,7 +140,6 @@ def get_custom_css():
         box-shadow: 0 6px 0 #061b42, 0 12px 20px rgba(8,43,104,.32) !important;
     }
 
-    /* Metric cards */
     div[data-testid="stMetric"] {
         padding: 16px !important;
         border-radius: 16px;
@@ -161,20 +153,12 @@ def get_custom_css():
         font-weight: 900 !important;
     }
 
-    /* Dataframe */
     div[data-testid="stDataFrame"] {
         border-radius: 14px;
         overflow: hidden;
         box-shadow: 0 6px 16px rgba(30,70,120,.12);
     }
 
-    /* Alerts */
-    div[data-testid="stAlert"] {
-        border-radius: 14px !important;
-        box-shadow: 0 4px 12px rgba(30,70,120,.1);
-    }
-
-    /* Login card */
     .login-card {
         max-width: 500px;
         margin: 8vh auto 0 auto;
@@ -198,20 +182,6 @@ def get_custom_css():
         box-shadow: inset 0 2px 6px rgba(255,255,255,.4), 0 6px 0 #07366c, 0 12px 20px rgba(7,54,108,.22);
     }
 
-    .login-title {
-        margin: 0;
-        color: #082653;
-        font-size: 24px;
-        font-weight: 900;
-    }
-
-    .login-subtitle {
-        margin: 6px 0 22px;
-        color: #60708a;
-        font-size: 13px;
-    }
-
-    /* Sidebar toggle button - FIXED & VISIBLE */
     [data-testid="stSidebarCollapsedControl"] {
         display: flex !important;
         visibility: visible !important;
@@ -229,12 +199,6 @@ def get_custom_css():
         fill: white !important;
         width: 22px !important;
         height: 22px !important;
-    }
-
-    @media (max-width: 768px) {
-        h1 { font-size: 1.3rem !important; padding: 16px !important; }
-        section[data-testid="stSidebar"] { min-width: 260px !important; }
-        section[data-testid="stSidebar"] .stButton > button { min-height: 48px !important; font-size: 13px !important; }
     }
     </style>
     """
@@ -284,8 +248,8 @@ def show_login_page():
         """
         <div class="login-card">
             <div class="login-logo">📚</div>
-            <div class="login-title">பணி போர்ட்டல்</div>
-            <div class="login-subtitle">2026 புதிய நூல்கள் விநியோகம்</div>
+            <div style="font-size: 24px; font-weight: 900; color: #082653;">பணி போர்ட்டல்</div>
+            <div style="font-size: 13px; color: #60708a; margin-top: 6px;">2026 புதிய நூல்கள் விநியோகம்</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -333,7 +297,81 @@ if not st.session_state["logged_in"]:
 
 
 # ============================================================
-# 4. GOOGLE SHEETS AND EXCEL CONFIGURATION
+# 4. HELPER FUNCTION: PRINT & PDF VIEWER COMPONENT
+# ============================================================
+def render_print_and_export(df, report_title):
+    if df is not None and not df.empty:
+        col_dl, col_print_info = st.columns([2, 3])
+        with col_dl:
+            csv_data = df.to_csv(index=False).encode("utf-8-sig")
+            st.download_button(
+                "📥 CSV கோப்பாகப் பதிவிறக்குக (Download CSV)",
+                data=csv_data,
+                file_name=f"{report_title.replace(' ', '_')}.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
+        
+        with col_print_info:
+            st.info("💡 PDF ஆக சேமிக்க / Print எடுக்க கீழة உள்ள பொத்தானைப் பயன்படுத்தவும்.")
+
+        # HTML Print Component
+        html_table = df.to_html(index=False, classes="print-table")
+        print_html = f"""
+        <html>
+        <head>
+        <style>
+            body {{ font-family: Arial, sans-serif; margin: 15px; color: #222; background: #fff; }}
+            h3 {{ color: #082653; text-align: center; margin-bottom: 15px; }}
+            .print-btn {{
+                background: linear-gradient(145deg, #1565c0, #0d47a1);
+                color: white;
+                padding: 12px 24px;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 15px;
+                font-weight: bold;
+                display: block;
+                margin: 0 auto 20px auto;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            }}
+            .print-btn:hover {{ background: #0b3d91; }}
+            table.print-table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 10px;
+            }}
+            table.print-table th, table.print-table td {{
+                border: 1px solid #b0bec5;
+                padding: 8px 10px;
+                text-align: left;
+                font-size: 12px;
+            }}
+            table.print-table th {{
+                background-color: #071a38;
+                color: white;
+                font-weight: bold;
+            }}
+            table.print-table tr:nth-child(even) {{ background-color: #f4f6f9; }}
+            @media print {{
+                .print-btn {{ display: none; }}
+                body {{ margin: 0; }}
+            }}
+        </style>
+        </head>
+        <body>
+            <h3>{report_title}</h3>
+            <button class="print-btn" onclick="window.print()">🖨️ Print / PDF ஆக சேமிக்க (Save as PDF)</button>
+            {html_table}
+        </body>
+        </html>
+        """
+        components.html(print_html, height=450, scrolling=True)
+
+
+# ============================================================
+# 5. GOOGLE SHEETS & EXCEL CONFIGURATION
 # ============================================================
 EXCEL_FILE = "Book Supply-2026.xlsx"
 SPREADSHEET_ID = "1LNogKaLvdqkoITSLE971jTBIy9QO4s90j1WDxY1cDrc"
@@ -343,26 +381,20 @@ SPREADSHEET_ID = "1LNogKaLvdqkoITSLE971jTBIy9QO4s90j1WDxY1cDrc"
 def load_data(file_path):
     if not os.path.exists(file_path):
         return None, None
-
     excel_data = pd.ExcelFile(file_path)
-
     vendor_df = (
         pd.read_excel(file_path, sheet_name="Vendor Name")
         if "Vendor Name" in excel_data.sheet_names
         else pd.DataFrame()
     )
-
     book_sheet_names = [
-        sheet for sheet in excel_data.sheet_names
-        if "Vendor Wise Book Data" in sheet
+        s for s in excel_data.sheet_names if "Vendor Wise Book Data" in s
     ]
-
     book_df = (
         pd.read_excel(file_path, sheet_name=book_sheet_names[0])
         if book_sheet_names
         else pd.DataFrame()
     )
-
     return vendor_df, book_df
 
 
@@ -416,7 +448,7 @@ except Exception as error:
 
 
 # ============================================================
-# 5. SIDEBAR & ROLE-BASED NAVIGATION
+# 6. SIDEBAR & ROLE-BASED NAVIGATION (RESTRICTED FOR USER)
 # ============================================================
 st.session_state.setdefault("current_page", "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
 st.session_state.setdefault("verified_list", [])
@@ -424,13 +456,11 @@ st.session_state.setdefault("vendor_key", 0)
 st.session_state.setdefault("book_key", 0)
 st.session_state.setdefault("selected_vendor", None)
 
-# User info in sidebar
 st.sidebar.markdown(f"### 👤 {st.session_state['user_name']}")
 role_badge = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
 st.sidebar.caption(f"அதிகார நிலை: **{role_badge}**")
 st.sidebar.markdown("---")
 
-# Logout button
 if st.sidebar.button("🚪 வெளியேறு (Logout)", use_container_width=True):
     st.session_state["logged_in"] = False
     st.session_state["user_role"] = None
@@ -441,7 +471,7 @@ if st.sidebar.button("🚪 வெளியேறு (Logout)", use_container_wid
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 📌 முதன்மைப் பணிகள்")
 
-# Menu items based on role
+# --- ROLE RESTRICTION APPLIED HERE ---
 if st.session_state["user_role"] == "Admin":
     menu_items = [
         "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு",
@@ -451,11 +481,13 @@ if st.session_state["user_role"] == "Admin":
         "⚙️ 5. Accession எண்கள் மேலாண்மை",
     ]
 else:
+    # Users can ONLY perform Task 1
     menu_items = [
         "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு",
-        "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)",
-        "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)",
     ]
+
+if st.session_state["current_page"] not in menu_items:
+    st.session_state["current_page"] = menu_items[0]
 
 for item in menu_items:
     if st.sidebar.button(item, use_container_width=True):
@@ -467,26 +499,16 @@ menu_choice = st.session_state["current_page"]
 
 
 # ============================================================
-# 6. TASK IMPLEMENTATIONS (ALL 5 TASKS)
+# 7. TASK IMPLEMENTATIONS WITH PRINT / PDF EXPORT
 # ============================================================
 
-# --- TASK 1: PHYSICAL VERIFICATION ---
+# --- TASK 1: PHYSICAL VERIFICATION & VENDOR WISE SYNC ---
 if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு":
     st.subheader("📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு போர்ட்டல்")
 
     if vendor_df is None or book_df is None:
         st.error("❌ 'Book Supply-2026.xlsx' கோப்பு காணப்படவில்லை!")
         st.stop()
-
-    saved_entries = set()
-    if sheet_physically:
-        try:
-            records = sheet_physically.get_all_values()
-            for row in records[1:]:
-                if len(row) >= 2:
-                    saved_entries.add((clean_text(row[0]), clean_text(row[1])))
-        except Exception:
-            pass
 
     vendor_list = []
     if not vendor_df.empty:
@@ -557,16 +579,11 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
             for _, row in grouped.iterrows():
                 title = str(row["Title"]).strip()
                 title_clean = clean_text(title)
-                if (
-                    title_clean not in added_titles
-                    and (target_vendor_clean, title_clean) not in saved_entries
-                ):
+                if title_clean not in added_titles:
                     author = str(row["Author Name"]).strip() if pd.notna(row["Author Name"]) else ""
                     title_options.append(f"{title} - {author}" if author else title)
 
-            if len(title_options) == 1 and not st.session_state["verified_list"]:
-                st.success("🎉 இந்த பதிப்பகத்தின் அனைத்துப் புத்தகங்களும் சரிபார்க்கப்பட்டுவிட்டன!")
-            elif len(title_options) > 1:
+            if len(title_options) > 1:
                 st.markdown("### 📖 2. புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும்")
                 col_book, col_book_change = st.columns([5, 1])
 
@@ -601,7 +618,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                             received_quantity = st.number_input(
                                 "📦 பெறப்பட்ட படிகள்",
                                 min_value=0,
-                                max_value=1000,
+                                max_value=total_quantity,
                                 value=total_quantity,
                             )
                             submitted = st.form_submit_button("➕ பட்டியலில் சேர்")
@@ -619,37 +636,56 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                             st.session_state["book_key"] += 1
                             st.rerun()
 
-    # தற்காலிக சரிபார்ப்பு பட்டியல் மற்றும் Google Sheet சேமிப்புப் பகுதி
+    # தற்காலிக சரிபார்ப்பு பட்டியல் மற்றும் ஒத்திசைவு
     if st.session_state["verified_list"]:
         st.markdown("---")
-        st.markdown("### 📋 தற்காலிக சரிபார்ப்பு பட்டியல் (Temporary List)")
+        st.markdown("### 📋 தற்காலிக சரிபார்ப்பு பட்டியல் & ஒத்திசைவு")
         temp_df = pd.DataFrame(st.session_state["verified_list"])
-        st.dataframe(temp_df, use_container_width=True)
+        
+        # Print & PDF Export for verification list
+        render_print_and_export(temp_df, "Physical Verification Report")
 
         col_save, col_clear = st.columns(2)
         with col_save:
-            if st.button("💾 Google Sheet-ல் சேமி", use_container_width=True):
-                if sheet_physically:
+            if st.button("💾 Vendor Wise Book Data-வில் ஒத்திசைவு (Sync)", use_container_width=True):
+                if sheet_vendor_wise:
                     try:
-                        for item in st.session_state["verified_list"]:
-                            sheet_physically.append_row([
-                                item["Vendor"],
-                                item["Title"],
-                                item["Language"],
-                                item["Author"],
-                                str(item["TotalQty"]),
-                                str(item["ReceivedQty"]),
-                                str(item["NotReceivedQty"]),
-                                str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-                            ])
-                        st.success("✅ அனைத்து விவரங்களும் Google Sheet-ல் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
-                        st.session_state["verified_list"] = []
-                        time.sleep(1)
-                        st.rerun()
+                        with st.spinner("Vendor Wise Book Data சீட்டில் ஒத்திசைவு செய்யப்படுகிறது..."):
+                            ws_data = sheet_vendor_wise.get_all_values()
+                            header = ws_data[0]
+                            header_lower = [str(h).strip().lower() for h in header]
+                            
+                            s_col = next((i + 1 for i, h in enumerate(header_lower) if "received" in h and "not" not in h), 19)
+                            t_col = next((i + 1 for i, h in enumerate(header_lower) if "not received" in h or ("not" in h and "received" in h)), 20)
+                            
+                            for item in st.session_state["verified_list"]:
+                                t_vendor = clean_text(item["Vendor"])
+                                t_title = clean_text(item["Title"])
+                                rec_qty = int(item["ReceivedQty"])
+                                
+                                matching_row_numbers = []
+                                for r_idx, row in enumerate(ws_data[1:], start=2):
+                                    row_vendor_match = any(t_vendor in clean_text(c) for c in row)
+                                    row_title_match = any(t_title in clean_text(c) for c in row)
+                                    if row_vendor_match and row_title_match:
+                                        matching_row_numbers.append(r_idx)
+                                
+                                for idx, r_num in enumerate(matching_row_numbers):
+                                    if idx < rec_qty:
+                                        sheet_vendor_wise.update_cell(r_num, s_col, "1")
+                                        sheet_vendor_wise.update_cell(r_num, t_col, "0")
+                                    else:
+                                        sheet_vendor_wise.update_cell(r_num, s_col, "0")
+                                        sheet_vendor_wise.update_cell(r_num, t_col, "1")
+                                        
+                            st.success("✅ 'Vendor Wise Book Data' சீட்டில் Received மற்றும் Not Received எண்கள் வெற்றிகரமாக ஒத்திசைவு செய்யப்பட்டன!")
+                            st.session_state["verified_list"] = []
+                            time.sleep(1)
+                            st.rerun()
                     except Exception as e:
-                        st.error(f"❌ சேமிப்பதில் பிழை: {e}")
+                        st.error(f"❌ ஒத்திசைவு செய்வதில் பிழை: {e}")
                 else:
-                    st.error("❌ Google Sheet இணைப்பு கிடைக்கவில்லை!")
+                    st.error("❌ 'Vendor Wise Data' Google Sheet இணைப்பு கிடைக்கவில்லை!")
 
         with col_clear:
             if st.button("🗑️ பட்டியலை அழிக்கவும்", use_container_width=True):
@@ -682,7 +718,7 @@ elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் வ�
     
     if vendor_df is not None and not vendor_df.empty:
         st.metric("📦 மொத்தப் பதிப்பாளர்கள்", len(vendor_df))
-        st.dataframe(vendor_df, use_container_width=True)
+        render_print_and_export(vendor_df, "Publisher Details Report")
     else:
         st.warning("⚠️ பதிப்பாளர் விவரங்கள் கிடைக்கவில்லை அல்லது கோப்பு காலியாக உள்ளது.")
 
@@ -698,7 +734,7 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
             if lib_records:
                 lib_df = pd.DataFrame(lib_records)
                 st.metric("🏛️ மொத்த நூலகங்கள்", len(lib_df))
-                st.dataframe(lib_df, use_container_width=True)
+                render_print_and_export(lib_df, "Library Distribution Report")
             else:
                 st.info("ℹ️ நூலக விநியோகப் பட்டியல் விவரங்கள் காலியாக உள்ளன.")
         except Exception as e:
