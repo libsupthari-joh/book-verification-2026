@@ -454,13 +454,15 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
     vendor_id_map = {}
     if not vendor_df.empty:
         for _, row in vendor_df.iterrows():
-            col_a = str(row.iloc[0]).strip() if len(row) > 0 and pd.notna(row.iloc[0]) else ""
-            col_b = str(row.iloc[1]).strip() if len(row) > 1 and pd.notna(row.iloc[1]) else ""
-            col_c = str(row.iloc[2]).strip() if len(row) > 2 and pd.notna(row.iloc[2]) else ""
-            vendor_name = col_b or col_c
+            col_b = str(row.iloc[1]).strip() if len(row) > 1 and pd.notna(row.iloc[1]) else ""  # Col B: Id with Vendor Name
+            col_c = str(row.iloc[2]).strip() if len(row) > 2 and pd.notna(row.iloc[2]) else ""  # Col C: Vendor Name only
+            
+            vendor_name = col_c if col_c and col_c.lower() != "nan" else col_b
+            full_id_name = col_b if col_b and col_b.lower() != "nan" else col_c
+
             if vendor_name and vendor_name.lower() != "nan" and vendor_name not in vendor_list:
                 vendor_list.append(vendor_name)
-                vendor_id_map[vendor_name] = col_a
+                vendor_id_map[vendor_name] = full_id_name
 
     st.markdown("---")
     st.markdown("### 🏢 1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்")
@@ -542,8 +544,9 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                     if st.button("➕ தற்காலிகப் பட்டியலில் சேர்", use_container_width=True):
                         not_rec = max(0, t_total_qty - rec_qty)
                         extra = max(0, rec_qty - t_total_qty)
-                        v_id_code = vendor_id_map.get(completed_vendor_name, "077")
-                        id_with_vendor = f"{v_id_code}.{completed_vendor_name}"
+                        
+                        # Full ID with vendor name for Sheet and PDF
+                        id_with_vendor = vendor_id_map.get(completed_vendor_name, completed_vendor_name)
 
                         st.session_state["temp_verified_records"].append({
                             "Title": selected_title,
