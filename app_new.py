@@ -27,7 +27,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 st.set_page_config(
     page_title="2026ஆம் ஆண்டு வெளிப்படைத் தன்மை நூல்கள் கொள்முதல்",
     page_icon="📚",
-    layout="wight",
+    layout="wide",
     initial_sidebar_state="collapsed",
 )
 
@@ -82,7 +82,7 @@ st.session_state.setdefault("user_name", "")
 def show_login_page():
     _, form_col, _ = st.columns([1, 1.2, 1])
     with form_col:
-        st.markdown('<div style="text-align:center;background:#fff;border-radius:20px;padding:20px;box-shadow:8px 8px 0 #c8d8ed"><div style="font-size:45px">📚</div><h2>2026 பதிப்பாளர்களிடமிருந்த புதிய நூல்கள் விநியோகம்</Lorge></div>', unsafe_allow_html=True)
+        st.markdown('<div style="text-align:center;background:#fff;border-radius:20px;padding:20px;box-shadow:8px 8px 0 #c8d8ed"><div style="font-size:45px">📚</div><h2>பணி போர்ட்டல்</h2><small>2026 புதிய நூல்கள் விநியோகம்</small></div>', unsafe_allow_html=True)
         with st.form("secure_login_form"):
             phone = st.text_input("📱 அலைபேசி எண்", max_chars=10, placeholder="10 இலக்க எண்")
             password = st.text_input("🔑 கடவுச்சொல்", type="password")
