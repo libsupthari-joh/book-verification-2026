@@ -265,15 +265,11 @@ DRIVE_FOLDER_ID = "1XOTSn8f6ntfrG8rI0iSk0QVwDujGqs1f"
 def load_data(file_path):
     if not os.path.exists(file_path):
         return None, None
-    # The workbook is .xlsx, so pandas must use the openpyxl engine.
+
     excel_data = pd.ExcelFile(file_path, engine="openpyxl")
 
     vendor_df = (
-        pd.read_excel(
-            file_path,
-            sheet_name="Vendor Name",
-            engine="openpyxl",
-        )
+        pd.read_excel(file_path, sheet_name="Vendor Name", engine="openpyxl")
         if "Vendor Name" in excel_data.sheet_names
         else pd.DataFrame()
     )
@@ -282,15 +278,13 @@ def load_data(file_path):
         sheet for sheet in excel_data.sheet_names
         if "Vendor Wise Book Data" in sheet
     ]
+
     book_df = (
-        pd.read_excel(
-            file_path,
-            sheet_name=book_sheets[0],
-            engine="openpyxl",
-        )
+        pd.read_excel(file_path, sheet_name=book_sheets[0], engine="openpyxl")
         if book_sheets
         else pd.DataFrame()
     )
+
     return vendor_df, book_df
 
 @st.cache_resource
