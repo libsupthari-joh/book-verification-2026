@@ -20,30 +20,6 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-
-# ============================================================
-# 0. TAMIL-CAPABLE PDF FONT
-#    ReportLab's built-in fonts (Helvetica etc.) have NO Tamil glyphs, so
-#    Tamil text used to come out as blank/garbled boxes in downloaded PDFs.
-#    We register a bundled Unicode font (FreeSans, which covers Tamil) and
-#    use it everywhere PDFs are generated. Ship the "fonts" folder (with
-#    FreeSans.ttf and FreeSansBold.ttf) in the same directory as this file.
-# ============================================================
-PDF_FONT_REGULAR = "Helvetica"
-PDF_FONT_BOLD = "Helvetica-Bold"
-try:
-    _FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
-    pdfmetrics.registerFont(TTFont("TamilUI", os.path.join(_FONT_DIR, "FreeSans.ttf")))
-    pdfmetrics.registerFont(TTFont("TamilUI-Bold", os.path.join(_FONT_DIR, "FreeSansBold.ttf")))
-    pdfmetrics.registerFontFamily("TamilUI", normal="TamilUI", bold="TamilUI-Bold", italic="TamilUI", boldItalic="TamilUI-Bold")
-    PDF_FONT_REGULAR = "TamilUI"
-    PDF_FONT_BOLD = "TamilUI-Bold"
-except Exception:
-    # Falls back to Helvetica (Tamil text will not display) only if the
-    # "fonts" folder wasn't uploaded alongside app.py — make sure it is.
-    pass
 
 # ============================================================
 # 1. PAGE SETTINGS
@@ -269,8 +245,8 @@ def pdf_bytes(df, title):
     output = io.BytesIO()
     document = SimpleDocTemplate(output, pagesize=landscape(A4), rightMargin=7*mm, leftMargin=7*mm, topMargin=7*mm, bottomMargin=7*mm)
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle("report_title", parent=styles["Title"], fontName=PDF_FONT_BOLD, fontSize=14, alignment=TA_CENTER, textColor=colors.HexColor("#071a38"))
-    body_style = ParagraphStyle("report_body", parent=styles["BodyText"], fontName=PDF_FONT_REGULAR, fontSize=7, leading=8)
+    title_style = ParagraphStyle("report_title", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=14, alignment=TA_CENTER, textColor=colors.HexColor("#071a38"))
+    body_style = ParagraphStyle("report_body", parent=styles["BodyText"], fontName="Helvetica", fontSize=7, leading=8)
     columns = list(df.columns)
     table_data = [[Paragraph(str(c), body_style) for c in columns]]
     for row in df.fillna("").astype(str).values.tolist():
@@ -362,22 +338,6 @@ if selected_main_menu != st.session_state["current_page"]:
 menu_choice = st.session_state["current_page"]
 st.markdown("---")
 
-def render_task_switcher(current_task):
-    """Quick way to jump to another task from the bottom of the page —
-    saves scrolling all the way back up on a phone after finishing a task."""
-    if len(menu_items) <= 1:
-        return
-    st.markdown("---")
-    st.markdown("### 🧭 இன்னொரு பணிக்குச் செல்ல வேண்டுமா?")
-    jump_to = st.selectbox(
-        "பணியைத் தேர்ந்தெடுக்கவும்", menu_items,
-        index=menu_items.index(current_task),
-        key=f"bottom_menu_selectbox_{menu_items.index(current_task)}",
-    )
-    if jump_to != current_task:
-        st.session_state["current_page"] = jump_to
-        st.rerun()
-
 # ============================================================
 # 8. TASK 1 - PHYSICAL VERIFICATION + PDF + DRIVE
 # ============================================================
@@ -411,12 +371,8 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
             vendor_id_map[vendor_name] = full_id_name
 
     st.markdown("### 🏢 1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்")
-    selected_vendor_raw = st.selectbox(
-        "பதிப்பகத்தின் பெயரைத் தேர்ந்தெடுக்கவும் (தட்டி தேடலாம்)",
-        vendor_list, index=None, placeholder="பதிப்பகத்தின் பெயரைத் தேர்ந்தெடுக்கவும்",
-        key=f"vendor_select_{st.session_state['vendor_key']}",
-    )
-    if selected_vendor_raw and st.session_state["selected_vendor"] != selected_vendor_raw:
+    selected_vendor_raw = st.selectbox("பதிப்பகத்தின் பெயரைத் தேர்ந்தெடுக்கவும்", ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + vendor_list, key=f"vendor_select_{st.session_state['vendor_key']}")
+    if selected_vendor_raw != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --" and st.session_state["selected_vendor"] != selected_vendor_raw:
         st.session_state["selected_vendor"] = selected_vendor_raw
         st.session_state["temp_verified_records"] = []
 
@@ -447,12 +403,8 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                 if not remaining_titles:
                     st.success("🎉 இந்த பதிப்பகத்தில் உள்ள அனைத்துத் தலைப்புகளும் தற்காலிகப் பட்டியலில் சேர்க்கப்பட்டுவிட்டன!")
                 else:
-                    selected_title = st.selectbox(
-                        "புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும் (தட்டி தேடலாம்)",
-                        remaining_titles, index=None, placeholder="புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும்",
-                        key=f"title_select_{len(st.session_state['temp_verified_records'])}",
-                    )
-                    if selected_title:
+                    selected_title = st.selectbox("புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும்", ["-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"] + remaining_titles, key=f"title_select_{len(st.session_state['temp_verified_records'])}")
+                    if selected_title != "-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --":
                         book_row = grouped[grouped["Title"] == selected_title].iloc[0]
                         t_author = book_row["Author Name"] if pd.notna(book_row["Author Name"]) else ""
                         t_lang = book_row["Language"]
@@ -511,8 +463,6 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                 except Exception as error:
                                     st.error(f"❌ சேமிப்பதில் பிழை: {error}")
 
-    render_task_switcher(menu_choice)
-
 # ============================================================
 # 9. TASK 2 - VENDOR WISE SYNC
 # ============================================================
@@ -540,8 +490,8 @@ elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்க�
             if not complete: unsynced.append(vendor_name)
         if not unsynced: st.warning("⚠️ ஒத்திசைவு செய்ய வேண்டிய புதிய பதிப்பகங்கள் எதுவும் இல்லை.")
         else:
-            selected_vendor=st.selectbox("ஒத்திசைவு செய்ய வேண்டிய பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் (தட்டி தேடலாம்)",unsynced,index=None,placeholder="பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்",key="vendor_select_t2")
-            if selected_vendor:
+            selected_vendor=st.selectbox("ஒத்திசைவு செய்ய வேண்டிய பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்",["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"]+unsynced,key="vendor_select_t2")
+            if selected_vendor!="-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
                 target=clean_text(selected_vendor); records=[r for r in phys_rows[1:] if len(r)>max(v_name_idx,title_idx,rec_idx) and target in clean_text(r[v_name_idx])]; view=pd.DataFrame([{"Title":r[title_idx],"Received":r[rec_idx]} for r in records]); st.dataframe(view,use_container_width=True,hide_index=True)
                 if st.button("🚀 இந்த பதிப்பகத்திற்கு மட்டும் ஒத்திசைவு செய்க",use_container_width=True):
                     ws_data=sheet_vendor_wise.get_all_values(); ws_headers=[str(h).strip().lower() for h in ws_data[0]]; s_col=next((i+1 for i,h in enumerate(ws_headers) if "received" in h and "not" not in h),19); t_col=next((i+1 for i,h in enumerate(ws_headers) if "not received" in h or ("not" in h and "received" in h)),20); qty_col=next((i+1 for i,h in enumerate(ws_headers) if h=="quantity"),18); cells=[]
@@ -558,8 +508,6 @@ elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்க�
                     if cells: sheet_vendor_wise.update_cells(cells)
                     st.success(f"✅ {selected_vendor} ஒத்திசைக்கப்பட்டது!"); time.sleep(1); st.rerun()
     except Exception as error: st.error(f"❌ பிழை: {error}")
-
-    render_task_switcher(menu_choice)
 
 # ============================================================
 # 10. TASK 3 - VENDOR DETAILS
@@ -578,8 +526,6 @@ elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் வ�
     st.dataframe(result,use_container_width=True,hide_index=True)
     if not result.empty: download_panel(result,safe_name(selected)+"_Vendor_Details","Vendor Details")
 
-    render_task_switcher(menu_choice)
-
 # ============================================================
 # 11. TASK 4 - LIBRARY DISTRIBUTION
 # ============================================================
@@ -592,20 +538,13 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
         for _,r in base_df.dropna(subset=[lib_name_col,lib_id_col]).iterrows():
             name=str(r[lib_name_col]).strip(); lib_dict[name]=str(r[lib_id_col]).strip()
             if name and name not in names:names.append(name)
-    ALL_LIBRARIES_LABEL = "📚 அனைத்து நூலகங்களும் (All Libraries)"
-    selected=st.selectbox(
-        "🏛️ நூலகத்தைத் தேர்ந்தெடுக்கவும் (தட்டி தேடலாம்)",
-        [ALL_LIBRARIES_LABEL]+sorted(names), index=None, placeholder="நூலகத்தைத் தேர்ந்தெடுக்கவும்",
-        key=f"library_select_{st.session_state['library_key']}",
-    )
-    if selected: st.session_state["selected_library"]=selected
+    selected=st.selectbox("🏛️ நூலகத்தைத் தேர்ந்தெடுக்கவும்",["-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --","-- அனைத்து நூலகங்களும் (All Libraries) --"]+sorted(names),key=f"library_select_{st.session_state['library_key']}")
+    if selected!="-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --": st.session_state["selected_library"]=selected
     if st.session_state["selected_library"]:
-        selected=st.session_state["selected_library"]; result=base_df.copy() if selected==ALL_LIBRARIES_LABEL else base_df[base_df[lib_id_col].astype(str).str.strip()==lib_dict.get(selected)].copy()
+        selected=st.session_state["selected_library"]; result=base_df.copy() if selected=="-- அனைத்து நூலகங்களும் (All Libraries) --" else base_df[base_df[lib_id_col].astype(str).str.strip()==lib_dict.get(selected)].copy()
         if not result.empty:
             result=result.drop(columns=["S.No"],errors="ignore"); result.insert(0,"S.No",range(1,len(result)+1)); st.dataframe(result,use_container_width=True,hide_index=True); download_panel(result,safe_name(selected)+"_Distribution","Library Distribution")
         else: st.warning("⚠️ தரவுகள் எதுவும் இல்லை.")
-
-    render_task_switcher(menu_choice)
 
 # ============================================================
 # 12. TASK 5 - ACCESSION MANAGEMENT
@@ -631,12 +570,8 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
     lib_dict = {str(r[lib_name_col]).strip(): str(r[lib_id_col]).strip() for _, r in base_df.dropna(subset=[lib_name_col, lib_id_col]).iterrows()}
     names = sorted(lib_dict)
 
-    selected = st.selectbox(
-        "சேர்க்கை எண்களைப் பதிவு செய்ய நூலகத்தைத் தேர்ந்தெடுக்கவும் (தட்டி தேடலாம்)",
-        names, index=None, placeholder="நூலகத்தைத் தேர்ந்தெடுக்கவும்",
-        key=f"acc_library_select_{st.session_state['acc_library_key']}",
-    )
-    if selected:
+    selected = st.selectbox("சேர்க்கை எண்களைப் பதிவு செய்ய நூலகத்தைத் தேர்ந்தெடுக்கவும்", ["-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --"] + names, key=f"acc_library_select_{st.session_state['acc_library_key']}")
+    if selected != "-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --":
         st.session_state["selected_acc_library"] = selected
 
     if st.session_state["selected_acc_library"]:
@@ -761,5 +696,3 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                 st.warning("⚠️ இந்த நூலகத்திற்குப் புத்தகங்கள் எதுவும் இல்லை.")
         except Exception as error:
             st.error(f"❌ பிழை ஏற்பட்டது: {error}")
-
-    render_task_switcher(menu_choice)
