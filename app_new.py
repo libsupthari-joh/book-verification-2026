@@ -27,7 +27,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 st.set_page_config(
     page_title="2026ஆம் ஆண்டு வெளிப்படைத் தன்மை நூல்கள் கொள்முதல்",
     page_icon="📚",
-    layout="Blue",
+    layout="wight",
     initial_sidebar_state="collapsed",
 )
 
