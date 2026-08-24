@@ -641,11 +641,11 @@ elif menu_choice == "🔄 2. DATA சீட்டிற்கு பெறப்
         st.error(f"❌ பிழை: {e}")
 
 # --- TASK 3: TOTAL VENDOR DETAILS (480) ---
-elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)":
-    st.subheader("🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)")
+elif menu_choice == "🏢 3. பதிப்பாளர் விவரம் ":
+    st.subheader("🏢 3. பதிப்பாளர் விவரம் ")
 
     if vendor_df is None or book_df is None:
-        st.error("❌ 'Book Supply-2026.xlsx' கோப்பு கிடைக்கவில்லை!")
+        st.error("❌ 'Book Supply-2026.xlsx' பதிவு கிடைக்கவில்லை!")
     else:
         vendor_list = []
         for _, row in vendor_df.iterrows():
@@ -682,7 +682,7 @@ elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் வ�
             filtered_books_t3 = book_df[vendor_mask]
 
             if filtered_books_t3.empty:
-                st.warning("⚠️ இந்த பதிப்பகத்திற்குப் புத்தகத் தரவுகள் இல்லை!")
+                st.warning("⚠️ இந்த பதிப்பகத்திற்குப் நூலின் தரவுகள் இல்லை!")
             else:
                 total_titles = len(filtered_books_t3)
                 total_qty = int(filtered_books_t3["Quantity"].sum()) if "Quantity" in filtered_books_t3.columns else 0
@@ -696,8 +696,8 @@ elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் வ�
                     english_count = int(lang_series.str.contains("english", case=False, na=False).sum())
 
                 col1, col2, col3, col4 = st.columns(4)
-                col1.metric("📚 மொத்தத் தலைப்புகள்", total_titles)
-                col2.metric("📦 மொத்தப் படிகள்", total_qty)
+                col1.metric("📚 தலைப்புகள் எண்ணிக்கை", total_titles)
+                col2.metric("📦 படிகள் எண்ணிக்கை", total_qty)
                 col3.metric("🇮🇳 தமிழ் நூல்கள்", tamil_count)
                 col4.metric("🇬🇧 ஆங்கில நூல்கள்", english_count)
 
@@ -717,12 +717,12 @@ elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் வ�
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 )
 
-# --- TASK 4: LIBRARY DISTRIBUTION (103) ---
-elif menu_choice == "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)":
-    st.subheader("🏛️ 4. நூலகத்திற்கு விநியோகம் (103)")
+# --- TASK 4: LIBRARY DETAILS  ---
+elif menu_choice == "🏛️ 4. நூலக விவரம்":
+    st.subheader("🏛️ 4. நூலக விவரம் ")
 
     if book_df is None or book_df.empty:
-        st.error("❌ புத்தகத் தரவுகள் கிடைக்கவில்லை!")
+        st.error("❌ நூலின் தரவுகள் கிடைக்கவில்லை!")
     else:
         base_df = book_df.copy()
         drop_cols = [c for c in base_df.columns if any(k in str(c).lower() for k in ["v s.no", "temp no", "v.s.no", "temp"])]
@@ -801,13 +801,13 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
                     english_count = int(lang_series.str.contains("english", case=False, na=False).sum())
 
                 col1, col2, col3, col4 = st.columns(4)
-                col1.metric("📚 மொத்தத் தலைப்புகள்", total_titles)
-                col2.metric("📦 மொத்தப் படிகள்", total_qty)
+                col1.metric("📚 தலைப்புகள் எண்ணிக்கை", total_titles)
+                col2.metric("📦 படிகள் எண்ணிக்கை", total_qty)
                 col3.metric("🇮🇳 தமிழ் நூல்கள்", tamil_count)
                 col4.metric("🇬🇧 ஆங்கில நூல்கள்", english_count)
 
                 st.markdown("---")
-                title_header_text = f"📋 {selected_library} - நூல்களின் முழு விவரங்கள்" if selected_library != "-- அனைத்து நூலகங்களும் (All Libraries) --" else "📋 அனைத்து நூலகங்களின் விநியோக விவரங்கள்"
+                title_header_text = f"📋 {selected_library} - நூல்களின் முழு விவரங்கள்" if selected_library != "-- அனைத்து நூலகங்களும் (All Libraries) --" else "📋 அனைத்து நூலகங்களின்  விவரங்கள்"
                 st.markdown(f"### {title_header_text}")
                 st.dataframe(filtered_lib_df, use_container_width=True, hide_index=True)
 
@@ -843,9 +843,9 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
             else:
                 st.warning("⚠️ தரவுகள் எதுவும் இல்லை.")
 
-# --- TASK 5: ACCESSION NUMBERS MANAGEMENT (RECEIVED QTY ONLY) ---
-elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
-    st.subheader("⚙️ 5. தானியங்கி மைய மற்றும் கிளை நூல் சேர்க்கை எண்கள் மேலாண்மை (Auto Accession)")
+# --- TASK 4: ACCESSION NUMBERS MANAGEMENT (RECEIVED QTY ONLY) ---
+elif menu_choice == "⚙️ 4. Accession எண்கள் மேலாண்மை":
+    st.subheader("⚙️ 4. தானியங்கி மைய மற்றும் கிளை நூல் சேர்க்கை எண்கள் மேலாண்மை (Auto Accession)")
     st.error("🚨 **முக்கிய எச்சரிக்கை:** பெறப்பட்ட நூல்களுக்கு (`Received Qty`) மட்டுமே சேர்க்கை எண்கள் உருவாக்கப்படும். பெறப்படாத நூல்களுக்கு எந்தக் காரணத்திற்காகவும் எண்கள் வழங்கப்படாது (காலி விடப்படும்).")
 
     if book_df is None or book_df.empty or sheet_vendor_wise is None:
