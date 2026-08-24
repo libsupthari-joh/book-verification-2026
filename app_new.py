@@ -32,31 +32,81 @@ st.set_page_config(
 )
 
 # ============================================================
-# 2. 3D COLOUR UI
+# 2. MOBILE-FIRST 3D COLOUR UI
 # ============================================================
 st.markdown("""
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
 <style>
 :root{--navy:#071a38;--blue:#1565c0;--cyan:#00acc1;--gold:#f59e0b}
+html, body, [class*="css"]{-webkit-tap-highlight-color:transparent}
 .stApp{background:radial-gradient(circle at 8% 8%,rgba(0,188,212,.12),transparent 28%),linear-gradient(135deg,#eef5ff,#fbfdff 50%,#eaf2ff)}
-[data-testid="stHeader"]{background:transparent}[data-testid="stToolbar"]{visibility:hidden}
-h1{font-size:24px!important;padding:16px 20px!important;border-radius:16px;color:#fff!important;background:linear-gradient(135deg,#071a38,#1565c0 58%,#00acc1);box-shadow:0 6px 0 #041126,0 14px 24px #071a3833;text-shadow:2px 3px 3px #0006;text-align:center;margin-bottom:20px!important}
+[data-testid="stHeader"]{background:transparent}
+[data-testid="stToolbar"]{visibility:hidden}
+h1{font-size:20px!important;padding:14px 16px!important;border-radius:16px;color:#fff!important;background:linear-gradient(135deg,#071a38,#1565c0 58%,#00acc1);box-shadow:0 6px 0 #041126,0 14px 24px #071a3833;text-shadow:2px 3px 3px #0006;text-align:center;margin-bottom:16px!important;line-height:1.4}
 h2,h3{color:#092653!important}
-.profile-card{background:linear-gradient(145deg,#fff,#eef5ff);padding:12px 18px;border-radius:14px;border:1px solid #cfe0f5;box-shadow:5px 5px 0 #c8d8ed,0 8px 18px #08265318}
-.book-info-card{background:linear-gradient(145deg,#fff,#edf5ff);border-left:7px solid #1565c0;border-radius:14px;padding:14px 18px;line-height:1.9;box-shadow:5px 5px 0 #c8d8ed;margin:10px 0 16px}
+.profile-card{background:linear-gradient(145deg,#fff,#eef5ff);padding:12px 16px;border-radius:14px;border:1px solid #cfe0f5;box-shadow:5px 5px 0 #c8d8ed,0 8px 18px #08265318;font-size:14px;line-height:1.7}
+.book-info-card{background:linear-gradient(145deg,#fff,#edf5ff);border-left:7px solid #1565c0;border-radius:14px;padding:14px 16px;line-height:1.9;box-shadow:5px 5px 0 #c8d8ed;margin:10px 0 16px;font-size:15px;word-break:break-word}
 .total-qty{color:#0b3d91;font-size:18px;font-weight:900}
-.not-received-card{background:linear-gradient(145deg,#fff8e1,#fff3c4);border-left:7px solid #f59e0b;border-radius:12px;padding:12px 18px;color:#8a4b00;font-size:16px;font-weight:800;box-shadow:4px 4px 0 #ead69b;margin:10px 0}
-.stButton>button,.stDownloadButton>button{min-height:45px!important;border-radius:13px!important;font-size:14px!important;font-weight:800!important;color:#fff!important;background:linear-gradient(145deg,#1976d2,#082b68)!important;box-shadow:0 4px 0 #041b42,0 8px 15px #082b6830!important;border:0!important;transition:.2s!important}
+.not-received-card{background:linear-gradient(145deg,#fff8e1,#fff3c4);border-left:7px solid #f59e0b;border-radius:12px;padding:12px 16px;color:#8a4b00;font-size:16px;font-weight:800;box-shadow:4px 4px 0 #ead69b;margin:10px 0}
+
+/* Bigger, easy-to-tap buttons for phones */
+.stButton>button,.stDownloadButton>button{
+  min-height:50px!important;
+  border-radius:13px!important;
+  font-size:15px!important;
+  font-weight:800!important;
+  color:#fff!important;
+  background:linear-gradient(145deg,#1976d2,#082b68)!important;
+  box-shadow:0 4px 0 #041b42,0 8px 15px #082b6830!important;
+  border:0!important;
+  transition:.2s!important;
+  width:100%!important;
+  white-space:normal!important;
+}
 .stButton>button:hover,.stDownloadButton>button:hover{transform:translateY(-2px);filter:brightness(1.1)}
+.stButton>button:active,.stDownloadButton>button:active{transform:translateY(1px);filter:brightness(0.95)}
+
 [data-testid="stMetric"]{background:linear-gradient(145deg,#fff,#eef5ff);border:1px solid #cfe0f5;border-radius:14px;box-shadow:4px 4px 0 #c8d8ed;padding:10px}
 div[data-testid="stSelectbox"] label,div[data-testid="stNumberInput"] label,div[data-testid="stTextInput"] label{font-size:14px!important;font-weight:700!important;color:#092653!important}
+
+/* Selectbox / number input / text input - larger tap area on phones */
+div[data-baseweb="select"] > div{min-height:48px!important;font-size:15px!important}
+input[type="number"], input[type="text"], input[type="password"]{min-height:44px!important;font-size:15px!important}
+
+/* Dataframe: allow horizontal scroll instead of squeezing on small screens */
+[data-testid="stDataFrame"]{overflow-x:auto!important}
+
+/* Small screens: stack columns fully, increase spacing so thumbs don't mis-tap */
+@media (max-width: 640px){
+  h1{font-size:17px!important;padding:12px!important}
+  .block-container{padding-left:10px!important;padding-right:10px!important;padding-top:12px!important}
+  [data-testid="column"]{width:100%!important;flex:1 1 100%!important;min-width:100%!important;margin-bottom:8px!important}
+  .stButton>button,.stDownloadButton>button{font-size:14px!important;min-height:52px!important}
+}
 </style>
 """, unsafe_allow_html=True)
 
 # ============================================================
-# 3. LOGIN
+# 3. LOGIN (with signed session token — fixes URL role-spoofing bug)
 # ============================================================
 def hash_password(password):
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
+
+def _app_secret():
+    # Falls back to a static string only if no secret configured; for real
+    # deployments set app_secret in st.secrets to keep session tokens unforgeable.
+    try:
+        return str(st.secrets.get("app_secret", "please-set-a-real-secret-in-secrets-toml"))
+    except Exception:
+        return "please-set-a-real-secret-in-secrets-toml"
+
+def make_session_token(phone):
+    return hmac.new(_app_secret().encode("utf-8"), phone.encode("utf-8"), hashlib.sha256).hexdigest()
+
+def verify_session_token(phone, token):
+    if not phone or not token:
+        return False
+    return hmac.compare_digest(make_session_token(phone), token)
 
 USERS_DATABASE = {
     "9842759306": {"password_hash": hash_password("123456"), "role": "Admin", "name": "முதன்மை நிர்வாகி (Admin)"},
@@ -71,18 +121,45 @@ def authenticate_user(phone, password):
     return None
 
 if "logged_in" not in st.session_state:
-    st.session_state["logged_in"] = st.query_params.get("logged_in") == "true"
-    st.session_state["user_role"] = st.query_params.get("role") if st.session_state["logged_in"] else None
-    st.session_state["user_name"] = st.query_params.get("name") if st.session_state["logged_in"] else ""
+    q_phone = st.query_params.get("phone")
+    q_token = st.query_params.get("token")
+    # IMPORTANT: role/name are ALWAYS looked up fresh from USERS_DATABASE using the
+    # verified phone number — never trusted directly from the URL. This closes the
+    # earlier bug where anyone could type ?role=Admin in the address bar to get
+    # admin access without a password.
+    if q_phone and q_phone in USERS_DATABASE and verify_session_token(q_phone, q_token):
+        user = USERS_DATABASE[q_phone]
+        st.session_state["logged_in"] = True
+        st.session_state["user_role"] = user["role"]
+        st.session_state["user_name"] = user["name"]
+        st.session_state["user_phone"] = q_phone
+    else:
+        st.session_state["logged_in"] = False
+        st.session_state["user_role"] = None
+        st.session_state["user_name"] = ""
+        st.session_state["user_phone"] = None
 
 st.session_state.setdefault("logged_in", False)
 st.session_state.setdefault("user_role", None)
 st.session_state.setdefault("user_name", "")
+st.session_state.setdefault("user_phone", None)
 
 def show_login_page():
-    _, form_col, _ = st.columns([1, 1.2, 1])
+    _, form_col, _ = st.columns([1, 1.4, 1])
     with form_col:
-        st.markdown('<div style="text-align:center;background:#fff;border-radius:20px;padding:20px;box-shadow:8px 8px 0 #c8d8ed"><div style="font-size:45px">📚</h2><Lorge>2026 பதிப்பாளர்களின் புதிய நூல்கள் விநியோகம்</small></div>', unsafe_allow_html=True)
+        st.markdown(
+            '''<div style="text-align:center;background:#fff;border-radius:20px;
+            padding:26px 20px;box-shadow:8px 8px 0 #c8d8ed;margin-bottom:18px">
+                <div style="font-size:48px;line-height:1.1">📚</div>
+                <h2 style="margin:10px 0 4px;color:#092653;font-size:19px">
+                    2026ஆம் ஆண்டு புத்தக கொள்முதல் தள அமைப்பு
+                </h2>
+                <small style="color:#5b7aa3;font-size:13px">
+                    2026 பதிப்பாளர்களின் புதிய நூல்கள் விநியோகம்
+                </small>
+            </div>''',
+            unsafe_allow_html=True,
+        )
         with st.form("secure_login_form"):
             phone = st.text_input("📱 அலைபேசி எண்", max_chars=10, placeholder="10 இலக்க எண்")
             password = st.text_input("🔑 கடவுச்சொல்", type="password")
@@ -90,12 +167,15 @@ def show_login_page():
         if submitted:
             user = authenticate_user(phone, password)
             if user:
-                st.session_state.update(logged_in=True, user_role=user["role"], user_name=user["name"])
-                st.query_params["logged_in"] = "true"
-                st.query_params["role"] = user["role"]
-                st.query_params["name"] = user["name"]
+                clean_phone = phone.strip()
+                st.session_state.update(
+                    logged_in=True, user_role=user["role"], user_name=user["name"], user_phone=clean_phone
+                )
+                st.query_params["phone"] = clean_phone
+                st.query_params["token"] = make_session_token(clean_phone)
                 st.rerun()
-            st.error("❌ தவறான அலைபேசி எண் அல்லது கடவுச்சொல்!")
+            else:
+                st.error("❌ தவறான அலைபேசி எண் அல்லது கடவுச்சொல்!")
 
 if not st.session_state["logged_in"]:
     show_login_page()
@@ -206,13 +286,21 @@ def upload_pdf_to_drive(pdf_data, vendor_id_name, vendor_name):
 
 def download_panel(df, prefix, sheet_name):
     st.markdown("### 📥 பதிவிறக்க வசதிகள்")
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.download_button("📊 Excel பதிவிறக்கம்", excel_bytes(df, sheet_name), f"{prefix}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
-    with c2:
-        st.download_button("📄 CSV பதிவிறக்கம்", csv_bytes(df), f"{prefix}.csv", "text/csv", use_container_width=True)
-    with c3:
-        st.download_button("🧾 PDF பதிவிறக்கம்", pdf_bytes(df, sheet_name), f"{prefix}.pdf", "application/pdf", use_container_width=True)
+    # Stacked full-width buttons instead of 3 cramped columns — much easier to
+    # tap accurately on a phone screen than three squeezed-together buttons.
+    st.download_button(
+        "📊 Excel பதிவிறக்கம்", excel_bytes(df, sheet_name), f"{prefix}.xlsx",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True, key=f"dl_xlsx_{prefix}",
+    )
+    st.download_button(
+        "📄 CSV பதிவிறக்கம்", csv_bytes(df), f"{prefix}.csv", "text/csv",
+        use_container_width=True, key=f"dl_csv_{prefix}",
+    )
+    st.download_button(
+        "🧾 PDF பதிவிறக்கம்", pdf_bytes(df, sheet_name), f"{prefix}.pdf", "application/pdf",
+        use_container_width=True, key=f"dl_pdf_{prefix}",
+    )
 
 # ============================================================
 # 7. NAVIGATION
@@ -243,14 +331,21 @@ if st.session_state["current_page"] not in menu_items:
 st.title("📚 2026ஆம் ஆண்டு வெளிப்படைத் தன்மை நூல்கள் கொள்முதல்")
 info_col, logout_col = st.columns([3.2, 0.8])
 with info_col:
-    st.markdown(f'<div class="profile-card">👤 <b>பயனர்:</b> {st.session_state["user_name"]} &nbsp;|&nbsp; <b>அதிகாரம்:</b> {"👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"}</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="profile-card">👤 <b>பயனர்:</b> {st.session_state["user_name"]} &nbsp;|&nbsp; '
+        f'<b>அதிகாரம்:</b> {"👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"}</div>',
+        unsafe_allow_html=True,
+    )
 with logout_col:
     if st.button("🚪 வெளியேறு", use_container_width=True):
         st.query_params.clear()
         st.session_state.clear()
         st.rerun()
 
-selected_main_menu = st.selectbox("🧭 செய்ய வேண்டிய பணியைத் தேர்ந்தெடுக்கவும்", menu_items, index=menu_items.index(st.session_state["current_page"]), key="main_screen_menu_selectbox")
+selected_main_menu = st.selectbox(
+    "🧭 செய்ய வேண்டிய பணியைத் தேர்ந்தெடுக்கவும்", menu_items,
+    index=menu_items.index(st.session_state["current_page"]), key="main_screen_menu_selectbox",
+)
 if selected_main_menu != st.session_state["current_page"]:
     st.session_state["current_page"] = selected_main_menu
     st.rerun()
@@ -467,45 +562,151 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
 
 # ============================================================
 # 12. TASK 5 - ACCESSION MANAGEMENT
+#     FIX: previously, re-opening the same library re-generated brand-new
+#     accession numbers every time (the "last used" counters in Lib_Detail
+#     were never written back after saving), which could silently create
+#     duplicate accession numbers across runs. Now:
+#       (a) rows that already have a saved accession number are detected
+#           and shown as-is, never re-numbered;
+#       (b) after a successful save, the running counters are written back
+#           to Lib_Detail so the next run continues from the correct point.
 # ============================================================
 elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
     st.subheader("⚙️ 5. தானியங்கி மைய மற்றும் கிளை நூல் சேர்க்கை எண்கள் மேலாண்மை")
     st.error("🚨 பெறப்பட்ட நூல்களுக்கு (Received Qty) மட்டுமே சேர்க்கை எண்கள் உருவாக்கப்படும்.")
-    if book_df is None or book_df.empty or sheet_vendor_wise is None: st.error("❌ தரவு அல்லது Google Sheet இணைப்பு கிடைக்கவில்லை!"); st.stop()
-    base_df=book_df.copy(); cmap={str(c).lower().strip():c for c in base_df.columns}; lib_name_col=next((cmap[k] for k in cmap if "library name" in k),base_df.columns[12] if len(base_df.columns)>12 else None); lib_id_col=next((cmap[k] for k in cmap if "librarianid" in k or "lib id" in k),base_df.columns[11] if len(base_df.columns)>11 else None); lib_dict={str(r[lib_name_col]).strip():str(r[lib_id_col]).strip() for _,r in base_df.dropna(subset=[lib_name_col,lib_id_col]).iterrows()}; names=sorted(lib_dict)
-    selected=st.selectbox("சேர்க்கை எண்களைப் பதிவு செய்ய நூலகத்தைத் தேர்ந்தெடுக்கவும்",["-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --"]+names,key=f"acc_library_select_{st.session_state['acc_library_key']}")
-    if selected!="-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --": st.session_state["selected_acc_library"]=selected
+    if book_df is None or book_df.empty or sheet_vendor_wise is None:
+        st.error("❌ தரவு அல்லது Google Sheet இணைப்பு கிடைக்கவில்லை!"); st.stop()
+
+    base_df = book_df.copy()
+    cmap = {str(c).lower().strip(): c for c in base_df.columns}
+    lib_name_col = next((cmap[k] for k in cmap if "library name" in k), base_df.columns[12] if len(base_df.columns) > 12 else None)
+    lib_id_col = next((cmap[k] for k in cmap if "librarianid" in k or "lib id" in k), base_df.columns[11] if len(base_df.columns) > 11 else None)
+    lib_dict = {str(r[lib_name_col]).strip(): str(r[lib_id_col]).strip() for _, r in base_df.dropna(subset=[lib_name_col, lib_id_col]).iterrows()}
+    names = sorted(lib_dict)
+
+    selected = st.selectbox("சேர்க்கை எண்களைப் பதிவு செய்ய நூலகத்தைத் தேர்ந்தெடுக்கவும்", ["-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --"] + names, key=f"acc_library_select_{st.session_state['acc_library_key']}")
+    if selected != "-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --":
+        st.session_state["selected_acc_library"] = selected
+
     if st.session_state["selected_acc_library"]:
-        selected=st.session_state["selected_acc_library"]; target_id=lib_dict.get(selected); central_start=branch_start=None
+        selected = st.session_state["selected_acc_library"]
+        target_id = lib_dict.get(selected)
+        central_start = branch_start = None
+        central_row_num = branch_row_num = None
+
         if sheet_lib_detail:
             try:
-                rows=sheet_lib_detail.get_all_values()
-                for row in rows[1:]:
-                    if len(row)>5 and str(row[5]).strip().isdigit(): central_start=int(row[5]); break
-                for row in rows[1:]:
-                    if len(row)>1 and str(row[1]).strip()==target_id and len(row)>6 and str(row[6]).strip().isdigit(): branch_start=int(row[6]); break
-            except Exception as error: st.warning(f"⚠️ Lib_Detail பிழை: {error}")
+                lib_rows = sheet_lib_detail.get_all_values()
+                for idx, row in enumerate(lib_rows[1:], start=2):
+                    if central_start is None and len(row) > 5 and str(row[5]).strip().isdigit():
+                        central_start = int(row[5])
+                        central_row_num = idx
+                    if len(row) > 1 and str(row[1]).strip() == target_id and len(row) > 6 and str(row[6]).strip().isdigit():
+                        branch_start = int(row[6])
+                        branch_row_num = idx
+            except Exception as error:
+                st.warning(f"⚠️ Lib_Detail பிழை: {error}")
+
+        if central_row_num is None or branch_row_num is None:
+            st.warning("⚠️ Lib_Detail சீட்டில் இந்த நூலகத்திற்கான தொடக்க எண் கிடைக்கவில்லை. சேமித்தவுடன் அடுத்த முறை எண் மேலெழுதப்படலாம் — Lib_Detail சீட்டைச் சரிபார்க்கவும்.")
+
         try:
-            rows=sheet_vendor_wise.get_all_values(); headers=[str(h).strip().lower() for h in rows[0]]; lib_idx=next((i for i,h in enumerate(headers) if "librarianid" in h or "lib id" in h),11); title_idx=next((i for i,h in enumerate(headers) if "title" in h),4); qty_idx=next((i for i,h in enumerate(headers) if h=="quantity"),17); rec_idx=next((i for i,h in enumerate(headers) if "received" in h and "not" not in h),18); records=[]
-            for row_num,row in enumerate(rows[1:],start=2):
-                if len(row)>lib_idx and str(row[lib_idx]).strip()==target_id:
-                    try:q=int(row[qty_idx]) if str(row[qty_idx]).strip().isdigit() else 1
-                    except:q=1
-                    try:r=int(row[rec_idx]) if str(row[rec_idx]).strip().isdigit() else 0
-                    except:r=0
-                    records.append({"Sheet Row":row_num,"Title":row[title_idx],"Quantity":q,"Received":r,"Author Name":row[3] if len(row)>3 else "","Language":row[2] if len(row)>2 else ""})
+            rows = sheet_vendor_wise.get_all_values()
+            headers = [str(h).strip().lower() for h in rows[0]]
+            lib_idx = next((i for i, h in enumerate(headers) if "librarianid" in h or "lib id" in h), 11)
+            title_idx = next((i for i, h in enumerate(headers) if "title" in h), 4)
+            qty_idx = next((i for i, h in enumerate(headers) if h == "quantity"), 17)
+            rec_idx = next((i for i, h in enumerate(headers) if "received" in h and "not" not in h), 18)
+            central_col_idx = 20  # column U (0-based)
+            branch_col_idx = 21   # column V (0-based)
+
+            records = []
+            for row_num, row in enumerate(rows[1:], start=2):
+                if len(row) > lib_idx and str(row[lib_idx]).strip() == target_id:
+                    try:
+                        q = int(row[qty_idx]) if str(row[qty_idx]).strip().isdigit() else 1
+                    except Exception:
+                        q = 1
+                    try:
+                        r = int(row[rec_idx]) if str(row[rec_idx]).strip().isdigit() else 0
+                    except Exception:
+                        r = 0
+                    existing_central = row[central_col_idx].strip() if len(row) > central_col_idx and row[central_col_idx] else ""
+                    existing_branch = row[branch_col_idx].strip() if len(row) > branch_col_idx and row[branch_col_idx] else ""
+                    records.append({
+                        "Sheet Row": row_num,
+                        "Title": row[title_idx],
+                        "Quantity": q,
+                        "Received": r,
+                        "Author Name": row[3] if len(row) > 3 else "",
+                        "Language": row[2] if len(row) > 2 else "",
+                        "Existing Central": existing_central,
+                        "Existing Branch": existing_branch,
+                    })
+
             if records:
-                curr_c=central_start or 0; curr_b=branch_start or 0; display=[]
+                curr_c = central_start or 0
+                curr_b = branch_start or 0
+                display = []
                 for item in records:
-                    central=[]; branch=[]
-                    for _ in range(item["Received"]): curr_c+=1; central.append(str(curr_c)); curr_b+=1; branch.append(str(curr_b))
-                    display.append({**item,"Central Accession No":", ".join(central),"Branch Accession No":", ".join(branch)})
-                preview=pd.DataFrame(display); visible=preview.drop(columns=["Sheet Row"]); st.dataframe(visible,use_container_width=True,hide_index=True)
-                if st.button("💾 Google Sheet (U & V தூண்களில்) சேமி",use_container_width=True):
-                    cells=[]
-                    for item in display: cells.extend([Cell(row=item["Sheet Row"],col=21,value=item["Central Accession No"]),Cell(row=item["Sheet Row"],col=22,value=item["Branch Accession No"])])
-                    if cells: sheet_vendor_wise.update_cells(cells)
+                    if item["Existing Central"] or item["Existing Branch"]:
+                        # Already assigned earlier — show as-is, do NOT re-number.
+                        display.append({
+                            **item,
+                            "Central Accession No": item["Existing Central"],
+                            "Branch Accession No": item["Existing Branch"],
+                            "_is_new": False,
+                        })
+                        continue
+                    central, branch = [], []
+                    for _ in range(item["Received"]):
+                        curr_c += 1
+                        central.append(str(curr_c))
+                        curr_b += 1
+                        branch.append(str(curr_b))
+                    display.append({
+                        **item,
+                        "Central Accession No": ", ".join(central),
+                        "Branch Accession No": ", ".join(branch),
+                        "_is_new": True,
+                    })
+
+                preview = pd.DataFrame(display)
+                visible = preview.drop(columns=["Sheet Row", "Existing Central", "Existing Branch", "_is_new"])
+                st.dataframe(visible, use_container_width=True, hide_index=True)
+
+                new_count = sum(1 for item in display if item["_is_new"] and item["Received"] > 0)
+                if new_count == 0:
+                    st.info("ℹ️ இந்த நூலகத்திற்கு ஏற்கனவே அனைத்து சேர்க்கை எண்களும் ஒதுக்கப்பட்டுள்ளன.")
+
+                if st.button("💾 Google Sheet (U & V தூண்களில்) சேமி", use_container_width=True):
+                    cells = []
+                    for item in display:
+                        if item["_is_new"]:
+                            cells.extend([
+                                Cell(row=item["Sheet Row"], col=21, value=item["Central Accession No"]),
+                                Cell(row=item["Sheet Row"], col=22, value=item["Branch Accession No"]),
+                            ])
+                    if cells:
+                        sheet_vendor_wise.update_cells(cells)
+                    # Persist the running counters back to Lib_Detail so the NEXT
+                    # time this library (or the shared central pool) is opened,
+                    # numbering continues on instead of restarting — this is
+                    # the fix for the duplicate-accession-number bug.
+                    if sheet_lib_detail and central_row_num and branch_row_num:
+                        try:
+                            sheet_lib_detail.update_cells([
+                                Cell(row=central_row_num, col=6, value=str(curr_c)),
+                                Cell(row=branch_row_num, col=7, value=str(curr_b)),
+                            ])
+                        except Exception as counter_error:
+                            st.warning(f"⚠️ Lib_Detail எண்ணிக்கை (counter) புதுப்பிக்கப்படவில்லை: {counter_error}")
                     st.success("✅ சேர்க்கை எண்கள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
-                download_panel(visible,safe_name(selected)+"_Accession_Register","Accession Register")
-            else: st.warning("⚠️ இந்த நூலகத்திற்குப் புத்தகங்கள் எதுவும் இல்லை.")
-        except Exception as error: st.error(f"❌ பிழை ஏற்பட்டது: {error}")
+                    time.sleep(1)
+                    st.rerun()
+
+                download_panel(visible, safe_name(selected) + "_Accession_Register", "Accession Register")
+            else:
+                st.warning("⚠️ இந்த நூலகத்திற்குப் புத்தகங்கள் எதுவும் இல்லை.")
+        except Exception as error:
+            st.error(f"❌ பிழை ஏற்பட்டது: {error}")
