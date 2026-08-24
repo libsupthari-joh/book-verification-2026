@@ -16,7 +16,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 # 1. PAGE SETTINGS
 # ============================================================
 st.set_page_config(
-    page_title="2026 புதிய நூல்கள் சரிபார்ப்பு / விநியோகம்",
+    page_title="2026 புதிய நூல்கள் விநியோகம்",
     page_icon="📚",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -154,8 +154,8 @@ def show_login_page():
             """
             <div style="text-align: center; padding: 20px; background: white; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.08);">
                 <div style="font-size: 42px; margin-bottom: 8px;">📚</div>
-                <div style="font-size: 24px; font-weight: 900; color: #082653;">பணி</div>
-                <div style="font-size: 13px; color: #60708a; margin-top: 4px; margin-bottom: 20px;">2026 புதிய நூல்கள் சரிபார்ப்பு / விநியோகம்</div>
+                <div style="font-size: 24px; font-weight: 900; color: #082653;">பணி போர்ட்டல்</div>
+                <div style="font-size: 13px; color: #60708a; margin-top: 4px; margin-bottom: 20px;">2026 புதிய நூல்கள் விநியோகம்</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -235,7 +235,7 @@ except Exception as error:
 # ============================================================
 # 5. MAIN NAVIGATION & SESSION SETUP
 # ============================================================
-st.session_state.setdefault("current_page", "📥 1.பதிப்பாளர் நூல்கள் சரிபார்ப்பு")
+st.session_state.setdefault("current_page", "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
 st.session_state.setdefault("vendor_key", 0)
 st.session_state.setdefault("selected_vendor", None)
 st.session_state.setdefault("temp_verified_records", [])
@@ -247,14 +247,14 @@ st.session_state.setdefault("selected_acc_library", None)
 # Menu items list
 if st.session_state["user_role"] == "Admin":
     menu_items = [
-        "📥 1. பதிப்பாளர் நூல்கள் சரிபார்ப்பு",
-        "🔄 2. DATA சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம்",
-        "🏢 3. பதிப்பாளர் விவரம்",
-        "⚙️ 4. Accession எண்கள் மேலாண்மை",
-        "🏛️ 5. நூலக விவரம்",
+        "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு",
+        "🔄 2. Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்",
+        "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)",
+        "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)",
+        "⚙️ 5. Accession எண்கள் மேலாண்மை",
     ]
 else:
-    menu_items = ["📥 1. பதிப்பாளர் நூல்கள் சரிபார்ப்பு"]
+    menu_items = ["📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு"]
 
 if st.session_state["current_page"] not in menu_items:
     st.session_state["current_page"] = menu_items[0]
@@ -317,7 +317,7 @@ menu_choice = st.session_state["current_page"]
 if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு":
     st.subheader("📥 பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
     if vendor_df is None or book_df is None:
-        st.error("❌ 'Book Supply-2026.xlsx' பதிவு கிடைக்கவில்லை!")
+        st.error("❌ 'Book Supply-2026.xlsx' கோப்பு காணப்படவில்லை!")
         st.stop()
 
     already_verified_clean = set()
@@ -344,14 +344,14 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                 vendor_list.append(vendor_name)
                 vendor_id_map[vendor_name] = full_id_name
 
-    st.markdown("### 🏢 1. பதிப்பாளரை தேர்வு செய்க")
+    st.markdown("### 🏢 1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்")
     selected_vendor_raw = st.selectbox(
-        "பதிப்பாளரின் முதல் எழுத்துகளை உள்ளீடு செய்யக",
-        ["-- பதிப்பாளர் தேர்ந்தெடுக்கவும் --"] + vendor_list,
+        "பதிப்பகத்தின் முதல் எழுத்துகளை உள்ளீடு செய்யவும்",
+        ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + vendor_list,
         key=f"vendor_select_{st.session_state['vendor_key']}",
     )
 
-    if selected_vendor_raw != "-- பதிப்பாளர் தேர்ந்தெடுக்கவும் --":
+    if selected_vendor_raw != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
         if st.session_state["selected_vendor"] != selected_vendor_raw:
             st.session_state["selected_vendor"] = selected_vendor_raw
             st.session_state["temp_verified_records"] = []
@@ -361,8 +361,8 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
         target_vendor_clean = clean_text(completed_vendor_name)
 
         if target_vendor_clean in already_verified_clean:
-            st.error(f"⚠️ **{completed_vendor_name}** இப்பதிப்பாளரின் நூல்கள் சரிபார்ப்பு பணி முடிவுற்றது!")
-            if st.button("🔄 மற்றொரு பதிப்பாளரை தேர்ந்தெடுக்க", use_container_width=True):
+            st.error(f"⚠️ **{completed_vendor_name}** பதிப்பகத்தின் சரிபார்ப்பு பணி ஏற்கனவே முடிவுற்றது!")
+            if st.button("🔄 மற்றொரு பதிப்பகத்தைத் தேர்ந்தெடுக்க", use_container_width=True):
                 st.session_state["selected_vendor"] = None
                 st.session_state["temp_verified_records"] = []
                 st.session_state["vendor_key"] += 1
@@ -372,7 +372,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
             filtered_books = book_df[vendor_mask]
 
             if filtered_books.empty:
-                st.warning("⚠️ இப்பதிப்பளத்திற்காக நூல்கள் தரவுகள் இல்லை!")
+                st.warning("⚠️ இந்த பதிப்பகத்திற்குப் புத்தகத் தரவுகள் இல்லை!")
             else:
                 grouped = filtered_books.groupby(
                     ["Title", "Author Name", "Language"], as_index=False
@@ -385,11 +385,11 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                 })
 
                 c1, c2 = st.columns(2)
-                c1.metric("📚 தலைப்புகள் எண்ணிக்கை", len(grouped))
-                c2.metric("📦 படிகள் எண்ணிக்கை", int(grouped["Quantity"].sum()))
+                c1.metric("📚 மொத்தத் தலைப்புகள்", len(grouped))
+                c2.metric("📦 மொத்தப் படிகள்", int(grouped["Quantity"].sum()))
 
                 st.markdown("---")
-                st.markdown("### 🔍 2. தலைப்பினை தேடிச் சரிபார்த்தல்")
+                st.markdown("### 🔍 2. தலைப்பைத் தேடிச் சரிபார்த்தல்")
 
                 verified_titles = {item["Title"] for item in st.session_state["temp_verified_records"]}
                 remaining_book_titles = [t for t in grouped["Title"].tolist() if t not in verified_titles]
@@ -403,7 +403,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                         key=f"title_select_{len(st.session_state['temp_verified_records'])}",
                     )
 
-                    if selected_title != "-- நூலினை தேர்ந்தெடுக்கவும் --":
+                    if selected_title != "-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --":
                         book_row = grouped[grouped["Title"] == selected_title].iloc[0]
                         t_author = book_row["Author Name"] if pd.notna(book_row["Author Name"]) else ""
                         t_lang = book_row["Language"]
@@ -470,7 +470,7 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                             added_titles_count = len(st.session_state["temp_verified_records"])
 
                             if added_titles_count < total_titles_count:
-                                st.error(f"⚠️ இப்பதிப்பகத்தின் மொத்தம் {total_titles_count} தலைப்புகள் உள்ளன. நீங்கள் {added_titles_count} தலைப்புகளை மட்டுமே சேர்த்துள்ளீர்கள். அனைத்துத் தலைப்புகளையும் சரிபார்த்துத் தற்காலிகப் பட்டியலில் சேர்த்த பின்னரே சேமிக்க முடியும்!")
+                                st.error(f"⚠️ இந்த பதிப்பகத்தில் மொத்தம் {total_titles_count} தலைப்புகள் உள்ளன. நீங்கள் {added_titles_count} தலைப்புகளை மட்டுமே சேர்த்துள்ளீர்கள். அனைத்துத் தலைப்புகளையும் சரிபார்த்துத் தற்காலிகப் பட்டியலில் சேர்த்த பின்னரே சேமிக்க முடியும்!")
                             else:
                                 if sheet_physically:
                                     try:
@@ -486,7 +486,8 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                                     item["Received"],
                                                     item["Not Received"],
                                                     item["Short / Extra"],
-                                                    ])
+                                                    item["Date"],
+                                                ])
                                         st.success("✅ Google Sheet-ல் தரவுகள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
                                         time.sleep(1)
                                         st.session_state["selected_vendor"] = None
@@ -499,9 +500,9 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                     st.error("❌ Google Sheet இணைப்பு கிடைக்கவில்லை!")
 
 # --- TASK 2: VENDOR WISE BOOK DATA SYNC ---
-elif menu_choice == "🔄 2. DATA சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம்":
-    st.subheader("🔄 DATA சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் (Transfer)")
-    st.info("💡 Physically verified சீட்டில் உள்ள பதிப்பகங்களில், இன்னும் மாற்றம் செய்யப்படாதவை மட்டுமே கீழே தோன்றும்.")
+elif menu_choice == "🔄 2. Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்":
+    st.subheader("🔄 Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை ஒத்திசைவு (Sync)")
+    st.info("💡 Physically verified சீட்டில் உள்ள பதிப்பகங்களில், இன்னும் ஒத்திசைவு செய்யப்படாதவை மட்டுமே கீழே தோன்றும்.")
 
     if sheet_physically is None or sheet_vendor_wise is None:
         st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
@@ -547,10 +548,10 @@ elif menu_choice == "🔄 2. DATA சீட்டிற்கு பெறப்
                 unsynced_vendors.append(v_name)
 
         if not unsynced_vendors:
-            st.warning("⚠️ மாற்றம் செய்ய வேண்டிய புதிய பதிப்பகங்கள் எதுவும் இல்லை.")
+            st.warning("⚠️ ஒத்திசைவு செய்ய வேண்டிய புதிய பதிப்பகங்கள் எதுவும் இல்லை.")
         else:
             selected_vendor_t2 = st.selectbox(
-                "மாற்றம் செய்ய வேண்டிய பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்",
+                "ஒத்திசைவு செய்ய வேண்டிய பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்",
                 ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + unsynced_vendors,
                 key="vendor_select_t2",
             )
@@ -562,7 +563,8 @@ elif menu_choice == "🔄 2. DATA சீட்டிற்கு பெறப்
                 total_qty_idx = next((i for i, h in enumerate(phys_headers) if "total" in h or h == "quantity"), 5)
                 not_rec_idx = next((i for i, h in enumerate(phys_headers) if "not received" in h), 7)
                 short_extra_idx = next((i for i, h in enumerate(phys_headers) if "short" in h), 8)
-                
+                date_idx = next((i for i, h in enumerate(phys_headers) if "date" in h), 9)
+
                 vendor_phys_records = []
                 display_records = []
                 for p_row in phys_rows[1:]:
@@ -577,15 +579,15 @@ elif menu_choice == "🔄 2. DATA சீட்டிற்கு பெறப்
                                 "Received": p_row[rec_idx] if len(p_row) > rec_idx else "",
                                 "Not Received": p_row[not_rec_idx] if len(p_row) > not_rec_idx else "",
                                 "Short / Extra": p_row[short_extra_idx] if len(p_row) > short_extra_idx else "",
-                                
+                                "Date": p_row[date_idx] if len(p_row) > date_idx else "",
                             })
 
                 if vendor_phys_records:
                     disp_df = pd.DataFrame(display_records)
                     st.dataframe(disp_df, use_container_width=True, hide_index=True)
 
-                    if st.button("🚀 இந்த பதிப்பகத்திற்கு மட்டும் மாற்றம் செய்க (Transfer)", use_container_width=True):
-                        with st.spinner("மாற்றப்படுகிறது..."):
+                    if st.button("🚀 இந்த பதிப்பகத்திற்கு மட்டும் ஒத்திசைவு செய்க (Sync)", use_container_width=True):
+                        with st.spinner("ஒத்திசைக்கப்படுகிறது..."):
                             ws_data = sheet_vendor_wise.get_all_values()
                             ws_headers = [str(h).strip().lower() for h in ws_data[0]]
 
@@ -634,18 +636,18 @@ elif menu_choice == "🔄 2. DATA சீட்டிற்கு பெறப்
                             if cell_list:
                                 sheet_vendor_wise.update_cells(cell_list)
 
-                            st.success(f"✅ **{selected_vendor_t2}** பதிப்பகத்தின் தரவுகள் வெற்றிகரமாக மாற்ப்பட்டன!")
+                            st.success(f"✅ **{selected_vendor_t2}** பதிப்பகத்தின் தரவுகள் வெற்றிகரமாக ஒத்திசைக்கப்பட்டன!")
                             time.sleep(1.5)
                             st.rerun()
     except Exception as e:
         st.error(f"❌ பிழை: {e}")
 
 # --- TASK 3: TOTAL VENDOR DETAILS (480) ---
-elif menu_choice == "🏢 3. பதிப்பாளர் விவரம் ":
-    st.subheader("🏢 3. பதிப்பாளர் விவரம் ")
+elif menu_choice == "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)":
+    st.subheader("🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)")
 
     if vendor_df is None or book_df is None:
-        st.error("❌ 'Book Supply-2026.xlsx' பதிவு கிடைக்கவில்லை!")
+        st.error("❌ 'Book Supply-2026.xlsx' கோப்பு கிடைக்கவில்லை!")
     else:
         vendor_list = []
         for _, row in vendor_df.iterrows():
@@ -682,7 +684,7 @@ elif menu_choice == "🏢 3. பதிப்பாளர் விவரம் "
             filtered_books_t3 = book_df[vendor_mask]
 
             if filtered_books_t3.empty:
-                st.warning("⚠️ இந்த பதிப்பகத்திற்குப் நூலின் தரவுகள் இல்லை!")
+                st.warning("⚠️ இந்த பதிப்பகத்திற்குப் புத்தகத் தரவுகள் இல்லை!")
             else:
                 total_titles = len(filtered_books_t3)
                 total_qty = int(filtered_books_t3["Quantity"].sum()) if "Quantity" in filtered_books_t3.columns else 0
@@ -696,8 +698,8 @@ elif menu_choice == "🏢 3. பதிப்பாளர் விவரம் "
                     english_count = int(lang_series.str.contains("english", case=False, na=False).sum())
 
                 col1, col2, col3, col4 = st.columns(4)
-                col1.metric("📚 தலைப்புகள் எண்ணிக்கை", total_titles)
-                col2.metric("📦 படிகள் எண்ணிக்கை", total_qty)
+                col1.metric("📚 மொத்தத் தலைப்புகள்", total_titles)
+                col2.metric("📦 மொத்தப் படிகள்", total_qty)
                 col3.metric("🇮🇳 தமிழ் நூல்கள்", tamil_count)
                 col4.metric("🇬🇧 ஆங்கில நூல்கள்", english_count)
 
@@ -717,12 +719,12 @@ elif menu_choice == "🏢 3. பதிப்பாளர் விவரம் "
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 )
 
-# --- TASK 4: LIBRARY DETAILS  ---
-elif menu_choice == "🏛️ 4. நூலக விவரம்":
-    st.subheader("🏛️ 4. நூலக விவரம் ")
+# --- TASK 4: LIBRARY DISTRIBUTION (103) ---
+elif menu_choice == "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)":
+    st.subheader("🏛️ 4. நூலகத்திற்கு விநியோகம் (103)")
 
     if book_df is None or book_df.empty:
-        st.error("❌ நூலின் தரவுகள் கிடைக்கவில்லை!")
+        st.error("❌ புத்தகத் தரவுகள் கிடைக்கவில்லை!")
     else:
         base_df = book_df.copy()
         drop_cols = [c for c in base_df.columns if any(k in str(c).lower() for k in ["v s.no", "temp no", "v.s.no", "temp"])]
@@ -801,13 +803,13 @@ elif menu_choice == "🏛️ 4. நூலக விவரம்":
                     english_count = int(lang_series.str.contains("english", case=False, na=False).sum())
 
                 col1, col2, col3, col4 = st.columns(4)
-                col1.metric("📚 தலைப்புகள் எண்ணிக்கை", total_titles)
-                col2.metric("📦 படிகள் எண்ணிக்கை", total_qty)
+                col1.metric("📚 மொத்தத் தலைப்புகள்", total_titles)
+                col2.metric("📦 மொத்தப் படிகள்", total_qty)
                 col3.metric("🇮🇳 தமிழ் நூல்கள்", tamil_count)
                 col4.metric("🇬🇧 ஆங்கில நூல்கள்", english_count)
 
                 st.markdown("---")
-                title_header_text = f"📋 {selected_library} - நூல்களின் முழு விவரங்கள்" if selected_library != "-- அனைத்து நூலகங்களும் (All Libraries) --" else "📋 அனைத்து நூலகங்களின்  விவரங்கள்"
+                title_header_text = f"📋 {selected_library} - நூல்களின் முழு விவரங்கள்" if selected_library != "-- அனைத்து நூலகங்களும் (All Libraries) --" else "📋 அனைத்து நூலகங்களின் விநியோக விவரங்கள்"
                 st.markdown(f"### {title_header_text}")
                 st.dataframe(filtered_lib_df, use_container_width=True, hide_index=True)
 
@@ -843,9 +845,9 @@ elif menu_choice == "🏛️ 4. நூலக விவரம்":
             else:
                 st.warning("⚠️ தரவுகள் எதுவும் இல்லை.")
 
-# --- TASK 4: ACCESSION NUMBERS MANAGEMENT (RECEIVED QTY ONLY) ---
-elif menu_choice == "⚙️ 4. Accession எண்கள் மேலாண்மை":
-    st.subheader("⚙️ 4. தானியங்கி மைய மற்றும் கிளை நூல் சேர்க்கை எண்கள் மேலாண்மை (Auto Accession)")
+# --- TASK 5: ACCESSION NUMBERS MANAGEMENT (RECEIVED QTY ONLY) ---
+elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
+    st.subheader("⚙️ 5. தானியங்கி மைய மற்றும் கிளை நூல் சேர்க்கை எண்கள் மேலாண்மை (Auto Accession)")
     st.error("🚨 **முக்கிய எச்சரிக்கை:** பெறப்பட்ட நூல்களுக்கு (`Received Qty`) மட்டுமே சேர்க்கை எண்கள் உருவாக்கப்படும். பெறப்படாத நூல்களுக்கு எந்தக் காரணத்திற்காகவும் எண்கள் வழங்கப்படாது (காலி விடப்படும்).")
 
     if book_df is None or book_df.empty or sheet_vendor_wise is None:
