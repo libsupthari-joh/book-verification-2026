@@ -14,12 +14,16 @@ from oauth2client.service_account import ServiceAccountCredentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from google.oauth2.service_account import Credentials
+
+# ReportLab & Tamil Font Support (Using FreeSans & FreeSansBold)
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 # ============================================================
 # 1. PAGE SETTINGS
@@ -75,14 +79,12 @@ st.markdown(
 )
 
 # ============================================================
-# 3. LOGIN (with signed session token — fixes URL role-spoofing bug)
+# 3. LOGIN (with signed session token)
 # ============================================================
 def hash_password(password):
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 def _app_secret():
-    # Falls back to a static string only if no secret configured; for real
-    # deployments set app_secret in st.secrets to keep session tokens unforgeable.
     try:
         return str(st.secrets.get("app_secret", "please-set-a-real-secret-in-secrets-toml"))
     except Exception:
@@ -111,10 +113,6 @@ def authenticate_user(phone, password):
 if "logged_in" not in st.session_state:
     q_phone = st.query_params.get("phone")
     q_token = st.query_params.get("token")
-    # IMPORTANT: role/name are ALWAYS looked up fresh from USERS_DATABASE using the
-    # verified phone number — never trusted directly from the URL. This closes the
-    # earlier bug where anyone could type ?role=Admin in the address bar to get
-    # admin access without a password.
     if q_phone and q_phone in USERS_DATABASE and verify_session_token(q_phone, q_token):
         user = USERS_DATABASE[q_phone]
         st.session_state["logged_in"] = True
@@ -222,8 +220,17 @@ except Exception as error:
     st.error(f"❌ Google Sheet இணைப்புப் பிழை: {error}")
 
 # ============================================================
-# 6. FILE HELPERS
+# 6. TAMIL FONT REGISTRATION (FreeSans & FreeSansBold)
 # ============================================================
+try:
+    pdfmetrics.registerFont(TTFont("TamilRegular", "fonts/FreeSans.ttf"))
+    pdfmetrics.registerFont(TTFont("TamilBold", "fonts/FreeSansBold.ttf"))
+    pdfmetrics.registerFont(TTFont("FreeRegular", "fonts/FreeSans.ttf"))
+    TAMIL_FONT_AVAILABLE = True
+except Exception as e:
+    print("Font Error:", e)
+    TAMIL_FONT_AVAILABLE = False
+
 def safe_name(value):
     return re.sub(r"[^\w\u0B80-\u0BFF -]", "", str(value)).strip()[:80] or "Report"
 
@@ -245,12 +252,18 @@ def pdf_bytes(df, title):
     output = io.BytesIO()
     document = SimpleDocTemplate(output, pagesize=landscape(A4), rightMargin=7*mm, leftMargin=7*mm, topMargin=7*mm, bottomMargin=7*mm)
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle("report_title", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=14, alignment=TA_CENTER, textColor=colors.HexColor("#071a38"))
-    body_style = ParagraphStyle("report_body", parent=styles["BodyText"], fontName="Helvetica", fontSize=7, leading=8)
+    
+    font_name = "TamilBold" if TAMIL_FONT_AVAILABLE else "Helvetica-Bold"
+    body_font = "TamilRegular" if TAMIL_FONT_AVAILABLE else "Helvetica"
+
+    title_style = ParagraphStyle("report_title", parent=styles["Title"], fontName=font_name, fontSize=14, alignment=TA_CENTER, textColor=colors.HexColor("#071a38"))
+    body_style = ParagraphStyle("report_body", parent=styles["BodyText"], fontName=body_font, fontSize=7, leading=8)
+    
     columns = list(df.columns)
     table_data = [[Paragraph(str(c), body_style) for c in columns]]
     for row in df.fillna("").astype(str).values.tolist():
         table_data.append([Paragraph(str(value)[:100], body_style) for value in row])
+    
     widths = [max(20*mm, min(58*mm, (max([len(str(c))] + [len(str(v)) for v in df[c].head(25)]) + 2) * 1.15 * mm)) for c in columns]
     table = Table(table_data, colWidths=widths, repeatRows=1)
     table.setStyle(TableStyle([
@@ -272,8 +285,6 @@ def upload_pdf_to_drive(pdf_data, vendor_id_name, vendor_name):
 
 def download_panel(df, prefix, sheet_name):
     st.markdown("### 📥 பதிவிறக்க வசதிகள்")
-    # Stacked full-width buttons instead of 3 cramped columns — much easier to
-    # tap accurately on a phone screen than three squeezed-together buttons.
     st.download_button(
         "📊 Excel பதிவிறக்கம்", excel_bytes(df, sheet_name), f"{prefix}.xlsx",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -548,14 +559,6 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
 
 # ============================================================
 # 12. TASK 5 - ACCESSION MANAGEMENT
-#     FIX: previously, re-opening the same library re-generated brand-new
-#     accession numbers every time (the "last used" counters in Lib_Detail
-#     were never written back after saving), which could silently create
-#     duplicate accession numbers across runs. Now:
-#       (a) rows that already have a saved accession number are detected
-#           and shown as-is, never re-numbered;
-#       (b) after a successful save, the running counters are written back
-#           to Lib_Detail so the next run continues from the correct point.
 # ============================================================
 elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
     st.subheader("⚙️ 5. தானியங்கி மைய மற்றும் கிளை நூல் சேர்க்கை எண்கள் மேலாண்மை")
@@ -636,7 +639,6 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                 display = []
                 for item in records:
                     if item["Existing Central"] or item["Existing Branch"]:
-                        # Already assigned earlier — show as-is, do NOT re-number.
                         display.append({
                             **item,
                             "Central Accession No": item["Existing Central"],
@@ -675,10 +677,7 @@ elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்�
                             ])
                     if cells:
                         sheet_vendor_wise.update_cells(cells)
-                    # Persist the running counters back to Lib_Detail so the NEXT
-                    # time this library (or the shared central pool) is opened,
-                    # numbering continues on instead of restarting — this is
-                    # the fix for the duplicate-accession-number bug.
+                    
                     if sheet_lib_detail and central_row_num and branch_row_num:
                         try:
                             sheet_lib_detail.update_cells([
