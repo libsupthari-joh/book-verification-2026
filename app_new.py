@@ -223,14 +223,13 @@ except Exception as error:
 # 6. TAMIL FONT REGISTRATION & FILE HELPERS
 # ============================================================
 try:
-    pdfmetrics.registerFont(TTFont("TamilRegular", "fonts/NotoSansTamil-Regular.ttf"))
+    pdfmetrics.registerFont(TTFont("TamilRegular", "fonts/FreeSans.ttf"))
     pdfmetrics.registerFont(TTFont("TamilBold", "fonts/FreeSansBold.ttf"))
     pdfmetrics.registerFont(TTFont("FreeRegular", "fonts/FreeSans.ttf"))
     TAMIL_FONT_AVAILABLE = True
 except Exception as e:
     print("Font Error:", e)
     TAMIL_FONT_AVAILABLE = False
-
 def safe_name(value):
     return re.sub(r"[^\w\u0B80-\u0BFF -]", "", str(value)).strip()[:80] or "Report"
 
