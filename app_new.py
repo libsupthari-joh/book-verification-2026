@@ -20,6 +20,30 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+
+# ============================================================
+# 0. TAMIL-CAPABLE PDF FONT
+#    ReportLab's built-in fonts (Helvetica etc.) have NO Tamil glyphs, so
+#    Tamil text used to come out as blank/garbled boxes in downloaded PDFs.
+#    We register a bundled Unicode font (FreeSans, which covers Tamil) and
+#    use it everywhere PDFs are generated. Ship the "fonts" folder (with
+#    FreeSans.ttf and FreeSansBold.ttf) in the same directory as this file.
+# ============================================================
+PDF_FONT_REGULAR = "Helvetica"
+PDF_FONT_BOLD = "Helvetica-Bold"
+try:
+    _FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
+    pdfmetrics.registerFont(TTFont("TamilUI", os.path.join(_FONT_DIR, "FreeSans.ttf")))
+    pdfmetrics.registerFont(TTFont("TamilUI-Bold", os.path.join(_FONT_DIR, "FreeSansBold.ttf")))
+    pdfmetrics.registerFontFamily("TamilUI", normal="TamilUI", bold="TamilUI-Bold", italic="TamilUI", boldItalic="TamilUI-Bold")
+    PDF_FONT_REGULAR = "TamilUI"
+    PDF_FONT_BOLD = "TamilUI-Bold"
+except Exception:
+    # Falls back to Helvetica (Tamil text will not display) only if the
+    # "fonts" folder wasn't uploaded alongside app.py — make sure it is.
+    pass
 
 # ============================================================
 # 1. PAGE SETTINGS
@@ -245,8 +269,8 @@ def pdf_bytes(df, title):
     output = io.BytesIO()
     document = SimpleDocTemplate(output, pagesize=landscape(A4), rightMargin=7*mm, leftMargin=7*mm, topMargin=7*mm, bottomMargin=7*mm)
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle("report_title", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=14, alignment=TA_CENTER, textColor=colors.HexColor("#071a38"))
-    body_style = ParagraphStyle("report_body", parent=styles["BodyText"], fontName="Helvetica", fontSize=7, leading=8)
+    title_style = ParagraphStyle("report_title", parent=styles["Title"], fontName=PDF_FONT_BOLD, fontSize=14, alignment=TA_CENTER, textColor=colors.HexColor("#071a38"))
+    body_style = ParagraphStyle("report_body", parent=styles["BodyText"], fontName=PDF_FONT_REGULAR, fontSize=7, leading=8)
     columns = list(df.columns)
     table_data = [[Paragraph(str(c), body_style) for c in columns]]
     for row in df.fillna("").astype(str).values.tolist():
