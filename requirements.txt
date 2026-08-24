@@ -2,5 +2,6 @@ streamlit
 pandas
 gspread
 oauth2client
-reportlab
 google-api-python-client
+reportlab
+openpyxl>=3.1.5
