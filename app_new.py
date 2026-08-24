@@ -260,7 +260,7 @@ if st.session_state["current_page"] not in menu_items:
     st.session_state["current_page"] = menu_items[0]
 
 # Title
-st.title("📚 நூல்கள் சரிபார்ப்புப் போர்ட்டல்")
+st.title("📚 2026ஆம் ஆண்டு வெளிப்படைத் தன்மை நூல்கள் கொள்முதல்")
 
 # --- USER PROFILE & LOGOUT CARD (Main Screen Top) ---
 role_badge = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
