@@ -7,7 +7,6 @@ import secrets as py_secrets
 import time
 from datetime import datetime
 from xml.sax.saxutils import escape as xml_escape
-
 import gspread
 from gspread.cell import Cell
 import pandas as pd
