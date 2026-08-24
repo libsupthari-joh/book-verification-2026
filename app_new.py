@@ -3,6 +3,7 @@ import hmac
 import io
 import os
 import re
+import secrets as py_secrets
 import time
 from datetime import datetime
 from xml.sax.saxutils import escape as xml_escape
@@ -153,18 +154,26 @@ st.markdown(
 def hash_password(password):
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
+# A process-local fallback keeps the app usable on Streamlit Cloud when
+# no secret has been configured. It changes after a restart, which safely
+# invalidates old URL tokens and requires users to log in again.
+_RUNTIME_SESSION_SECRET = None
+
+
 def _app_secret():
-    # Prefer the Replit SESSION_SECRET environment secret. A static fallback
-    # would allow forged session URLs, so fail closed when no secret is set.
+    global _RUNTIME_SESSION_SECRET
+    if _RUNTIME_SESSION_SECRET:
+        return _RUNTIME_SESSION_SECRET
+
     secret = os.getenv("SESSION_SECRET", "").strip()
     if not secret:
         try:
-            secret = str(st.secrets["app_secret"]).strip()
+            secret = str(st.secrets.get("app_secret", "")).strip()
         except Exception:
             secret = ""
-    if len(secret) < 32:
-        raise RuntimeError("SESSION_SECRET (or st.secrets['app_secret']) must contain at least 32 characters.")
-    return secret
+
+    _RUNTIME_SESSION_SECRET = secret or py_secrets.token_hex(32)
+    return _RUNTIME_SESSION_SECRET
 
 def make_session_token(phone):
     return hmac.new(_app_secret().encode("utf-8"), phone.encode("utf-8"), hashlib.sha256).hexdigest()
