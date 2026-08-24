@@ -74,13 +74,11 @@ def _load_pdf_fonts():
     pdfmetrics.registerFont(TTFont("TamilUI", regular_path))
     PDF_FONT_REGULAR = "TamilUI"
 
-    # A regular Tamil font is safer than a non-Tamil bold fallback. If the
-    # bold file is absent, use the registered regular font for the heading.
-    if bold_path:
-        pdfmetrics.registerFont(TTFont("TamilUI-Bold", bold_path))
-        PDF_FONT_BOLD = "TamilUI-Bold"
-    else:
-        PDF_FONT_BOLD = PDF_FONT_REGULAR
+    # IMPORTANT: use the regular FreeSans Tamil font for both normal and
+    # bold roles. In this app, FreeSansBold can render Tamil as blank boxes
+    # in the PDF heading even though FreeSans renders it correctly in tables.
+    # Keeping the alias also means existing title_style code needs no change.
+    PDF_FONT_BOLD = PDF_FONT_REGULAR
 
     pdfmetrics.registerFontFamily(
         "TamilUI",
