@@ -5,6 +5,7 @@ import os
 import re
 import time
 from datetime import datetime
+from xml.sax.saxutils import escape as xml_escape
 
 import gspread
 from gspread.cell import Cell
@@ -25,26 +26,74 @@ from reportlab.pdfbase.ttfonts import TTFont
 
 # ============================================================
 # 0. TAMIL-CAPABLE PDF FONT
-#    ReportLab's built-in fonts (Helvetica etc.) have NO Tamil glyphs, so
-#    Tamil text used to come out as blank/garbled boxes in downloaded PDFs.
-#    We register a bundled Unicode font (FreeSans, which covers Tamil) and
-#    use it everywhere PDFs are generated. Ship the "fonts" folder (with
-#    FreeSans.ttf and FreeSansBold.ttf) in the same directory as this file.
+#    ReportLab built-in fonts do not contain Tamil glyphs. Never silently
+#    fall back to Helvetica: that produces boxes in the PDF heading.
+#    Keep NotoSansTamil-Regular.ttf (and optionally NotoSansTamil-Bold.ttf)
+#    or FreeSans.ttf/FreeSansBold.ttf inside a sibling "fonts" directory.
 # ============================================================
-PDF_FONT_REGULAR = "Helvetica"
-PDF_FONT_BOLD = "Helvetica-Bold"
-try:
-    _FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
-    pdfmetrics.registerFont(TTFont("TamilUI", os.path.join(_FONT_DIR, "FreeSans.ttf")))
-    pdfmetrics.registerFont(TTFont("TamilUI-Bold", os.path.join(_FONT_DIR, "FreeSansBold.ttf")))
-    pdfmetrics.registerFontFamily("TamilUI", normal="TamilUI", bold="TamilUI-Bold", italic="TamilUI", boldItalic="TamilUI-Bold")
-    PDF_FONT_REGULAR = "TamilUI"
-    PDF_FONT_BOLD = "TamilUI-Bold"
-except Exception:
-    # Falls back to Helvetica (Tamil text will not display) only if the
-    # "fonts" folder wasn't uploaded alongside app.py — make sure it is.
-    pass
+PDF_FONT_REGULAR = None
+PDF_FONT_BOLD = None
+PDF_FONT_ERROR = None
 
+
+def _find_font(font_dir, names):
+    candidates = []
+    for name in names:
+        candidates.extend(
+            [
+                os.path.join(font_dir, name),
+                os.path.join(os.getcwd(), "fonts", name),
+                os.path.join("/usr/share/fonts/truetype/noto", name),
+                os.path.join("/usr/share/fonts/truetype/freefont", name),
+            ]
+        )
+    return next((path for path in candidates if os.path.isfile(path)), None)
+
+
+def _load_pdf_fonts():
+    global PDF_FONT_REGULAR, PDF_FONT_BOLD
+    font_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
+    font_pairs = [
+        (("NotoSansTamil-Regular.ttf",), ("NotoSansTamil-Bold.ttf",)),
+        (("FreeSans.ttf",), ("FreeSansBold.ttf",)),
+    ]
+    regular_path = bold_path = None
+    for regular_names, bold_names in font_pairs:
+        regular_path = _find_font(font_dir, regular_names)
+        if regular_path:
+            bold_path = _find_font(font_dir, bold_names)
+            break
+
+    if not regular_path:
+        raise FileNotFoundError(
+            "Tamil PDF font missing. Add fonts/NotoSansTamil-Regular.ttf "
+            "or fonts/FreeSans.ttf to the application."
+        )
+
+    pdfmetrics.registerFont(TTFont("TamilUI", regular_path))
+    PDF_FONT_REGULAR = "TamilUI"
+
+    # A regular Tamil font is safer than a non-Tamil bold fallback. If the
+    # bold file is absent, use the registered regular font for the heading.
+    if bold_path:
+        pdfmetrics.registerFont(TTFont("TamilUI-Bold", bold_path))
+        PDF_FONT_BOLD = "TamilUI-Bold"
+    else:
+        PDF_FONT_BOLD = PDF_FONT_REGULAR
+
+    pdfmetrics.registerFontFamily(
+        "TamilUI",
+        normal=PDF_FONT_REGULAR,
+        bold=PDF_FONT_BOLD,
+        italic=PDF_FONT_REGULAR,
+        boldItalic=PDF_FONT_BOLD,
+    )
+
+
+try:
+    _load_pdf_fonts()
+except Exception as font_error:
+    PDF_FONT_ERROR = font_error
 # ============================================================
 # 1. PAGE SETTINGS
 # ============================================================
@@ -105,12 +154,17 @@ def hash_password(password):
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 def _app_secret():
-    # Falls back to a static string only if no secret configured; for real
-    # deployments set app_secret in st.secrets to keep session tokens unforgeable.
-    try:
-        return str(st.secrets.get("app_secret", "please-set-a-real-secret-in-secrets-toml"))
-    except Exception:
-        return "please-set-a-real-secret-in-secrets-toml"
+    # Prefer the Replit SESSION_SECRET environment secret. A static fallback
+    # would allow forged session URLs, so fail closed when no secret is set.
+    secret = os.getenv("SESSION_SECRET", "").strip()
+    if not secret:
+        try:
+            secret = str(st.secrets["app_secret"]).strip()
+        except Exception:
+            secret = ""
+    if len(secret) < 32:
+        raise RuntimeError("SESSION_SECRET (or st.secrets['app_secret']) must contain at least 32 characters.")
+    return secret
 
 def make_session_token(phone):
     return hmac.new(_app_secret().encode("utf-8"), phone.encode("utf-8"), hashlib.sha256).hexdigest()
@@ -266,25 +320,79 @@ def csv_bytes(df):
     return df.to_csv(index=False).encode("utf-8-sig")
 
 def pdf_bytes(df, title):
+    if PDF_FONT_ERROR is not None:
+        raise RuntimeError(f"Tamil PDF font could not be loaded: {PDF_FONT_ERROR}")
+
     output = io.BytesIO()
-    document = SimpleDocTemplate(output, pagesize=landscape(A4), rightMargin=7*mm, leftMargin=7*mm, topMargin=7*mm, bottomMargin=7*mm)
+    document = SimpleDocTemplate(
+        output,
+        pagesize=landscape(A4),
+        rightMargin=7 * mm,
+        leftMargin=7 * mm,
+        topMargin=7 * mm,
+        bottomMargin=7 * mm,
+    )
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle("report_title", parent=styles["Title"], fontName=PDF_FONT_BOLD, fontSize=14, alignment=TA_CENTER, textColor=colors.HexColor("#071a38"))
-    body_style = ParagraphStyle("report_body", parent=styles["BodyText"], fontName=PDF_FONT_REGULAR, fontSize=7, leading=8)
+
+    # Use the regular Tamil font for the title. This prevents the publisher
+    # name from becoming boxes when a bold font lacks Tamil glyph mapping.
+    title_style = ParagraphStyle(
+        "report_title",
+        parent=styles["Title"],
+        fontName=PDF_FONT_REGULAR,
+        fontSize=14,
+        leading=18,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor("#071a38"),
+    )
+    body_style = ParagraphStyle(
+        "report_body",
+        parent=styles["BodyText"],
+        fontName=PDF_FONT_REGULAR,
+        fontSize=7,
+        leading=8,
+    )
+
     columns = list(df.columns)
-    table_data = [[Paragraph(str(c), body_style) for c in columns]]
+    table_data = [[Paragraph(xml_escape(str(c)), body_style) for c in columns]]
     for row in df.fillna("").astype(str).values.tolist():
-        table_data.append([Paragraph(str(value)[:100], body_style) for value in row])
-    widths = [max(20*mm, min(58*mm, (max([len(str(c))] + [len(str(v)) for v in df[c].head(25)]) + 2) * 1.15 * mm)) for c in columns]
+        table_data.append(
+            [Paragraph(xml_escape(str(value)[:100]), body_style) for value in row]
+        )
+
+    widths = [
+        max(
+            20 * mm,
+            min(
+                58 * mm,
+                (max([len(str(c))] + [len(str(v)) for v in df[c].head(25)]) + 2)
+                * 1.15
+                * mm,
+            ),
+        )
+        for c in columns
+    ]
+    available_width = landscape(A4)[0] - 14 * mm
+    total_width = sum(widths)
+    if total_width > available_width:
+        scale = available_width / total_width
+        widths = [width * scale for width in widths]
+
     table = Table(table_data, colWidths=widths, repeatRows=1)
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b3d91")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("GRID", (0, 0), (-1, -1), .25, colors.HexColor("#9db6d5")),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#eef5ff")]),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-    ]))
-    document.build([Paragraph(title, title_style), Spacer(1, 4*mm), table])
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b3d91")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#9db6d5")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#eef5ff")]),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]
+        )
+    )
+    document.build(
+        [Paragraph(xml_escape(str(title)), title_style), Spacer(1, 4 * mm), table]
+    )
     return output.getvalue()
 
 def upload_pdf_to_drive(pdf_data, vendor_id_name, vendor_name):
