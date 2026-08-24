@@ -266,10 +266,32 @@ DRIVE_FOLDER_ID = "1XOTSn8f6ntfrG8rI0iSk0QVwDujGqs1f"
 def load_data(file_path):
     if not os.path.exists(file_path):
         return None, None
-    excel_data = pd.ExcelFile(file_path)
-    vendor_df = pd.read_excel(file_path, sheet_name="Vendor Name") if "Vendor Name" in excel_data.sheet_names else pd.DataFrame()
-    book_sheets = [s for s in excel_data.sheet_names if "Vendor Wise Book Data" in s]
-    book_df = pd.read_excel(file_path, sheet_name=book_sheets[0]) if book_sheets else pd.DataFrame()
+    # The workbook is .xlsx, so pandas must use the openpyxl engine.
+    excel_data = pd.ExcelFile(file_path, engine="openpyxl")
+
+    vendor_df = (
+        pd.read_excel(
+            file_path,
+            sheet_name="Vendor Name",
+            engine="openpyxl",
+        )
+        if "Vendor Name" in excel_data.sheet_names
+        else pd.DataFrame()
+    )
+
+    book_sheets = [
+        sheet for sheet in excel_data.sheet_names
+        if "Vendor Wise Book Data" in sheet
+    ]
+    book_df = (
+        pd.read_excel(
+            file_path,
+            sheet_name=book_sheets[0],
+            engine="openpyxl",
+        )
+        if book_sheets
+        else pd.DataFrame()
+    )
     return vendor_df, book_df
 
 @st.cache_resource
@@ -305,7 +327,6 @@ try:
             sheet_lib_detail = worksheet
 except Exception as error:
     st.error(f"❌ Google Sheet இணைப்புப் பிழை: {error}")
-
 # ============================================================
 # 6. FILE HELPERS
 # ============================================================
