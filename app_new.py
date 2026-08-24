@@ -121,7 +121,7 @@ def verify_session_token(phone, token):
     return hmac.compare_digest(make_session_token(phone), token)
 
 USERS_DATABASE = {
-    "9842759306": {"password_hash": hash_password("123456"), "role": "Admin", "name": "முதன்மை நிர்வாகி (Admin)"},
+    "9842759306": {"password_hash": hash_password("Hari@@1979"), "role": "Admin", "name": "முதன்மை நிர்வாகி (Admin)"},
     "9787555290": {"password_hash": hash_password("123456"), "role": "User", "name": "சரிபார்ப்பு பயனர் 1 (User)"},
     "9751687939": {"password_hash": hash_password("123456"), "role": "User", "name": "சரிபார்ப்பு பயனர் 2 (User)"},
 }
