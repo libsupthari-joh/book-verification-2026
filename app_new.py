@@ -16,7 +16,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 # 1. PAGE SETTINGS
 # ============================================================
 st.set_page_config(
-    page_title="2026 பதிப்பாளரின் புதிய நூல்கள் சரிபார்ப்பு / விநியோகம்",
+    page_title="2026ஆம் ஆண்டு வெளிப்படைத்தன்மை நூல்கள் கொள்முதல்",
     page_icon="📚",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -247,20 +247,20 @@ st.session_state.setdefault("selected_acc_library", None)
 # Menu items list
 if st.session_state["user_role"] == "Admin":
     menu_items = [
-        "📥 1. பதிப்பாளரின் புதிய நூல்கள் சரிபார்ப்பு",
+        "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு",
         "🔄 2. Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்",
-        "🏢 3. பதிப்பாளர் விவரம் ",
-        "🏛️ 4. நூலக விவரம் ",
+        "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)",
+        "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)",
         "⚙️ 5. Accession எண்கள் மேலாண்மை",
     ]
 else:
-    menu_items = ["📥 1. பதிப்பாளரின் புதிய நூல்கள் சரிபார்ப்புு"]
+    menu_items = ["📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு"]
 
 if st.session_state["current_page"] not in menu_items:
     st.session_state["current_page"] = menu_items[0]
 
 # Title
-st.title("📚 2026ஆம் ஆண்டு புதிய நூல்கள் பெறப்பட்டது சரிபார்ப்பு")
+st.title("📚 நூல்கள் சரிபார்ப்புப் போர்ட்டல்")
 
 # --- USER PROFILE & LOGOUT CARD (Main Screen Top) ---
 role_badge = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
