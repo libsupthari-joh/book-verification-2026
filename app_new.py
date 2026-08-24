@@ -3,7 +3,6 @@ import hmac
 import io
 import os
 import re
-import secrets as py_secrets
 import time
 from datetime import datetime
 from xml.sax.saxutils import escape as xml_escape
@@ -74,11 +73,13 @@ def _load_pdf_fonts():
     pdfmetrics.registerFont(TTFont("TamilUI", regular_path))
     PDF_FONT_REGULAR = "TamilUI"
 
-    # IMPORTANT: use the regular FreeSans Tamil font for both normal and
-    # bold roles. In this app, FreeSansBold can render Tamil as blank boxes
-    # in the PDF heading even though FreeSans renders it correctly in tables.
-    # Keeping the alias also means existing title_style code needs no change.
-    PDF_FONT_BOLD = PDF_FONT_REGULAR
+    # A regular Tamil font is safer than a non-Tamil bold fallback. If the
+    # bold file is absent, use the registered regular font for the heading.
+    if bold_path:
+        pdfmetrics.registerFont(TTFont("TamilUI-Bold", bold_path))
+        PDF_FONT_BOLD = "TamilUI-Bold"
+    else:
+        PDF_FONT_BOLD = PDF_FONT_REGULAR
 
     pdfmetrics.registerFontFamily(
         "TamilUI",
@@ -152,26 +153,18 @@ st.markdown(
 def hash_password(password):
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
-# A process-local fallback keeps the app usable on Streamlit Cloud when
-# no secret has been configured. It changes after a restart, which safely
-# invalidates old URL tokens and requires users to log in again.
-_RUNTIME_SESSION_SECRET = None
-
-
 def _app_secret():
-    global _RUNTIME_SESSION_SECRET
-    if _RUNTIME_SESSION_SECRET:
-        return _RUNTIME_SESSION_SECRET
-
+    # Prefer the Replit SESSION_SECRET environment secret. A static fallback
+    # would allow forged session URLs, so fail closed when no secret is set.
     secret = os.getenv("SESSION_SECRET", "").strip()
     if not secret:
         try:
-            secret = str(st.secrets.get("app_secret", "")).strip()
+            secret = str(st.secrets["app_secret"]).strip()
         except Exception:
             secret = ""
-
-    _RUNTIME_SESSION_SECRET = secret or py_secrets.token_hex(32)
-    return _RUNTIME_SESSION_SECRET
+    if len(secret) < 32:
+        raise RuntimeError("SESSION_SECRET (or st.secrets['app_secret']) must contain at least 32 characters.")
+    return secret
 
 def make_session_token(phone):
     return hmac.new(_app_secret().encode("utf-8"), phone.encode("utf-8"), hashlib.sha256).hexdigest()
@@ -266,32 +259,10 @@ DRIVE_FOLDER_ID = "1XOTSn8f6ntfrG8rI0iSk0QVwDujGqs1f"
 def load_data(file_path):
     if not os.path.exists(file_path):
         return None, None
-    # The workbook is .xlsx, so pandas must use the openpyxl engine.
-    excel_data = pd.ExcelFile(file_path, engine="openpyxl")
-
-    vendor_df = (
-        pd.read_excel(
-            file_path,
-            sheet_name="Vendor Name",
-            engine="openpyxl",
-        )
-        if "Vendor Name" in excel_data.sheet_names
-        else pd.DataFrame()
-    )
-
-    book_sheets = [
-        sheet for sheet in excel_data.sheet_names
-        if "Vendor Wise Book Data" in sheet
-    ]
-    book_df = (
-        pd.read_excel(
-            file_path,
-            sheet_name=book_sheets[0],
-            engine="openpyxl",
-        )
-        if book_sheets
-        else pd.DataFrame()
-    )
+    excel_data = pd.ExcelFile(file_path)
+    vendor_df = pd.read_excel(file_path, sheet_name="Vendor Name") if "Vendor Name" in excel_data.sheet_names else pd.DataFrame()
+    book_sheets = [s for s in excel_data.sheet_names if "Vendor Wise Book Data" in s]
+    book_df = pd.read_excel(file_path, sheet_name=book_sheets[0]) if book_sheets else pd.DataFrame()
     return vendor_df, book_df
 
 @st.cache_resource
@@ -327,6 +298,7 @@ try:
             sheet_lib_detail = worksheet
 except Exception as error:
     st.error(f"❌ Google Sheet இணைப்புப் பிழை: {error}")
+
 # ============================================================
 # 6. FILE HELPERS
 # ============================================================
