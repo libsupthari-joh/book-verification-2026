@@ -7,6 +7,7 @@ import secrets as py_secrets
 import time
 from datetime import datetime
 from xml.sax.saxutils import escape as xml_escape
+
 import gspread
 from gspread.cell import Cell
 import pandas as pd
@@ -26,59 +27,39 @@ from reportlab.pdfbase.ttfonts import TTFont
 
 # ============================================================
 # 0. TAMIL-CAPABLE PDF FONT
-#    ReportLab built-in fonts do not contain Tamil glyphs. Never silently
-#    fall back to Helvetica: that produces boxes in the PDF heading.
-#    Keep NotoSansTamil-Regular.ttf (and optionally NotoSansTamil-Bold.ttf)
-#    or FreeSans.ttf/FreeSansBold.ttf inside a sibling "fonts" directory.
+#    Use one known Tamil-capable font for every PDF text element.
+#    NotoSansTamil.ttf must be placed in the sibling fonts/ directory.
 # ============================================================
 PDF_FONT_REGULAR = None
 PDF_FONT_BOLD = None
 PDF_FONT_ERROR = None
 
 
-def _find_font(font_dir, names):
-    candidates = []
-    for name in names:
-        candidates.extend(
-            [
-                os.path.join(font_dir, name),
-                os.path.join(os.getcwd(), "fonts", name),
-                os.path.join("/usr/share/fonts/truetype/noto", name),
-                os.path.join("/usr/share/fonts/truetype/freefont", name),
-            ]
-        )
+def _find_tamil_font():
+    font_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
+    candidates = [
+        os.path.join(font_dir, "NotoSansTamil.ttf"),
+        os.path.join(font_dir, "NotoSansTamil-Regular.ttf"),
+        os.path.join(os.getcwd(), "fonts", "NotoSansTamil.ttf"),
+        os.path.join(os.getcwd(), "fonts", "NotoSansTamil-Regular.ttf"),
+    ]
     return next((path for path in candidates if os.path.isfile(path)), None)
 
 
 def _load_pdf_fonts():
     global PDF_FONT_REGULAR, PDF_FONT_BOLD
-    font_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
-    font_pairs = [
-        (("NotoSansTamil-Regular.ttf",), ("NotoSansTamil-Bold.ttf",)),
-        (("FreeSans.ttf",), ("FreeSansBold.ttf",)),
-    ]
-    regular_path = bold_path = None
-    for regular_names, bold_names in font_pairs:
-        regular_path = _find_font(font_dir, regular_names)
-        if regular_path:
-            bold_path = _find_font(font_dir, bold_names)
-            break
-
-    if not regular_path:
+    font_path = _find_tamil_font()
+    if not font_path:
         raise FileNotFoundError(
-            "Tamil PDF font missing. Add fonts/NotoSansTamil-Regular.ttf "
-            "or fonts/FreeSans.ttf to the application."
+            "Tamil font missing. Upload fonts/NotoSansTamil.ttf "
+            "to the repository. Do not use FreeSans for this PDF."
         )
 
-    pdfmetrics.registerFont(TTFont("TamilUI", regular_path))
+    pdfmetrics.registerFont(TTFont("TamilUI", font_path))
     PDF_FONT_REGULAR = "TamilUI"
-
-    # IMPORTANT: use the regular FreeSans Tamil font for both normal and
-    # bold roles. In this app, FreeSansBold can render Tamil as blank boxes
-    # in the PDF heading even though FreeSans renders it correctly in tables.
-    # Keeping the alias also means existing title_style code needs no change.
+    # Use the same verified Tamil font for bold roles too. This avoids
+    # FreeSansBold/Helvetica fallback boxes in titles and table cells.
     PDF_FONT_BOLD = PDF_FONT_REGULAR
-
     pdfmetrics.registerFontFamily(
         "TamilUI",
         normal=PDF_FONT_REGULAR,
@@ -265,11 +246,15 @@ DRIVE_FOLDER_ID = "1XOTSn8f6ntfrG8rI0iSk0QVwDujGqs1f"
 def load_data(file_path):
     if not os.path.exists(file_path):
         return None, None
-
+    # The workbook is .xlsx, so pandas must use the openpyxl engine.
     excel_data = pd.ExcelFile(file_path, engine="openpyxl")
 
     vendor_df = (
-        pd.read_excel(file_path, sheet_name="Vendor Name", engine="openpyxl")
+        pd.read_excel(
+            file_path,
+            sheet_name="Vendor Name",
+            engine="openpyxl",
+        )
         if "Vendor Name" in excel_data.sheet_names
         else pd.DataFrame()
     )
@@ -278,13 +263,15 @@ def load_data(file_path):
         sheet for sheet in excel_data.sheet_names
         if "Vendor Wise Book Data" in sheet
     ]
-
     book_df = (
-        pd.read_excel(file_path, sheet_name=book_sheets[0], engine="openpyxl")
+        pd.read_excel(
+            file_path,
+            sheet_name=book_sheets[0],
+            engine="openpyxl",
+        )
         if book_sheets
         else pd.DataFrame()
     )
-
     return vendor_df, book_df
 
 @st.cache_resource
