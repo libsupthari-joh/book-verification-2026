@@ -8,7 +8,6 @@ import time
 from datetime import datetime
 from urllib.request import Request, urlopen
 from xml.sax.saxutils import escape as xml_escape
-
 import gspread
 import pandas as pd
 import streamlit as st
@@ -396,9 +395,12 @@ if menu_choice == menu_items[0]:
             pass
     vendors = vendor_options()
     st.markdown("### 🏢 1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்")
-    vendor_search = st.text_input("🔎 பதிப்பாளர் தேடல்", placeholder="பெயரின் ஒரு பகுதியை உள்ளிடவும்", key="vendor_search_t1")
-    visible_vendors = search_options(vendors, vendor_search)
-    selected = st.selectbox("பதிப்பகத்தின் பெயர்", ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + visible_vendors, key=f"vendor_t1_{st.session_state['vendor_key']}")
+    selected = st.selectbox(
+        "🔎 பதிப்பாளர் தேடல்",
+        ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + vendors,
+        placeholder="பதிப்பகத்தின் பெயரை தட்டச்சு செய்து தேர்ந்தெடுக்கவும்",
+        key=f"vendor_t1_{st.session_state['vendor_key']}",
+    )
     if selected != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --" and selected != st.session_state["selected_vendor"]:
         st.session_state.update(selected_vendor=selected, temp_verified_records=[])
     if st.session_state["selected_vendor"]:
@@ -421,17 +423,17 @@ if menu_choice == menu_items[0]:
                 done = {item["Title"] for item in st.session_state["temp_verified_records"]}
                 remaining = [title for title in title_options(grouped) if title not in done]
                 st.markdown("### 🔍 2. தலைப்பைத் தேடி சரிபார்க்கவும்")
-                title_search = st.text_input("🔎 தலைப்பு / ஆசிரியர் தேடல்", placeholder="தலைப்பு (அல்லது) ஆசிரியர் பெயர்", key=f"title_search_{vendor_name}")
-                if title_search:
-                    query = clean_text(title_search)
-                    title_candidates = [
-                        title for title in remaining
-                        if query in clean_text(title)
-                        or query in clean_text(str(grouped.loc[grouped["Title"] == title, "Author Name"].iloc[0]))
-                    ]
-                else:
-                    title_candidates = remaining
-                selected_title = st.selectbox("புத்தகத் தலைப்பு", ["-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"] + title_candidates, key=f"title_t1_{len(done)}")
+                title_lookup = {
+                    f"{title} — {str(grouped.loc[grouped['Title'] == title, 'Author Name'].iloc[0])}": title
+                    for title in remaining
+                }
+                selected_title_display = st.selectbox(
+                    "🔎 தலைப்பு / ஆசிரியர் தேடல்",
+                    ["-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"] + list(title_lookup),
+                    placeholder="தலைப்பு (அல்லது) ஆசிரியர் பெயரை தட்டச்சு செய்யவும்",
+                    key=f"title_t1_{len(done)}",
+                )
+                selected_title = title_lookup.get(selected_title_display, "-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --")
                 if selected_title != "-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --":
                     book = grouped[grouped["Title"] == selected_title].iloc[0]
                     author, language, total = str(book["Author Name"] or ""), str(book["Language"] or ""), int(book["Quantity"])
@@ -494,16 +496,27 @@ elif menu_choice == menu_items[1]:
         ri = next((i for i, x in enumerate(ph) if "received" in x and "not" not in x), 6)
         si = next((i for i, x in enumerate(wh) if "received" in x and "not" not in x), 18)
         vendors = sorted({row[vi].strip() for row in physical[1:] if len(row) > vi and row[vi].strip()})
-        vendor_query = st.text_input("🔎 பதிப்பகம் தேடல்", placeholder="பதிப்பகத்தின் பெயர்", key="sync_vendor_search")
-        vendors = search_options(vendors, vendor_query)
         st.info("ஒத்திசைவு செய்ய வேண்டிய பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்.")
-        selected = st.selectbox("பதிப்பகம்", ["-- தேர்ந்தெடுக்கவும் --"] + vendors, key="sync_vendor")
+        selected = st.selectbox(
+            "🔎 பதிப்பகம் தேடல்",
+            ["-- தேர்ந்தெடுக்கவும் --"] + vendors,
+            placeholder="பதிப்பகத்தின் பெயரை தட்டச்சு செய்து தேர்ந்தெடுக்கவும்",
+            key="sync_vendor",
+        )
         if selected != "-- தேர்ந்தெடுக்கவும் --":
             records = [row for row in physical[1:] if len(row) > max(vi, ti, ri) and clean_text(row[vi]) == clean_text(selected)]
-            book_query = st.text_input("🔎 தலைப்பு / ஆசிரியர் தேடல்", placeholder="தலைப்பு (அல்லது) ஆசிரியர் பெயர்", key="sync_book_search")
-            if book_query:
-                query = clean_text(book_query)
-                records = [row for row in records if query in clean_text(row[ti]) or (len(row) > 3 and query in clean_text(row[3]))]
+            title_lookup = {
+                f"{row[ti]} — {row[3] if len(row) > 3 else ''}": row[ti]
+                for row in records
+            }
+            selected_book = st.selectbox(
+                "🔎 தலைப்பு / ஆசிரியர் தேடல்",
+                ["-- அனைத்து தலைப்புகளும் --"] + list(title_lookup),
+                placeholder="தலைப்பு (அல்லது) ஆசிரியர் பெயரை தட்டச்சு செய்யவும்",
+                key="sync_book",
+            )
+            if selected_book != "-- அனைத்து தலைப்புகளும் --":
+                records = [row for row in records if row[ti] == title_lookup.get(selected_book)]
             st.dataframe(pd.DataFrame([{"Title": r[ti], "Received": r[ri]} for r in records]), use_container_width=True, hide_index=True)
             if st.button("🚀 இந்த பதிப்பகத்திற்கு மட்டும் ஒத்திசைவு செய்க", use_container_width=True):
                 cells = []
@@ -533,8 +546,12 @@ elif menu_choice == menu_items[2]:
         st.error("❌ தரவு கிடைக்கவில்லை!")
         st.stop()
     vendors = vendor_options()
-    query = st.text_input("🔎 பதிப்பாளர் தேடல்", placeholder="பதிப்பகத்தின் பெயர்", key="vendor_search_t3")
-    selected = st.selectbox("பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்", ["-- அனைத்து பதிப்பாளர்களும் (All Publishers) --"] + search_options(vendors, query), key="vendor_t3")
+    selected = st.selectbox(
+        "🔎 பதிப்பாளர் தேடல்",
+        ["-- அனைத்து பதிப்பாளர்களும் (All Publishers) --"] + vendors,
+        placeholder="பதிப்பகத்தின் பெயரை தட்டச்சு செய்து தேர்ந்தெடுக்கவும்",
+        key="vendor_t3",
+    )
     if selected.startswith("-- அனைத்து"):
         result = vendor_df
     else:
@@ -559,16 +576,28 @@ elif menu_choice in menu_items[3:]:
             libraries[str(row[lib_name_col]).strip()] = str(row[lib_id_col]).strip()
     if menu_choice == menu_items[3]:
         st.subheader("🏛️ நூலகத்திற்கு விநியோகம் (103)")
-        library_query = st.text_input("🔎 நூலகம் தேடல்", placeholder="நூலகத்தின் பெயர்", key="library_search_t4")
-        selected = st.selectbox("🏛️ நூலகத்தைத் தேர்ந்தெடுக்கவும்", ["-- தேர்ந்தெடுக்கவும் --", "-- அனைத்து நூலகங்களும் --"] + search_options(sorted(libraries), library_query), key=f"library_{st.session_state['library_key']}")
+        selected = st.selectbox(
+            "🔎 நூலகம் தேடல்",
+            ["-- தேர்ந்தெடுக்கவும் --", "-- அனைத்து நூலகங்களும் --"] + sorted(libraries),
+            placeholder="நூலகத்தின் பெயரை தட்டச்சு செய்து தேர்ந்தெடுக்கவும்",
+            key=f"library_{st.session_state['library_key']}",
+        )
         if selected != "-- தேர்ந்தெடுக்கவும் --":
             result = base if selected.startswith("-- அனைத்து") else base[base[lib_id_col].astype(str).str.strip() == libraries[selected]]
             result = result.drop(columns=["S.No"], errors="ignore")
             result.insert(0, "S.No", range(1, len(result) + 1))
-            book_query = st.text_input("🔎 தலைப்பு / ஆசிரியர் தேடல்", placeholder="தலைப்பு (அல்லது) ஆசிரியர் பெயர்", key="library_book_search_t4")
-            if book_query:
-                query = clean_text(book_query)
-                result = result[result.apply(lambda row: query in clean_text(row.get("Title", "")) or query in clean_text(row.get("Author Name", "")), axis=1)]
+            title_lookup = {
+                f"{row.get('Title', '')} — {row.get('Author Name', '')}": row.get("Title", "")
+                for _, row in result.iterrows()
+            }
+            selected_book = st.selectbox(
+                "🔎 தலைப்பு / ஆசிரியர் தேடல்",
+                ["-- அனைத்து தலைப்புகளும் --"] + list(title_lookup),
+                placeholder="தலைப்பு (அல்லது) ஆசிரியர் பெயரை தட்டச்சு செய்யவும்",
+                key="library_book_t4",
+            )
+            if selected_book != "-- அனைத்து தலைப்புகளும் --":
+                result = result[result["Title"] == title_lookup.get(selected_book)]
             st.dataframe(result, use_container_width=True, hide_index=True)
             if not result.empty:
                 download_panel(result, safe_name(selected) + "_Distribution", "Library Distribution")
@@ -578,8 +607,12 @@ elif menu_choice in menu_items[3:]:
         if not sheet_vendor_wise:
             st.error("❌ Vendor Wise Book Data இணைப்பு கிடைக்கவில்லை!")
             st.stop()
-        library_query = st.text_input("🔎 நூலகம் தேடல்", placeholder="நூலகத்தின் பெயர்", key="library_search_t5")
-        selected = st.selectbox("நூலகத்தைத் தேர்ந்தெடுக்கவும்", ["-- தேர்ந்தெடுக்கவும் --"] + search_options(sorted(libraries), library_query), key=f"acc_{st.session_state['acc_library_key']}")
+        selected = st.selectbox(
+            "🔎 நூலகம் தேடல்",
+            ["-- தேர்ந்தெடுக்கவும் --"] + sorted(libraries),
+            placeholder="நூலகத்தின் பெயரை தட்டச்சு செய்து தேர்ந்தெடுக்கவும்",
+            key=f"acc_{st.session_state['acc_library_key']}",
+        )
         if selected != "-- தேர்ந்தெடுக்கவும் --":
             rows = sheet_vendor_wise.get_all_values()
             headers = [str(x).strip().casefold() for x in rows[0]]
@@ -606,14 +639,27 @@ elif menu_choice in menu_items[3:]:
                             branch_row = detail_row_no
                 except Exception as error:
                     st.warning(f"⚠️ Lib_Detail பிழை: {error}")
-            book_query = st.text_input("🔎 தலைப்பு / ஆசிரியர் தேடல்", placeholder="தலைப்பு (அல்லது) ஆசிரியர் பெயர்", key="library_book_search_t5")
-            book_query_normalized = clean_text(book_query)
+            library_rows = [
+                row for row in rows[1:]
+                if len(row) > li and str(row[li]).strip() == libraries[selected]
+            ]
+            title_lookup = {
+                f"{row[ti] if len(row) > ti else ''} — {row[3] if len(row) > 3 else ''}":
+                (row[ti] if len(row) > ti else "")
+                for row in library_rows
+            }
+            selected_book = st.selectbox(
+                "🔎 தலைப்பு / ஆசிரியர் தேடல்",
+                ["-- அனைத்து தலைப்புகளும் --"] + list(title_lookup),
+                placeholder="தலைப்பு (அல்லது) ஆசிரியர் பெயரை தட்டச்சு செய்யவும்",
+                key="library_book_t5",
+            )
+            selected_book_title = title_lookup.get(selected_book)
             records = []
             for row_no, row in enumerate(rows[1:], 2):
                 if len(row) > li and str(row[li]).strip() == libraries[selected]:
                     row_title = row[ti] if len(row) > ti else ""
-                    row_author = row[3] if len(row) > 3 else ""
-                    if book_query_normalized and book_query_normalized not in clean_text(row_title) and book_query_normalized not in clean_text(row_author):
+                    if selected_book_title and row_title != selected_book_title:
                         continue
                     qty = int(row[qi]) if len(row) > qi and str(row[qi]).isdigit() else 1
                     received = int(row[ri]) if len(row) > ri and str(row[ri]).isdigit() else 0
