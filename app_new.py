@@ -357,8 +357,8 @@ def pdf_bytes(df, title):
         "report_body",
         parent=styles["BodyText"],
         fontName=PDF_FONT_REGULAR,
-        fontSize=7,
-        leading=8,
+        fontSize=8,
+        leading=10,
     )
 
     columns = list(df.columns)
