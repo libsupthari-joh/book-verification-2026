@@ -8,7 +8,6 @@ import time
 from datetime import datetime
 from urllib.request import Request, urlopen
 from xml.sax.saxutils import escape as xml_escape
-
 import gspread
 import pandas as pd
 import streamlit as st
@@ -41,8 +40,7 @@ st.markdown(
 :root{--navy:#071a38;--blue:#1565c0;--cyan:#00acc1;--gold:#f59e0b}
 html,body,[class*="css"]{-webkit-tap-highlight-color:transparent}
 .stApp{background:radial-gradient(circle at 8% 8%,rgba(0,188,212,.12),transparent 28%),linear-gradient(135deg,#eef5ff,#fbfdff 50%,#eaf2ff)}
-[data-testid="stHeader"]{background:transparent}
-[data-testid="stToolbar"]{visibility:hidden}
+[data-testid="stHeader"]{background:transparent}[data-testid="stToolbar"]{visibility:hidden}
 h1{font-size:20px!important;padding:14px 16px!important;border-radius:16px;color:#fff!important;background:linear-gradient(135deg,#071a38,#1565c0 58%,#00acc1);box-shadow:0 6px 0 #041126,0 14px 24px #071a3833;text-shadow:2px 3px 3px #0006;text-align:center;margin-bottom:16px!important;line-height:1.4}
 h2,h3{color:#092653!important}
 .profile-card,.book-info-card,.login-card{background:linear-gradient(145deg,#fff,#eef5ff);border:1px solid #cfe0f5;box-shadow:5px 5px 0 #c8d8ed,0 8px 18px #08265318}
@@ -57,16 +55,7 @@ div[data-testid="stTextInput"] label,div[data-testid="stSelectbox"] label,div[da
 div[data-baseweb="select"]>div{min-height:48px!important;font-size:15px!important}
 input[type="number"],input[type="text"],input[type="password"]{min-height:44px!important;font-size:15px!important}
 .login-card{text-align:center;border-radius:26px;padding:34px 26px 30px;position:relative;overflow:hidden}
-.login-card .login-icon{font-size:52px}
-.login-card .login-badge{display:inline-block;margin-top:10px;padding:5px 16px;border-radius:999px;background:linear-gradient(135deg,#071a38,#1565c0 60%,#00acc1);color:#fff;font-weight:800}
-.login-card h2{margin:16px 0 6px;font-size:22px}
-.login-card p{margin:0;color:#5b7aa3;font-size:13.5px;font-weight:600}
-html,body,.stApp,button,input,textarea,select,label,td,th,div[data-baseweb="select"]>div,[data-testid="stMetric"]{
-  font-family:"Segoe UI","Noto Sans","Noto Sans Tamil","Noto Color Emoji","Segoe UI Emoji","Apple Color Emoji",sans-serif;
-  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
-.stButton>button,.stDownloadButton>button{font-family:"Segoe UI","Noto Color Emoji","Segoe UI Emoji","Apple Color Emoji",sans-serif;letter-spacing:.2px}
-button,label,td,th{font-variant-emoji:emoji}
-.stButton>button span{display:inline-flex;align-items:center;gap:6px;justify-content:center}
+.login-card .login-icon{font-size:52px}.login-card .login-badge{display:inline-block;margin-top:10px;padding:5px 16px;border-radius:999px;background:linear-gradient(135deg,#071a38,#1565c0 60%,#00acc1);color:#fff;font-weight:800}.login-card h2{margin:16px 0 6px;font-size:22px}.login-card p{margin:0;color:#5b7aa3;font-size:13.5px;font-weight:600}
 @media(max-width:640px){h1{font-size:17px!important}.block-container{padding:12px 10px!important}[data-testid="column"]{width:100%!important;flex:1 1 100%!important;min-width:100%!important;margin-bottom:8px!important}}
 </style>
 """,
@@ -104,6 +93,7 @@ def verify_session_token(phone, token):
     return bool(phone and token) and hmac.compare_digest(make_session_token(phone), str(token))
 
 
+# For production, move these users to a database or Streamlit secrets.
 USERS_DATABASE = {
     "9842759306": {"password_hash": hash_password("Hari@@1979"), "role": "Admin", "name": "முதன்மை நிர்வாகி (Admin)"},
     "9787555290": {"password_hash": hash_password("123456"), "role": "User", "name": "சரிபார்ப்பு பயனர் 1 (User)"},
@@ -172,96 +162,58 @@ EXCEL_FILE = "Book Supply-2026.xlsx"
 SPREADSHEET_ID = "1LNogKaLvdqkoITSLE971jTBIy9QO4s90j1WDxY1cDrc"
 DRIVE_FOLDER_ID = "1T3HKPAExdNtC-LOCuh2cDXI-6Kf8dzyq"
 
-_CLEAN_LEAD = re.compile(r"^\s*\d+[\.\s\-_]*")
-_CLEAN_KEEP = re.compile(r"[^a-zA-Z0-9\u0B80-\u0BFF\s]")
 
-
-def clean_text(value):
-    if value is None or pd.isna(value):
-        return ""
-    value = _CLEAN_LEAD.sub("", str(value).strip())
-    return _CLEAN_KEEP.sub("", value).casefold().strip()
-
-
-def _pick_xlsx_engine():
-    try:
-        import calamine  # noqa: F401
-        return "calamine"
-    except Exception:
-        return None
-
-
-_EXCEL_ENGINE = _pick_xlsx_engine()
-
-
-def _load_data_impl(file_path, engine):
-    kwargs = {"engine": engine} if engine else {}
-    excel = pd.ExcelFile(file_path, **kwargs)
-    vendor = pd.read_excel(file_path, sheet_name="Vendor Name", **kwargs) if "Vendor Name" in excel.sheet_names else pd.DataFrame()
-    sheets = [name for name in excel.sheet_names if "Vendor Wise Book Data" in name]
-    books = pd.read_excel(file_path, sheet_name=sheets[0], **kwargs) if sheets else pd.DataFrame()
-    return vendor, books
-
-
-@st.cache_data(show_spinner=False)
+@st.cache_data
 def load_data(file_path):
     if not os.path.exists(file_path):
         return None, None
-    try:
-        return _load_data_impl(file_path, _EXCEL_ENGINE)
-    except Exception:
-        return _load_data_impl(file_path, None)
+    excel = pd.ExcelFile(file_path, engine="openpyxl")
+    vendor = pd.read_excel(file_path, sheet_name="Vendor Name", engine="openpyxl") if "Vendor Name" in excel.sheet_names else pd.DataFrame()
+    sheets = [name for name in excel.sheet_names if "Vendor Wise Book Data" in name]
+    books = pd.read_excel(file_path, sheet_name=sheets[0], engine="openpyxl") if sheets else pd.DataFrame()
+    return vendor, books
 
 
-@st.cache_resource(show_spinner=False)
-def get_sheet_client():
+@st.cache_resource
+def init_gspread():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(st.secrets["gcp_service_account"]), scope)
     return gspread.authorize(creds)
 
 
-@st.cache_resource(show_spinner=False)
+@st.cache_resource
 def get_drive_service():
     creds = Credentials.from_service_account_info(dict(st.secrets["gcp_service_account"]), scopes=["https://www.googleapis.com/auth/drive"])
     return build("drive", "v3", credentials=creds, cache_discovery=False)
 
 
-@st.cache_resource(show_spinner=False)
-def sheets():
-    result = {"titles": []}
-    try:
-        spreadsheet = get_sheet_client().open_by_key(SPREADSHEET_ID)
-        worksheets = {w.title.strip().casefold(): w for w in spreadsheet.worksheets()}
-    except Exception as error:
-        result["error"] = error
-        return result
-    matched = False
-    for title, worksheet in worksheets.items():
-        result["titles"].append(title)
-        if ("physically verified" in title) or ("physical verification" in title) or (("physic" in title) and ("receiv" in title or "verif" in title)):
-            if not matched:
-                result["physically"] = worksheet
-                result["physically_title"] = title
-                matched = True
-        if "vendor wise book data" in title:
-            result["vendor_wise"] = worksheet
-            result["vendor_wise_title"] = title
-        elif "lib_detail" in title or "library" in title:
-            result["lib_detail"] = worksheet
-    return result
+def clean_text(value):
+    if value is None or pd.isna(value):
+        return ""
+    value = re.sub(r"^\s*\d+[\.\s\-_]*", "", str(value).strip())
+    # Keep Tamil, Latin, numbers and whitespace; this makes search tolerant of
+    # punctuation while preserving Tamil Unicode characters.
+    return re.sub(r"[^a-zA-Z0-9\u0B80-\u0BFF\s]", "", value).casefold().strip()
 
 
 vendor_df, book_df = load_data(EXCEL_FILE)
-_SHEETS = sheets()
-sheet_physically = _SHEETS.get("physically")
-sheet_vendor_wise = _SHEETS.get("vendor_wise")
-sheet_lib_detail = _SHEETS.get("lib_detail")
-if "error" in _SHEETS:
-    st.error(f"❌ Google Sheet இணைப்புப் பிழை: {_SHEETS['error']}")
+sheet_physically = sheet_vendor_wise = sheet_lib_detail = None
+try:
+    worksheets = {w.title.strip().casefold(): w for w in init_gspread().open_by_key(SPREADSHEET_ID).worksheets()}
+    for title, worksheet in worksheets.items():
+        if "physically verified" in title:
+            sheet_physically = worksheet
+        elif "vendor wise book data" in title:
+            sheet_vendor_wise = worksheet
+        elif "lib_detail" in title or "library" in title:
+            sheet_lib_detail = worksheet
+except Exception as error:
+    st.error(f"❌ Google Sheet இணைப்புப் பிழை: {error}")
 
 
 # -------------------------------- PDF export --------------------------------
 PDF_FONT_REGULAR = PDF_FONT_BOLD = None
+PDF_FONT_ERROR = None
 FONT_URL = "https://github.com/notofonts/tamil/raw/main/fonts/ttf/NotoSansTamil/NotoSansTamil-Regular.ttf"
 
 
@@ -287,17 +239,21 @@ def find_tamil_font():
         return None
 
 
-def ensure_pdf_font():
+def load_pdf_font():
     global PDF_FONT_REGULAR, PDF_FONT_BOLD
-    if PDF_FONT_REGULAR and PDF_FONT_BOLD:
-        return
     path = find_tamil_font()
     if not path:
-        raise RuntimeError("fonts/NotoSansTamil-Regular.ttf கிடைக்கவில்லை; இணைய இணைப்புடன் PDF பதிவிறக்கத்தை மீண்டும் முயற்சிக்கவும்.")
+        raise FileNotFoundError("fonts/NotoSansTamil-Regular.ttf கிடைக்கவில்லை; இணைய இணைப்புடன் மீண்டும் முயற்சிக்கவும்.")
     if "TamilUI" not in pdfmetrics.getRegisteredFontNames():
         pdfmetrics.registerFont(TTFont("TamilUI", path))
         pdfmetrics.registerFontFamily("TamilUI", normal="TamilUI", bold="TamilUI", italic="TamilUI", boldItalic="TamilUI")
     PDF_FONT_REGULAR = PDF_FONT_BOLD = "TamilUI"
+
+
+try:
+    load_pdf_font()
+except Exception as error:
+    PDF_FONT_ERROR = error
 
 
 def safe_name(value):
@@ -311,7 +267,7 @@ def get_vendor_number(vendor_id_name, vendor_name):
 
 def excel_bytes(frame, sheet_name):
     output = io.BytesIO()
-    with pd.ExcelWriter(output) as writer:
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
         frame.to_excel(writer, index=False, sheet_name=str(sheet_name)[:31])
     return output.getvalue()
 
@@ -321,7 +277,8 @@ def csv_bytes(frame):
 
 
 def pdf_bytes(frame, title):
-    ensure_pdf_font()
+    if PDF_FONT_ERROR:
+        raise RuntimeError(f"Tamil PDF font could not be loaded: {PDF_FONT_ERROR}")
     output = io.BytesIO()
     document = SimpleDocTemplate(output, pagesize=landscape(A4), rightMargin=7 * mm, leftMargin=7 * mm, topMargin=7 * mm, bottomMargin=7 * mm)
     styles = getSampleStyleSheet()
@@ -360,32 +317,25 @@ def upload_pdf_to_drive(pdf_data, vendor_id, vendor_name):
     ).execute()
 
 
-@st.cache_data(show_spinner=False, max_entries=32)
-def cached_excel(frame, sheet_name):
-    return excel_bytes(frame, sheet_name)
-
-
-@st.cache_data(show_spinner=False, max_entries=32)
-def cached_csv(frame):
-    return csv_bytes(frame)
-
-
-@st.cache_data(show_spinner=False, max_entries=16)
-def cached_pdf(frame, title):
-    return pdf_bytes(frame, title)
-
-
 def download_panel(frame, prefix, sheet_name, pdf_title=None):
     st.markdown("### 📥 பதிவிறக்க வசதிகள்")
-    st.download_button("📊 Excel பதிவிறக்கம்", cached_excel(frame, sheet_name), f"{prefix}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, key=f"xlsx_{prefix}")
-    st.download_button("📄 CSV பதிவிறக்கம்", cached_csv(frame), f"{prefix}.csv", "text/csv", use_container_width=True, key=f"csv_{prefix}")
+    st.download_button("📊 Excel பதிவிறக்கம்", excel_bytes(frame, sheet_name), f"{prefix}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, key=f"xlsx_{prefix}")
+    st.download_button("📄 CSV பதிவிறக்கம்", csv_bytes(frame), f"{prefix}.csv", "text/csv", use_container_width=True, key=f"csv_{prefix}")
     try:
-        st.download_button("🧾 PDF பதிவிறக்கம்", cached_pdf(frame, pdf_title or sheet_name), f"{prefix}.pdf", "application/pdf", use_container_width=True, key=f"pdf_{prefix}")
+        pdf = pdf_bytes(frame, pdf_title or sheet_name)
+        st.download_button("🧾 PDF பதிவிறக்கம்", pdf, f"{prefix}.pdf", "application/pdf", use_container_width=True, key=f"pdf_{prefix}")
     except Exception as error:
         st.error(f"❌ PDF உருவாக்க முடியவில்லை: {error}")
 
 
 # --------------------------- Search and common UI ---------------------------
+def search_options(options, query):
+    query = clean_text(query)
+    if not query:
+        return list(options)
+    return [option for option in options if query in clean_text(option)]
+
+
 def vendor_options():
     values = []
     if vendor_df is not None and not vendor_df.empty:
@@ -402,23 +352,9 @@ def title_options(frame):
     return list(dict.fromkeys(str(value) for value in frame["Title"].dropna().tolist()))
 
 
-def append_rows_to_sheet(worksheet, rows):
-    try:
-        worksheet.append_rows(rows)
-    except Exception:
-        for row in rows:
-            worksheet.append_row(row)
-
-
 st.session_state.setdefault("search_reset", 0)
 if st.session_state["user_role"] == "Admin":
-    menu_items = [
-        "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு",
-        "🔄 2. Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்",
-        "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)",
-        "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)",
-        "⚙️ 5. Accession எண்கள் மேலாண்மை",
-    ]
+    menu_items = ["📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு", "🔄 2. Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்", "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)", "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)", "⚙️ 5. Accession எண்கள் மேலாண்மை"]
 else:
     menu_items = ["📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு"]
 if st.session_state["current_page"] not in menu_items:
@@ -441,57 +377,22 @@ if menu_choice != st.session_state["current_page"]:
 st.markdown("---")
 
 
-# ---------------------- Existing verified vendor removal ---------------------
-def remove_vendor_rows(vendor_name):
-    """Delete all rows belonging to a vendor from the Physically Verified sheet."""
-    if not sheet_physically:
-        return 0
-    rows_to_delete = []
-    try:
-        values = sheet_physically.get_all_values()
-        for index, row in enumerate(values[1:], start=2):
-            if len(row) > 4 and clean_text(row[4]) == clean_text(vendor_name):
-                rows_to_delete.append(index)
-    except Exception:
-        return 0
-    for index in reversed(rows_to_delete):
-        try:
-            sheet_physically.delete_rows(index)
-        except Exception:
-            pass
-    return len(rows_to_delete)
-
-
 # ---------------------------- Task 1: verification --------------------------
 if menu_choice == menu_items[0]:
     st.subheader("📥 பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
     if vendor_df is None or book_df is None or book_df.empty:
         st.error("❌ 'Book Supply-2026.xlsx' கோப்பு அல்லது புத்தகத் தரவு கிடைக்கவில்லை!")
         st.stop()
-
-    with st.expander("🔧 இணைப்பு ஆய்வு (Diagnostics)"):
-        for name in _SHEETS.get("titles", []):
-            st.write(f"- {name}")
-        if sheet_physically:
-            st.success(f"✅ Physically Verified சீட்: {_SHEETS.get('physically_title', '')}")
-        else:
-            st.error("❌ Physically Verified சீட் கண்டறியப்படவில்லை! 'Physically Verified' போன்ற பெயருள்ள சீட் தேவை.")
-        try:
-            has_creds = bool(st.secrets.get("gcp_service_account"))
-        except Exception:
-            has_creds = False
-        if not has_creds:
-            st.error("❌ secrets.toml-இல் gcp_service_account இல்லை!")
-
     already = set()
     if sheet_physically:
         try:
             for row in sheet_physically.get_all_values()[1:]:
-                if len(row) > 4 and row[4] and row[4].strip():
+                if len(row) > 4 and row[4]:
                     already.add(clean_text(row[4]))
+                elif row and row[0]:
+                    already.add(clean_text(row[0]))
         except Exception:
             pass
-
     vendors = vendor_options()
     st.markdown("### 🏢 1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்")
     selected = st.selectbox(
@@ -504,63 +405,43 @@ if menu_choice == menu_items[0]:
         st.session_state.update(selected_vendor=selected, temp_verified_records=[])
     if st.session_state["selected_vendor"]:
         vendor_name = st.session_state["selected_vendor"]
-        vendor_id_by_name = {}
-        for _, r in vendor_df.iterrows():
-            if len(r) > 2 and pd.notna(r.iloc[2]):
-                key = str(r.iloc[2]).strip()
-                if key not in vendor_id_by_name:
-                    vendor_id_by_name[key] = str(r.iloc[1]).strip()
         if clean_text(vendor_name) in already:
             st.error(f"⚠️ **{vendor_name}** பதிப்பகத்தின் சரிபார்ப்பு ஏற்கனவே முடிந்தது!")
-            col_change, col_redo = st.columns(2)
-            with col_change:
-                if st.button("🔄 மற்றொரு பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்", use_container_width=True):
-                    st.session_state.update(selected_vendor=None, temp_verified_records=[], vendor_key=st.session_state["vendor_key"] + 1)
-                    st.rerun()
-            with col_redo:
-                if st.button("🗑️ முந்தைய பதிவுகளை நீக்கி மீண்டும் செய்க", use_container_width=True):
-                    removed = remove_vendor_rows(vendor_name)
-                    if removed:
-                        st.success(f"✅ {removed} முந்தைய பதிவுகள் நீக்கப்பட்டன. இப்போது மீண்டும் சரிபார்த்து சேமிக்கலாம்!")
-                    else:
-                        st.info("⚠️ Sheet-ல் பதிவுகள் எதுவும் கிடைக்கவில்லை. தொடரலாம்.")
-                    st.session_state.update(selected_vendor=None, temp_verified_records=[], vendor_key=st.session_state["vendor_key"] + 1)
-                    st.rerun()
+            if st.button("🔄 மற்றொரு பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்", use_container_width=True):
+                st.session_state.update(selected_vendor=None, temp_verified_records=[], vendor_key=st.session_state["vendor_key"] + 1)
+                st.rerun()
         else:
-            vcol9 = book_df.iloc[:, 9].map(clean_text)
-            vcol10 = book_df.iloc[:, 10].map(clean_text)
-            mask = (vcol9 == clean_text(vendor_name)) | (vcol10 == clean_text(vendor_name))
+            mask = (book_df.iloc[:, 9].apply(clean_text) == clean_text(vendor_name)) | (book_df.iloc[:, 10].apply(clean_text) == clean_text(vendor_name))
             filtered = book_df[mask]
             if filtered.empty:
                 st.warning("⚠️ இந்த பதிப்பகத்திற்குப் புத்தகத் தரவுகள் இல்லை!")
             else:
                 grouped = filtered.groupby(["Title", "Author Name", "Language"], as_index=False).agg({"Quantity": "sum", "Original Price": "first", "Acccepted Price": "first", "Isbn": "first", "Book Id": "first"})
-                gby = grouped.set_index("Title")
-                author_of = dict(zip(grouped["Title"], grouped["Author Name"]))
                 c1, c2 = st.columns(2)
                 c1.metric("📚 மொத்தத் தலைப்புகள்", len(grouped))
                 c2.metric("📦 மொத்தப் படிகள்", int(grouped["Quantity"].sum()))
                 done = {item["Title"] for item in st.session_state["temp_verified_records"]}
                 remaining = [title for title in title_options(grouped) if title not in done]
                 st.markdown("### 🔍 2. தலைப்பைத் தேடி சரிபார்க்கவும்")
-                title_map = {f"{t} — {author_of.get(t, '')}": t for t in remaining}
+                title_lookup = {
+                    f"{title} — {str(grouped.loc[grouped['Title'] == title, 'Author Name'].iloc[0])}": title
+                    for title in remaining
+                }
                 selected_title_display = st.selectbox(
                     "🔎 தலைப்பு / ஆசிரியர் தேடல்",
-                    ["-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"] + list(title_map),
+                    ["-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"] + list(title_lookup),
                     placeholder="தலைப்பு (அல்லது) ஆசிரியர் பெயரை தட்டச்சு செய்யவும்",
                     key=f"title_t1_{len(done)}",
                 )
-                selected_title = title_map.get(selected_title_display, "-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --")
+                selected_title = title_lookup.get(selected_title_display, "-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --")
                 if selected_title != "-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --":
-                    book = gby.loc[selected_title]
-                    if isinstance(book, pd.DataFrame):
-                        book = book.iloc[0]
+                    book = grouped[grouped["Title"] == selected_title].iloc[0]
                     author, language, total = str(book["Author Name"] or ""), str(book["Language"] or ""), int(book["Quantity"])
                     st.markdown(f'<div class="book-info-card">📖 <b>தலைப்பு:</b> {xml_escape(selected_title)}<br>✍️ <b>ஆசிரியர்:</b> {xml_escape(author)}<br>🌐 <b>மொழி:</b> {xml_escape(language)}<br><span class="total-qty">📦 பெற வேண்டிய மொத்த எண்ணிக்கை: {total}</span></div>', unsafe_allow_html=True)
                     received = st.number_input("✍️ பெறப்பட்ட எண்ணிக்கை", min_value=0, max_value=total, value=0, step=1, key=f"received_{selected_title}")
                     st.markdown(f'<div class="not-received-card">❌ பெறப்படாத எண்ணிக்கை: {total - received}</div>', unsafe_allow_html=True)
                     if st.button("➕ தற்காலிகப் பட்டியலில் சேர்", use_container_width=True):
-                        vendor_id = vendor_id_by_name.get(vendor_name, vendor_name)
+                        vendor_id = next((str(r.iloc[1]).strip() for _, r in vendor_df.iterrows() if len(r) > 2 and str(r.iloc[2]).strip() == vendor_name), vendor_name)
                         st.session_state["temp_verified_records"].append({"Title": selected_title, "Author Name": author, "Language": language, "Total Qty": total, "Received": received, "Not Received": total - received, "Short / Extra": str(received - total) if received != total else "0", "ID with Vendor Name": vendor_id, "Vendor Name": vendor_name, "Date": datetime.now().strftime("%d-%m-%y %H:%M:%S")})
                         st.rerun()
                 if st.session_state["temp_verified_records"]:
@@ -580,21 +461,14 @@ if menu_choice == menu_items[0]:
                             st.rerun()
                     with save:
                         if st.button("💾 சீட்டில் சேமி", use_container_width=True):
-                            if not sheet_physically:
-                                st.error("❌ Physically Verified Google Sheet இணைப்பு கிடைக்கவில்லை!")
+                            if len(temp) < len(grouped):
+                                st.error(f"⚠️ மொத்தம் {len(grouped)} தலைப்புகள் உள்ளன. அனைத்தையும் சேர்க்கவும்!")
+                            elif not sheet_physically:
+                                st.error("❌ Google Sheet இணைப்பு கிடைக்கவில்லை!")
                             else:
-                                if len(temp) < len(grouped):
-                                    missing = len(grouped) - len(temp)
-                                    st.warning(f"⚠️ {missing} தலைப்புகள் இன்னும் சேர்க்கப்படவில்லை. இப்போதும் சேமிக்கப்படும்.")
                                 try:
-                                    rows = [
-                                        [item["ID with Vendor Name"], item["Title"], item["Language"],
-                                         item["Author Name"], item["Vendor Name"], item["Total Qty"],
-                                         item["Received"], item["Not Received"], item["Short / Extra"],
-                                         item["Date"]]
-                                        for item in st.session_state["temp_verified_records"]
-                                    ]
-                                    append_rows_to_sheet(sheet_physically, rows)
+                                    for item in st.session_state["temp_verified_records"]:
+                                        sheet_physically.append_row([item["ID with Vendor Name"], item["Title"], item["Language"], item["Author Name"], item["Vendor Name"], item["Total Qty"], item["Received"], item["Not Received"], item["Short / Extra"], item["Date"]])
                                     try:
                                         upload_pdf_to_drive(pdf_bytes(temp[cols], f"{vendor_name} - Physical Verification"), vendor_name, vendor_name)
                                         st.success("✅ Google Sheet மற்றும் Drive PDF-ல் சேமிக்கப்பட்டது!")
@@ -617,18 +491,11 @@ elif menu_choice == menu_items[1]:
         vendor_sheet = sheet_vendor_wise.get_all_values()
         ph = [str(x).strip().casefold() for x in physical[0]]
         wh = [str(x).strip().casefold() for x in vendor_sheet[0]]
-        vi_candidates = [i for i, x in enumerate(ph) if "vendor" in x and "id" not in x and "with" not in x]
-        vi = vi_candidates[0] if vi_candidates else 4
+        vi = next((i for i, x in enumerate(ph) if "vendor" in x), 4)
         ti = next((i for i, x in enumerate(ph) if "title" in x), 1)
         ri = next((i for i, x in enumerate(ph) if "received" in x and "not" not in x), 6)
         si = next((i for i, x in enumerate(wh) if "received" in x and "not" not in x), 18)
         vendors = sorted({row[vi].strip() for row in physical[1:] if len(row) > vi and row[vi].strip()})
-        vendor_index = {}
-        for wrow_no, wrow in enumerate(vendor_sheet[1:], 2):
-            wvendor = wrow[10] if len(wrow) > 10 else (wrow[9] if len(wrow) > 9 else "")
-            wtitle = wrow[4] if len(wrow) > 4 else ""
-            if wvendor and wtitle:
-                vendor_index.setdefault(clean_text(wvendor), []).append((wrow_no, wrow, clean_text(wtitle)))
         st.info("ஒத்திசைவு செய்ய வேண்டிய பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்.")
         selected = st.selectbox(
             "🔎 பதிப்பகம் தேடல்",
@@ -653,24 +520,179 @@ elif menu_choice == menu_items[1]:
             st.dataframe(pd.DataFrame([{"Title": r[ti], "Received": r[ri]} for r in records]), use_container_width=True, hide_index=True)
             if st.button("🚀 இந்த பதிப்பகத்திற்கு மட்டும் ஒத்திசைவு செய்க", use_container_width=True):
                 cells = []
-                target_key = clean_text(selected)
                 for prow in records:
                     remaining = int(prow[ri]) if str(prow[ri]).isdigit() else 0
-                    if remaining <= 0:
-                        continue
-                    ptitle = clean_text(prow[ti])
-                    for wrow_no, wrow, wctitle in vendor_index.get(target_key, []):
-                        if remaining <= 0:
-                            break
-                        if ptitle == wctitle:
+                    for row_no, wrow in enumerate(vendor_sheet[1:], 2):
+                        wvendor = wrow[10] if len(wrow) > 10 else (wrow[9] if len(wrow) > 9 else "")
+                        wtitle = wrow[4] if len(wrow) > 4 else ""
+                        if clean_text(selected) in clean_text(wvendor) and clean_text(prow[ti]) == clean_text(wtitle) and remaining:
                             qty = int(wrow[17]) if len(wrow) > 17 and str(wrow[17]).isdigit() else 1
                             got = min(remaining, qty)
-                            cells += [Cell(row=wrow_no, col=si + 1, value=str(got)), Cell(row=wrow_no, col=si + 2, value=str(qty - g ot)))
-                            remaining -= g ot
+                            cells += [Cell(row=row_no, col=si + 1, value=str(got)), Cell(row=row_no, col=si + 2, value=str(qty - got))]
+                            remaining -= got
                 if cells:
                     sheet_vendor_wise.update_cells(cells)
-                st.success(f"✅ {selected} ஒத்திசைக்கppedத்!")
+                st.success(f"✅ {selected} ஒத்திசைக்கப்பட்டது!")
                 time.sleep(.5)
                 st.rerun()
     except Exception as error:
         st.error(f"❌ பிழை: {error}")
+
+
+# -------------------------- Task 3: vendor details ---------------------------
+elif menu_choice == menu_items[2]:
+    st.subheader("🏢 மொத்த பதிப்பாளர் விவரங்கள் (480)")
+    if vendor_df is None or book_df is None:
+        st.error("❌ தரவு கிடைக்கவில்லை!")
+        st.stop()
+    vendors = vendor_options()
+    selected = st.selectbox(
+        "🔎 பதிப்பாளர் தேடல்",
+        ["-- அனைத்து பதிப்பாளர்களும் (All Publishers) --"] + vendors,
+        placeholder="பதிப்பகத்தின் பெயரை தட்டச்சு செய்து தேர்ந்தெடுக்கவும்",
+        key="vendor_t3",
+    )
+    if selected.startswith("-- அனைத்து"):
+        result = vendor_df
+    else:
+        result = book_df[(book_df.iloc[:, 9].apply(clean_text) == clean_text(selected)) | (book_df.iloc[:, 10].apply(clean_text) == clean_text(selected))]
+    st.dataframe(result, use_container_width=True, hide_index=True)
+    if not result.empty:
+        download_panel(result, safe_name(selected) + "_Vendor_Details", "Vendor Details")
+
+
+# ---------------------- Tasks 4 and 5: library views -------------------------
+elif menu_choice in menu_items[3:]:
+    if book_df is None or book_df.empty:
+        st.error("❌ புத்தகத் தரவு கிடைக்கவில்லை!")
+        st.stop()
+    base = book_df.copy()
+    cmap = {str(c).casefold().strip(): c for c in base.columns}
+    lib_name_col = next((cmap[k] for k in cmap if "library name" in k), base.columns[12] if len(base.columns) > 12 else None)
+    lib_id_col = next((cmap[k] for k in cmap if "librarianid" in k or "lib id" in k), base.columns[11] if len(base.columns) > 11 else None)
+    libraries = {}
+    if lib_name_col and lib_id_col:
+        for _, row in base.dropna(subset=[lib_name_col, lib_id_col]).iterrows():
+            libraries[str(row[lib_name_col]).strip()] = str(row[lib_id_col]).strip()
+    if menu_choice == menu_items[3]:
+        st.subheader("🏛️ நூலகத்திற்கு விநியோகம் (103)")
+        selected = st.selectbox(
+            "🔎 நூலகம் தேடல்",
+            ["-- தேர்ந்தெடுக்கவும் --", "-- அனைத்து நூலகங்களும் --"] + sorted(libraries),
+            placeholder="நூலகத்தின் பெயரை தட்டச்சு செய்து தேர்ந்தெடுக்கவும்",
+            key=f"library_{st.session_state['library_key']}",
+        )
+        if selected != "-- தேர்ந்தெடுக்கவும் --":
+            result = base if selected.startswith("-- அனைத்து") else base[base[lib_id_col].astype(str).str.strip() == libraries[selected]]
+            result = result.drop(columns=["S.No"], errors="ignore")
+            result.insert(0, "S.No", range(1, len(result) + 1))
+            title_lookup = {
+                f"{row.get('Title', '')} — {row.get('Author Name', '')}": row.get("Title", "")
+                for _, row in result.iterrows()
+            }
+            selected_book = st.selectbox(
+                "🔎 தலைப்பு / ஆசிரியர் தேடல்",
+                ["-- அனைத்து தலைப்புகளும் --"] + list(title_lookup),
+                placeholder="தலைப்பு (அல்லது) ஆசிரியர் பெயரை தட்டச்சு செய்யவும்",
+                key="library_book_t4",
+            )
+            if selected_book != "-- அனைத்து தலைப்புகளும் --":
+                result = result[result["Title"] == title_lookup.get(selected_book)]
+            st.dataframe(result, use_container_width=True, hide_index=True)
+            if not result.empty:
+                download_panel(result, safe_name(selected) + "_Distribution", "Library Distribution")
+    else:
+        st.subheader("⚙️ தானியங்கி மைய மற்றும் கிளை நூல் சேர்க்கை எண்கள் மேலாண்மை")
+        st.error("🚨 பெறப்பட்ட நூல்களுக்கு (Received Qty) மட்டுமே சேர்க்கை எண்கள் உருவாக்கப்படும்.")
+        if not sheet_vendor_wise:
+            st.error("❌ Vendor Wise Book Data இணைப்பு கிடைக்கவில்லை!")
+            st.stop()
+        selected = st.selectbox(
+            "🔎 நூலகம் தேடல்",
+            ["-- தேர்ந்தெடுக்கவும் --"] + sorted(libraries),
+            placeholder="நூலகத்தின் பெயரை தட்டச்சு செய்து தேர்ந்தெடுக்கவும்",
+            key=f"acc_{st.session_state['acc_library_key']}",
+        )
+        if selected != "-- தேர்ந்தெடுக்கவும் --":
+            rows = sheet_vendor_wise.get_all_values()
+            headers = [str(x).strip().casefold() for x in rows[0]]
+            li = next((i for i, x in enumerate(headers) if "librarianid" in x or "lib id" in x), 11)
+            ti = next((i for i, x in enumerate(headers) if "title" in x), 4)
+            qi = next((i for i, x in enumerate(headers) if x == "quantity"), 17)
+            ri = next((i for i, x in enumerate(headers) if "received" in x and "not" not in x), 18)
+            # Lib_Detail stores the last used central number in column F and
+            # the last used branch number for this library in column G.
+            # Reading and writing these counters prevents duplicate numbers
+            # when the same library is opened again.
+            central = branch = 0
+            central_row = branch_row = None
+            if sheet_lib_detail:
+                try:
+                    detail_rows = sheet_lib_detail.get_all_values()
+                    for detail_row_no, detail in enumerate(detail_rows[1:], 2):
+                        if central_row is None and len(detail) > 5 and str(detail[5]).strip().isdigit():
+                            central = int(detail[5])
+                            central_row = detail_row_no
+                        if len(detail) > 1 and str(detail[1]).strip() == libraries[selected]:
+                            if len(detail) > 6 and str(detail[6]).strip().isdigit():
+                                branch = int(detail[6])
+                            branch_row = detail_row_no
+                except Exception as error:
+                    st.warning(f"⚠️ Lib_Detail பிழை: {error}")
+            library_rows = [
+                row for row in rows[1:]
+                if len(row) > li and str(row[li]).strip() == libraries[selected]
+            ]
+            title_lookup = {
+                f"{row[ti] if len(row) > ti else ''} — {row[3] if len(row) > 3 else ''}":
+                (row[ti] if len(row) > ti else "")
+                for row in library_rows
+            }
+            selected_book = st.selectbox(
+                "🔎 தலைப்பு / ஆசிரியர் தேடல்",
+                ["-- அனைத்து தலைப்புகளும் --"] + list(title_lookup),
+                placeholder="தலைப்பு (அல்லது) ஆசிரியர் பெயரை தட்டச்சு செய்யவும்",
+                key="library_book_t5",
+            )
+            selected_book_title = title_lookup.get(selected_book)
+            records = []
+            for row_no, row in enumerate(rows[1:], 2):
+                if len(row) > li and str(row[li]).strip() == libraries[selected]:
+                    row_title = row[ti] if len(row) > ti else ""
+                    if selected_book_title and row_title != selected_book_title:
+                        continue
+                    qty = int(row[qi]) if len(row) > qi and str(row[qi]).isdigit() else 1
+                    received = int(row[ri]) if len(row) > ri and str(row[ri]).isdigit() else 0
+                    old_c = row[20].strip() if len(row) > 20 else ""
+                    old_b = row[21].strip() if len(row) > 21 else ""
+                    if not old_c and not old_b:
+                        c = [str(central + n) for n in range(1, received + 1)]
+                        b = [str(branch + n) for n in range(1, received + 1)]
+                        central += received
+                        branch += received
+                    else:
+                        c, b = [old_c], [old_b]
+                    records.append({"Sheet Row": row_no, "Title": row[ti] if len(row) > ti else "", "Author Name": row[3] if len(row) > 3 else "", "Quantity": qty, "Received": received, "Central Accession No": ", ".join(x for x in c if x), "Branch Accession No": ", ".join(x for x in b if x), "_new": not old_c and not old_b})
+            if records:
+                visible = pd.DataFrame(records).drop(columns=["Sheet Row", "_new"])
+                st.dataframe(visible, use_container_width=True, hide_index=True)
+                if st.button("💾 Google Sheet (U & V தூண்களில்) சேமி", use_container_width=True):
+                    cells = []
+                    for record in records:
+                        if record["_new"]:
+                            cells += [Cell(row=record["Sheet Row"], col=21, value=record["Central Accession No"]), Cell(row=record["Sheet Row"], col=22, value=record["Branch Accession No"])]
+                    if cells:
+                        sheet_vendor_wise.update_cells(cells)
+                    if sheet_lib_detail and central_row and branch_row:
+                        try:
+                            sheet_lib_detail.update_cells([
+                                Cell(row=central_row, col=6, value=str(central)),
+                                Cell(row=branch_row, col=7, value=str(branch)),
+                            ])
+                        except Exception as error:
+                            st.warning(f"⚠️ Lib_Detail எண்ணிக்கை புதுப்பிக்கப்படவில்லை: {error}")
+                    st.success("✅ சேர்க்கை எண்கள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
+                    st.rerun()
+                download_panel(visible, safe_name(selected) + "_Accession_Register", "Accession Register")
+            else:
+                st.warning("⚠️ இந்த நூலகத்திற்கு புத்தகங்கள் எதுவும் இல்லை.")
