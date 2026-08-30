@@ -388,6 +388,15 @@ def render_task_switcher(current_task):
 # ============================================================
 if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு":
     st.subheader("📥 பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
+
+    # Show the result of the last "சீட்டில் சேமி" click here — this survives
+    # the st.rerun() that follows a save, so the confirmation (or failure)
+    # doesn't just flash for a second and disappear.
+    _last_msg = st.session_state.pop("task1_save_message", None)
+    if _last_msg:
+        _msg_kind, _msg_text = _last_msg
+        getattr(st, _msg_kind)(_msg_text)
+
     if vendor_df is None or book_df is None:
         st.error("❌ 'Book Supply-2026.xlsx' கோப்பு காணப்படவில்லை!")
         st.stop()
