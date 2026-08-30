@@ -192,7 +192,7 @@ if not st.session_state["logged_in"]:
 # 4. CONFIGURATION
 # ============================================================
 EXCEL_FILE = "Book Supply-2026.xlsx"
-SPREADSHEET_ID = "1LNogKaLvdqkoITSLE971jTBIy9QO4s90j1WDxY1cDrc"
+SPREADSHEET_ID = "1l4uSZ_J_kUgM68b7HzrJM_SCN1DRULa-5LpJucs5D9U"
 
 # ============================================================
 # 5. DATA CONNECTION
