@@ -447,8 +447,9 @@ if menu_choice == menu_items[0]:
     )
     if selected != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --" and selected != st.session_state["selected_vendor"]:
         st.session_state.update(selected_vendor=selected, temp_verified_records=[])
-    if st.session_state["selected_vendor"]:
+        if st.session_state["selected_vendor"]:
         vendor_name = st.session_state["selected_vendor"]
+        vendor_id_by_name = {str(r.iloc[2]).strip(): str(r.iloc[1]).strip() for _, r in vendor_df.iterrows() if len(r) > 2 and pd.notna(r.iloc[2])}
         if clean_text(vendor_name) in already:
             st.error(f"⚠️ **{vendor_name}** பதிப்பகத்தின் சரிபார்ப்பு ஏற்கனவே முடிந்தது!")
             if st.button("🔄 மற்றொரு பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்", use_container_width=True):
@@ -487,6 +488,7 @@ if menu_choice == menu_items[0]:
                     st.markdown(f'<div class="book-info-card">📖 <b>தலைப்பு:</b> {xml_escape(selected_title)}<br>✍️ <b>ஆசிரியர்:</b> {xml_escape(author)}<br>🌐 <b>மொழி:</b> {xml_escape(language)}<br><span class="total-qty">📦 பெற வேண்டிய மொத்த எண்ணிக்கை: {total}</span></div>', unsafe_allow_html=True)
                     received = st.number_input("✍️ பெறப்பட்ட எண்ணிக்கை", min_value=0, max_value=total, value=0, step=1, key=f"received_{selected_title}")
                     st.markdown(f'<div class="not-received-card">❌ பெறப்படாத எண்ணிக்கை: {total - received}</div>', unsafe_allow_html=True)
+                    
                     if st.button("➕ தற்காலிகப் பட்டியலில் சேர்", use_container_width=True):
                         vendor_id = vendor_id_by_name.get(vendor_name, vendor_name)
                         st.session_state["temp_verified_records"].append({"Title": selected_title, "Author Name": author, "Language": language, "Total Qty": total, "Received": received, "Not Received": total - received, "Short / Extra": str(received - total) if received != total else "0", "ID with Vendor Name": vendor_id, "Vendor Name": vendor_name, "Date": datetime.now().strftime("%d-%m-%y %H:%M:%S")})
