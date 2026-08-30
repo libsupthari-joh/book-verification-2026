@@ -739,4 +739,21 @@ elif menu_choice in menu_items[3:]:
             if records:
                 visible = pd.DataFrame(records).drop(columns=["Sheet Row", "_new"])
                 st.dataframe(visible, use_container_width=True, hide_index=True)
-                if st.button("💾 Google Sheet (U & V தூண்களில்) சேமி", use_container_width=True):
+                                if st.button("💾 Google Sheet (U & V தூண்களில்) சேமி", use_container_width=True):
+                    cells = []
+                    for record in records:
+                        if record["_new"]:
+                            cells += [Cell(row=record["Sheet Row"], col=21, value=record["Central Accession No"]),
+                                      Cell(row=record["Sheet Row"], col=22, value=record["Branch Accession No"])]
+                    if cells:
+                        sheet_vendor_wise.update_cells(cells)
+                    if sheet_lib_detail and central_row and branch_row:
+                        try:
+                            sheet_lib_detail.update_cells([
+                                Cell(row=central_row, col=6, value=str(central)),
+                                Cell(row=branch_row, col=7, value=str(branch)),
+                            ])
+                        except Exception as error:
+                            st.warning(f"⚠️ Lib_Detail எண்ணிக்கை புதுப்பிக்கப்படவில்லை: {error}")
+                    st.success("✅ சேர்க்கை எண்கள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
+                    st.rerun()
