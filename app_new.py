@@ -61,7 +61,6 @@ input[type="number"],input[type="text"],input[type="password"]{min-height:44px!i
 .login-card .login-badge{display:inline-block;margin-top:10px;padding:5px 16px;border-radius:999px;background:linear-gradient(135deg,#071a38,#1565c0 60%,#00acc1);color:#fff;font-weight:800}
 .login-card h2{margin:16px 0 6px;font-size:22px}
 .login-card p{margin:0;color:#5b7aa3;font-size:13.5px;font-weight:600}
-/* ---- Improved emoji / icon rendering ---- */
 html,body,.stApp,button,input,textarea,select,label,td,th,div[data-baseweb="select"]>div,[data-testid="stMetric"]{
   font-family:"Segoe UI","Noto Sans","Noto Sans Tamil","Noto Color Emoji","Segoe UI Emoji","Apple Color Emoji",sans-serif;
   -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
@@ -398,7 +397,13 @@ def title_options(frame):
 
 st.session_state.setdefault("search_reset", 0)
 if st.session_state["user_role"] == "Admin":
-    menu_items = ["📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு", "🔄 2. Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்", "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)", "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)", "⚙️ 5. Accession எண்கள் மேலாண்மை"]
+    menu_items = [
+        "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு",
+        "🔄 2. Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்",
+        "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)",
+        "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)",
+        "⚙️ 5. Accession எண்கள் மேலாண்மை",
+    ]
 else:
     menu_items = ["📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு"]
 if st.session_state["current_page"] not in menu_items:
@@ -421,22 +426,45 @@ if menu_choice != st.session_state["current_page"]:
 st.markdown("---")
 
 
+# ---------------------- Existing verified vendor removal ---------------------
+def remove_vendor_rows(vendor_name):
+    """Delete all rows belonging to a vendor from the Physically Verified sheet."""
+    if not sheet_physically:
+        return 0
+    rows_to_delete = []
+    try:
+        values = sheet_physically.get_all_values()
+        for index, row in enumerate(values[1:], start=2):
+            if len(row) > 4 and clean_text(row[4]) == clean_text(vendor_name):
+                rows_to_delete.append(index)
+    except Exception:
+        return 0
+    for index in reversed(rows_to_delete):
+        try:
+            sheet_physically.delete_rows(index)
+        except Exception:
+            pass
+    return len(rows_to_delete)
+
+
 # ---------------------------- Task 1: verification --------------------------
 if menu_choice == menu_items[0]:
     st.subheader("📥 பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
     if vendor_df is None or book_df is None or book_df.empty:
         st.error("❌ 'Book Supply-2026.xlsx' கோப்பு அல்லது புத்தகத் தரவு கிடைக்கவில்லை!")
         st.stop()
+
+    # Correct "already verified" check: only the Vendor Name column is used.
+    # (Previously the ID column was also matched, which caused false positives.)
     already = set()
     if sheet_physically:
         try:
             for row in sheet_physically.get_all_values()[1:]:
-                if len(row) > 4 and row[4]:
+                if len(row) > 4 and row[4] and row[4].strip():
                     already.add(clean_text(row[4]))
-                elif row and row[0]:
-                    already.add(clean_text(row[0]))
         except Exception:
             pass
+
     vendors = vendor_options()
     st.markdown("### 🏢 1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்")
     selected = st.selectbox(
@@ -457,9 +485,20 @@ if menu_choice == menu_items[0]:
                     vendor_id_by_name[key] = str(r.iloc[1]).strip()
         if clean_text(vendor_name) in already:
             st.error(f"⚠️ **{vendor_name}** பதிப்பகத்தின் சரிபார்ப்பு ஏற்கனவே முடிந்தது!")
-            if st.button("🔄 மற்றொரு பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்", use_container_width=True):
-                st.session_state.update(selected_vendor=None, temp_verified_records=[], vendor_key=st.session_state["vendor_key"] + 1)
-                st.rerun()
+            col_change, col_redo = st.columns(2)
+            with col_change:
+                if st.button("🔄 மற்றொரு பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்", use_container_width=True):
+                    st.session_state.update(selected_vendor=None, temp_verified_records=[], vendor_key=st.session_state["vendor_key"] + 1)
+                    st.rerun()
+            with col_redo:
+                if st.button("🗑️ முந்தைய பதிவுகளை நீக்கி மீண்டும் செய்க", use_container_width=True):
+                    removed = remove_vendor_rows(vendor_name)
+                    if removed:
+                        st.success(f"✅ {removed} முந்தைய பதிவுகள் நீக்கப்பட்டன. இப்போது மீண்டும் சரிபார்த்து சேமிக்கலாம்!")
+                    else:
+                        st.info("⚠️ Sheet-ல் பதிவுகள் எதுவும் கிடைக்கவில்லை. தொடரலாம்.")
+                    st.session_state.update(selected_vendor=None, temp_verified_records=[], vendor_key=st.session_state["vendor_key"] + 1)
+                    st.rerun()
         else:
             vcol9 = book_df.iloc[:, 9].map(clean_text)
             vcol10 = book_df.iloc[:, 10].map(clean_text)
@@ -520,7 +559,13 @@ if menu_choice == menu_items[0]:
                                 st.error("❌ Google Sheet இணைப்பு கிடைக்கவில்லை!")
                             else:
                                 try:
-                                    rows = [[item["ID with Vendor Name"], item["Title"], item["Language"], item["Author Name"], item["Vendor Name"], item["Total Qty"], item["Received"], item["Not Received"], item["Short / Extra"], item["Date"]] for item in st.session_state["temp_verified_records"]]
+                                    rows = [
+                                        [item["ID with Vendor Name"], item["Title"], item["Language"],
+                                         item["Author Name"], item["Vendor Name"], item["Total Qty"],
+                                         item["Received"], item["Not Received"], item["Short / Extra"],
+                                         item["Date"]]
+                                        for item in st.session_state["temp_verified_records"]
+                                    ]
                                     sheet_physically.append_rows(rows)
                                     try:
                                         upload_pdf_to_drive(pdf_bytes(temp[cols], f"{vendor_name} - Physical Verification"), vendor_name, vendor_name)
@@ -735,11 +780,20 @@ elif menu_choice in menu_items[3:]:
                         branch += received
                     else:
                         c, b = [old_c], [old_b]
-                    records.append({"Sheet Row": row_no, "Title": row[ti] if len(row) > ti else "", "Author Name": row[3] if len(row) > 3 else "", "Quantity": qty, "Received": received, "Central Accession No": ", ".join(x for x in c if x), "Branch Accession No": ", ".join(x for x in b if x), "_new": not old_c and not old_b})
+                    records.append({
+                        "Sheet Row": row_no,
+                        "Title": row[ti] if len(row) > ti else "",
+                        "Author Name": row[3] if len(row) > 3 else "",
+                        "Quantity": qty,
+                        "Received": received,
+                        "Central Accession No": ", ".join(x for x in c if x),
+                        "Branch Accession No": ", ".join(x for x in b if x),
+                        "_new": not old_c and not old_b,
+                    })
             if records:
                 visible = pd.DataFrame(records).drop(columns=["Sheet Row", "_new"])
                 st.dataframe(visible, use_container_width=True, hide_index=True)
-                                if st.button("💾 Google Sheet (U & V தூண்களில்) சேமி", use_container_width=True):
+                if st.button("💾 Google Sheet (U & V தூண்களில்) சேமி", use_container_width=True):
                     cells = []
                     for record in records:
                         if record["_new"]:
@@ -757,3 +811,6 @@ elif menu_choice in menu_items[3:]:
                             st.warning(f"⚠️ Lib_Detail எண்ணிக்கை புதுப்பிக்கப்படவில்லை: {error}")
                     st.success("✅ சேர்க்கை எண்கள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
                     st.rerun()
+                download_panel(visible, safe_name(selected) + "_Accession_Register", "Accession Register")
+            else:
+                st.warning("⚠️ இந்த நூலகத்திற்கு புத்தகங்கள் எதுவும் இல்லை.")
