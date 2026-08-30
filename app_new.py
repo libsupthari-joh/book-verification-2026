@@ -70,9 +70,8 @@ button,label,td,th{font-variant-emoji:emoji}
 @media(max-width:640px){h1{font-size:17px!important}.block-container{padding:12px 10px!important}[data-testid="column"]{width:100%!important;flex:1 1 100%!important;min-width:100%!important;margin-bottom:8px!important}}
 </style>
 """,
-    unsafe_allow_html=True,
+    unsafe_html=True,
 )
-
 
 # ------------------------------ Authentication ------------------------------
 def hash_password(password):
