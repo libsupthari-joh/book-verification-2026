@@ -233,8 +233,19 @@ vendor_df, book_df = load_data(EXCEL_FILE)
 sheet_physically = None
 sheet_vendor_wise = None
 sheet_lib_detail = None
+_connected_spreadsheet_title = None
+_connected_spreadsheet_url = None
+_connection_error = None
+_service_account_email = None
 try:
-    worksheets = {w.title.strip().lower(): w for w in init_gspread().open_by_key(SPREADSHEET_ID).worksheets()}
+    _service_account_email = dict(st.secrets["gcp_service_account"]).get("client_email")
+except Exception:
+    pass
+try:
+    _opened_spreadsheet = init_gspread().open_by_key(SPREADSHEET_ID)
+    _connected_spreadsheet_title = _opened_spreadsheet.title
+    _connected_spreadsheet_url = _opened_spreadsheet.url
+    worksheets = {w.title.strip().lower(): w for w in _opened_spreadsheet.worksheets()}
     for title, worksheet in worksheets.items():
         if "physically verified" in title:
             sheet_physically = worksheet
@@ -243,7 +254,34 @@ try:
         elif "lib_detail" in title or "library" in title:
             sheet_lib_detail = worksheet
 except Exception as error:
+    _connection_error = str(error)
     st.error(f"❌ Google Sheet இணைப்புப் பிழை: {error}")
+
+def render_connection_diagnostics():
+    """Shows exactly which Google Sheet the app is connected to, which tabs
+    it found, and the service-account email — so there is never any
+    ambiguity about 'which document' data is being written to."""
+    with st.expander("🔧 இணைப்பு தகவல் (Diagnostics) — சேமிப்பு சரியாக நடக்கிறதா எனச் சரிபார்க்க"):
+        if _connection_error:
+            st.error(f"Google Sheet இணைப்பில் பிழை: {_connection_error}")
+        else:
+            st.markdown(f"**இணைக்கப்பட்ட Spreadsheet:** {_connected_spreadsheet_title or '—'}")
+            if _connected_spreadsheet_url:
+                st.markdown(f"🔗 [இந்த Sheet-ஐ Google-ல் திற]({_connected_spreadsheet_url})")
+            st.markdown(f"**Spreadsheet ID (கோட்டில் உள்ளது):** `{SPREADSHEET_ID}`")
+            st.markdown(f"- Physically verified தாவல்: {'✅ கிடைத்தது' if sheet_physically else '❌ கிடைக்கவில்லை'}")
+            st.markdown(f"- Vendor Wise Book Data தாவல்: {'✅ கிடைத்தது' if sheet_vendor_wise else '❌ கிடைக்கவில்லை'}")
+            st.markdown(f"- Lib_Detail தாவல்: {'✅ கிடைத்தது' if sheet_lib_detail else '❌ கிடைக்கவில்லை'}")
+            if sheet_physically:
+                try:
+                    _row_count = len(sheet_physically.get_all_values())
+                    st.markdown(f"- Physically verified தாவலில் தற்போது **{_row_count - 1} தரவு வரிசைகள்** உள்ளன (header தவிர்த்து).")
+                except Exception as diag_error:
+                    st.warning(f"வரிசை எண்ணிக்கை படிக்க முடியவில்லை: {diag_error}")
+        if _service_account_email:
+            st.markdown(f"**Service Account Email (Drive folder-ஐ இதனுடன் Share செய்யவும்):** `{_service_account_email}`")
+        else:
+            st.markdown("**Service Account Email:** கண்டறிய முடியவில்லை.")
 
 # ============================================================
 # 6. FILE HELPERS
@@ -388,6 +426,7 @@ def render_task_switcher(current_task):
 # ============================================================
 if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு":
     st.subheader("📥 பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
+    render_connection_diagnostics()
 
     # Show the result of the last "சீட்டில் சேமி" click here — this survives
     # the st.rerun() that follows a save, so the confirmation (or failure)
@@ -509,15 +548,35 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                             else:
                                 try:
                                     with st.spinner("சீட்டில் சேமிக்கப்படுகிறது..."):
-                                        for item in st.session_state["temp_verified_records"]:
+                                        rows_before = len(sheet_physically.get_all_values())
+                                        records_to_save = list(st.session_state["temp_verified_records"])
+                                        for item in records_to_save:
                                             sheet_physically.append_row([item["ID with Vendor Name"],item["Title"],item["Language"],item["Author Name"],item["Vendor Name"],item["Total Qty"],item["Received"],item["Not Received"],item["Short / Extra"],item["Date"]])
+                                        # VERIFY the rows actually landed in the sheet instead of just
+                                        # trusting that append_row() didn't raise — a stale worksheet
+                                        # handle or a silent API hiccup can otherwise go unnoticed.
+                                        rows_after = len(sheet_physically.get_all_values())
+                                        rows_written = rows_after - rows_before
+                                        if rows_written < len(records_to_save):
+                                            st.session_state["task1_save_message"] = (
+                                                "error",
+                                                f"❌ Google Sheet-ல் {len(records_to_save)} வரிசைகளில் {rows_written} மட்டுமே சேமிக்கப்பட்டது! "
+                                                f"தயவுசெய்து 'Physically verified' சீட்டைச் சரிபார்த்து, தேவைப்பட்டால் மீண்டும் முயற்சிக்கவும்.",
+                                            )
+                                            st.rerun()
                                     try:
                                         drive_pdf = pdf_bytes(temp_df[display_cols], f"{completed_vendor_name} - Physical Verification")
                                         uploaded = upload_pdf_to_drive(drive_pdf, vendor_id_map.get(completed_vendor_name), completed_vendor_name)
-                                        st.success(f"✅ Google Sheet-ல் சேமிக்கப்பட்டது. PDF Drive-ல் சேமிக்கப்பட்டது: {uploaded.get('name', '')}")
+                                        st.session_state["task1_save_message"] = (
+                                            "success",
+                                            f"✅ '{completed_vendor_name}' — {rows_written} தலைப்புகள் 'Physically verified' சீட்டில் சேமிக்கப்பட்டன. "
+                                            f"PDF Drive-ல் சேமிக்கப்பட்டது: {uploaded.get('name', '')}",
+                                        )
                                     except Exception as drive_error:
-                                        st.warning(f"⚠️ Sheet சேமிக்கப்பட்டது; ஆனால் Drive PDF சேமிக்கப்படவில்லை: {drive_error}")
-                                    time.sleep(1)
+                                        st.session_state["task1_save_message"] = (
+                                            "warning",
+                                            f"⚠️ '{completed_vendor_name}' — {rows_written} தலைப்புகள் Sheet-ல் சேமிக்கப்பட்டன; ஆனால் Drive PDF சேமிக்கப்படவில்லை: {drive_error}",
+                                        )
                                     st.session_state["selected_vendor"] = None
                                     st.session_state["temp_verified_records"] = []
                                     st.session_state["vendor_key"] += 1
@@ -634,6 +693,7 @@ elif menu_choice == "🏛️ 4. நூலகத்திற்கு விந�
 # ============================================================
 elif menu_choice == "⚙️ 5. Accession எண்கள் மேலாண்மை":
     st.subheader("⚙️ 5. தானியங்கி மைய மற்றும் கிளை நூல் சேர்க்கை எண்கள் மேலாண்மை")
+    render_connection_diagnostics()
     st.error("🚨 பெறப்பட்ட நூல்களுக்கு (Received Qty) மட்டுமே சேர்க்கை எண்கள் உருவாக்கப்படும்.")
     if book_df is None or book_df.empty or sheet_vendor_wise is None:
         st.error("❌ தரவு அல்லது Google Sheet இணைப்பு கிடைக்கவில்லை!"); st.stop()
