@@ -739,4 +739,4 @@ elif menu_choice in menu_items[3:]:
             if records:
                 visible = pd.DataFrame(records).drop(columns=["Sheet Row", "_new"])
                 st.dataframe(visible, use_container_width=True, hide_index=True)
-                if st.button("💾 Google Sheet (U & V தூண
+                if st.button("💾 Google Sheet (U & V தூண்களில்) சேமி", use_container_width=True):
