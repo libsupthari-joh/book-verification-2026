@@ -19,7 +19,6 @@ from googleapiclient.http import MediaIoBaseUpload
 from oauth2client.service_account import ServiceAccountCredentials
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
-from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
@@ -42,32 +41,33 @@ html, body, [class*="css"] {
 }
 
 .stApp {
-    background: linear-gradient(135deg, #f0fdf4, #e6f4ea);
+    background: linear-gradient(135deg, #f8fafc, #edf2f7);
 }
 
 [data-testid="stHeader"] { background: transparent; }
 [data-testid="stToolbar"] { visibility: hidden; }
 
+/* தலைப்புப் பகுதி */
 h1 {
     font-size: 26px !important;
     font-weight: 800 !important;
     padding: 16px 20px !important;
     border-radius: 12px;
     color: #fff !important;
-    background: linear-gradient(135deg, #064e3b, #047857) !important;
-    box-shadow: 0 4px 12px rgba(6,78,59,0.3);
+    background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
+    box-shadow: 0 6px 15px rgba(37,99,235,0.3);
     text-align: center;
     margin-bottom: 15px !important;
 }
 
 h2, h3 {
-    color: #064e3b !important;
+    color: #1e3a8a !important;
     font-weight: 800 !important;
 }
 
 p, span, label, div, .stMarkdown {
     font-size: 17px !important;
-    color: #111827 !important;
+    color: #1f2937 !important;
     font-weight: 600 !important;
 }
 
@@ -76,20 +76,21 @@ p, span, label, div, .stMarkdown {
 .stNumberInput input {
     font-size: 17px !important;
     font-weight: 700 !important;
-    color: #064e3b !important;
+    color: #1e3a8a !important;
 }
 
 .profile-card {
     padding: 14px 18px;
     border-radius: 10px;
-    color: #064e3b;
-    background: #ecfdf5;
-    border: 1.5px solid #a7f3d0;
+    color: #1e3a8a;
+    background: #eff6ff;
+    border: 1.5px solid #bfdbfe;
     font-size: 17px !important;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
 
 .book-info-card {
-    border-left: 6px solid #047857;
+    border-left: 6px solid #2563eb;
     border-radius: 10px;
     padding: 16px 18px;
     line-height: 2.0;
@@ -99,17 +100,18 @@ p, span, label, div, .stMarkdown {
     border-right: 1px solid #e2e8f0;
     border-bottom: 1px solid #e2e8f0;
     font-size: 17px !important;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.05);
 }
 
 .total-qty {
-    color: #047857;
+    color: #2563eb;
     font-size: 20px !important;
     font-weight: 800;
 }
 
 .not-received-card {
     background: #fffbeb;
-    border-left: 6px solid #f59e0b;
+    border-left: 6px solid #d97706;
     border-radius: 10px;
     padding: 12px 16px;
     color: #b45309;
@@ -118,20 +120,27 @@ p, span, label, div, .stMarkdown {
     margin: 10px 0;
 }
 
+/* 🌟 3D எஃபெக்ட் மற்றும் பொத்தான் வடிவமைப்பு */
 .stButton > button, .stDownloadButton > button {
-    min-height: 48px !important;
-    border-radius: 8px !important;
+    min-height: 52px !important;
+    border-radius: 10px !important;
     font-size: 16px !important;
     font-weight: 700 !important;
     color: #ffffff !important;
-    background: linear-gradient(135deg, #064e3b, #047857) !important;
-    box-shadow: 0 3px 8px rgba(0,0,0,0.12) !important;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+    box-shadow: 0 6px 0 #1e40af, 0 8px 15px rgba(0,0,0,0.2) !important;
     border: none !important;
     width: 100% !important;
+    transition: all 0.1s ease;
+}
+
+.stButton > button:active, .stDownloadButton > button:active {
+    box-shadow: 0 2px 0 #1e40af, 0 4px 8px rgba(0,0,0,0.2) !important;
+    transform: translateY(4px);
 }
 
 .stButton > button:hover, .stDownloadButton > button:hover {
-    background: linear-gradient(135deg, #047857, #022c22) !important;
+    background: linear-gradient(135deg, #1d4ed8, #1e40af) !important;
     color: #fff !important;
 }
 
@@ -139,43 +148,52 @@ div.row-widget.stHorizontal > div {
     flex: 1;
 }
 
+/* 🌟 உள்நுழைவுப் பெட்டி (Login Card - மிகவும் சிறியது மற்றும் நேர்த்தியானது) */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 75vh;
+}
+
 .login-card {
-    max-width: 420px;
-    margin: 30px auto;
+    width: 100%;
+    max-width: 380px;
     text-align: center;
     border-radius: 16px;
-    padding: 30px 25px;
+    padding: 25px 20px;
     background: #ffffff;
-    border: 2px solid #a7f3d0;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+    border: 2px solid #bfdbfe;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+    margin: auto;
 }
 
 .login-card .login-icon { 
-    font-size: 50px; 
+    font-size: 45px; 
 }
 
 .login-card .login-badge {
     display: inline-block;
-    margin-top: 10px;
-    margin-bottom: 15px;
-    padding: 4px 14px;
+    margin-top: 8px;
+    margin-bottom: 12px;
+    padding: 4px 12px;
     border-radius: 999px;
-    background: #064e3b;
+    background: #2563eb;
     color: #fff;
     font-weight: 800;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .login-card h2 {
-    font-size: 22px !important;
-    color: #064e3b !important;
-    margin-bottom: 8px !important;
+    font-size: 20px !important;
+    color: #1e3a8a !important;
+    margin-bottom: 6px !important;
 }
 
 .login-card p {
-    font-size: 15px !important;
+    font-size: 14px !important;
     color: #4b5563 !important;
-    margin-bottom: 20px !important;
+    margin-bottom: 15px !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -234,8 +252,9 @@ if not st.session_state["logged_in"]:
         )
 
 def show_login_page():
+    st.markdown('<div class="login-container"><div class="login-card">', unsafe_allow_html=True)
     st.markdown(
-        '<div class="login-card"><div class="login-icon">📚</div>'
+        '<div class="login-icon">📚</div>'
         '<div class="login-badge">2026</div><h2>2026ஆம் ஆண்டு புதிய நூல்கள் கொள்முதல்</h2>'
         '<p>பதிப்பாளர்களின் புதிய நூல்கள் விநியோகம் &amp; சரிபார்ப்பு தளம்</p>',
         unsafe_allow_html=True,
@@ -244,7 +263,7 @@ def show_login_page():
         phone = st.text_input("📱 அலைபேசி எண்", max_chars=10, placeholder="10 இலக்க எண்")
         password = st.text_input("🔑 கடவுச்சொல்", type="password")
         submitted = st.form_submit_button("🔓 உள்நுழைக", use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div></div>', unsafe_allow_html=True)
     
     if submitted:
         user = authenticate_user(phone, password)
@@ -389,7 +408,7 @@ def pdf_bytes(frame, title):
     output = io.BytesIO()
     document = SimpleDocTemplate(output, pagesize=landscape(A4), rightMargin=7 * mm, leftMargin=7 * mm, topMargin=7 * mm, bottomMargin=7 * mm)
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle("TamilTitle", parent=styles["Title"], fontName=PDF_FONT_REGULAR, fontSize=14, leading=18, alignment=TA_CENTER, textColor=colors.HexColor("#064e3b"))
+    title_style = ParagraphStyle("TamilTitle", parent=styles["Title"], fontName=PDF_FONT_REGULAR, fontSize=14, leading=18, alignment=TA_CENTER, textColor=colors.HexColor("#1e3a8a"))
     body_style = ParagraphStyle("TamilBody", parent=styles["BodyText"], fontName=PDF_FONT_REGULAR, fontSize=8, leading=10)
     columns = list(frame.columns)
     data = [[Paragraph(xml_escape(str(column)), body_style) for column in columns]]
@@ -405,10 +424,10 @@ def pdf_bytes(frame, title):
         widths = [width * scale for width in widths]
     table = Table(data, colWidths=widths, repeatRows=1)
     table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#064e3b")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e3a8a")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#a7f3d0")),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#ecfdf5")]),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#bfdbfe")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#eff6ff")]),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
     ]))
     document.build([Paragraph(xml_escape(str(title)), title_style), Spacer(1, 4 * mm), table])
