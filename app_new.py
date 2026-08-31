@@ -25,7 +25,6 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-
 st.set_page_config(
     page_title="2026ஆம் ஆண்டு வெளிப்படைத் தன்மை நூல்கள் கொள்முதல்",
     page_icon="📚",
@@ -48,28 +47,22 @@ h2,h3{color:#092653!important}
 .book-info-card{border-left:7px solid #1565c0;border-radius:14px;padding:14px 16px;line-height:1.9;margin:10px 0 16px;font-size:15px;word-break:break-word}
 .total-qty{color:#0b3d91;font-size:18px;font-weight:900}
 .not-received-card{background:linear-gradient(145deg,#fff8e1,#fff3c4);border-left:7px solid #f59e0b;border-radius:12px;padding:12px 16px;color:#8a4b00;font-size:16px;font-weight:800;box-shadow:4px 4px 0 #ead69b;margin:10px 0}
-.stButton>button,.stDownloadButton>button{min-height:50px!important;border-radius:13px!important;font-size:15px!important;font-weight:800!important;color:#fff!important;background:linear-gradient(145deg,#1976d2,#082b68)!important;box-shadow:0 4px 0 #041b42,0 8px 15px #082b6830!important;border:0!important;transition:.2s!important;width:100%!important;white-space:normal!important}
-.stButton>button:hover,.stDownloadButton>button:hover{transform:translateY(-2px);filter:brightness(1.1)}
+.stButton>button,.stDownloadButton>button{min-height:45px!important;border-radius:10px!important;font-size:13px!important;font-weight:700!important;color:#071a38!important;background:linear-gradient(145deg,#ffffff,#e2eeff)!important;box-shadow:0 3px 0 #cbd5e1,0 6px 12px #082b6815!important;border:1px solid #cbd5e1!important;transition:.2s!important;width:100%!important;white-space:normal!important}
+.stButton>button:hover,.stDownloadButton>button:hover{transform:translateY(-2px);background:linear-gradient(145deg,#1565c0,#071a38)!important;color:#fff!important}
 [data-testid="stMetric"]{background:linear-gradient(145deg,#fff,#eef5ff);border:1px solid #cfe0f5;border-radius:14px;box-shadow:4px 4px 0 #c8d8ed;padding:10px}
 div[data-testid="stTextInput"] label,div[data-testid="stSelectbox"] label,div[data-testid="stNumberInput"] label{font-weight:700!important;color:#092653!important}
-div[data-baseweb="select"]>div{min-height:48px!important;font-size:15px!important}
-input[type="number"],input[type="text"],input[type="password"]{min-height:44px!important;font-size:15px!important}
 .login-card{text-align:center;border-radius:26px;padding:34px 26px 30px;position:relative;overflow:hidden}
 .login-card .login-icon{font-size:52px}.login-card .login-badge{display:inline-block;margin-top:10px;padding:5px 16px;border-radius:999px;background:linear-gradient(135deg,#071a38,#1565c0 60%,#00acc1);color:#fff;font-weight:800}.login-card h2{margin:16px 0 6px;font-size:22px}.login-card p{margin:0;color:#5b7aa3;font-size:13.5px;font-weight:600}
-@media(max-width:640px){h1{font-size:17px!important}.block-container{padding:12px 10px!important}[data-testid="column"]{width:100%!important;flex:1 1 100%!important;min-width:100%!important;margin-bottom:8px!important}}
 </style>
 """,
     unsafe_allow_html=True,
 )
 
-
 # ------------------------------ Authentication ------------------------------
 def hash_password(password):
     return hashlib.sha256(str(password).encode("utf-8")).hexdigest()
 
-
 _RUNTIME_SESSION_SECRET = None
-
 
 def app_secret():
     global _RUNTIME_SESSION_SECRET
@@ -84,14 +77,11 @@ def app_secret():
     _RUNTIME_SESSION_SECRET = value or py_secrets.token_hex(32)
     return _RUNTIME_SESSION_SECRET
 
-
 def make_session_token(phone):
     return hmac.new(app_secret().encode(), phone.encode(), hashlib.sha256).hexdigest()
 
-
 def verify_session_token(phone, token):
     return bool(phone and token) and hmac.compare_digest(make_session_token(phone), str(token))
-
 
 USERS_DATABASE = {
     "9842759306": {"password_hash": hash_password("Hari@@1979"), "role": "Admin", "name": "முதன்மை நிர்வாகி (Admin)"},
@@ -99,13 +89,11 @@ USERS_DATABASE = {
     "9751687939": {"password_hash": hash_password("123456"), "role": "User", "name": "சரிபார்ப்பு பயனர் 2 (User)"},
 }
 
-
 def authenticate_user(phone, password):
     user = USERS_DATABASE.get(str(phone).strip())
     if user and hmac.compare_digest(hash_password(password), user["password_hash"]):
         return user
     return None
-
 
 for key, default in {
     "logged_in": False, "user_role": None, "user_name": "", "user_phone": None,
@@ -123,7 +111,6 @@ if not st.session_state["logged_in"]:
         st.session_state.update(
             logged_in=True, user_role=user["role"], user_name=user["name"], user_phone=query_phone
         )
-
 
 def show_login_page():
     _, column, _ = st.columns([1, 1.4, 1])
@@ -150,17 +137,14 @@ def show_login_page():
                 st.query_params.update(phone=clean_phone, token=make_session_token(clean_phone))
                 st.rerun()
 
-
 if not st.session_state["logged_in"]:
     show_login_page()
     st.stop()
-
 
 # ------------------------------- Data access --------------------------------
 EXCEL_FILE = "Book Supply-2026.xlsx"
 SPREADSHEET_ID = "1LNogKaLvdqkoITSLE971jTBIy9QO4s90j1WDxY1cDrc"
 DRIVE_FOLDER_ID = "1T3HKPAExdNtC-LOCuh2cDXI-6Kf8dzyq"
-
 
 @st.cache_data
 def load_data(file_path):
@@ -172,26 +156,22 @@ def load_data(file_path):
     books = pd.read_excel(file_path, sheet_name=sheets[0], engine="openpyxl") if sheets else pd.DataFrame()
     return vendor, books
 
-
 @st.cache_resource
 def init_gspread():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(st.secrets["gcp_service_account"]), scope)
     return gspread.authorize(creds)
 
-
 @st.cache_resource
 def get_drive_service():
     creds = Credentials.from_service_account_info(dict(st.secrets["gcp_service_account"]), scopes=["https://www.googleapis.com/auth/drive"])
     return build("drive", "v3", credentials=creds, cache_discovery=False)
-
 
 def clean_text(value):
     if value is None or pd.isna(value):
         return ""
     value = re.sub(r"^\s*\d+[\.\s\-_]*", "", str(value).strip())
     return re.sub(r"[^a-zA-Z0-9\u0B80-\u0BFF\s]", "", value).casefold().strip()
-
 
 vendor_df, book_df = load_data(EXCEL_FILE)
 sheet_physically = sheet_vendor_wise = sheet_lib_detail = None
@@ -207,12 +187,10 @@ try:
 except Exception as error:
     st.error(f"❌ Google Sheet இணைப்புப் பிழை: {error}")
 
-
 # -------------------------------- PDF export --------------------------------
 PDF_FONT_REGULAR = PDF_FONT_BOLD = None
 PDF_FONT_ERROR = None
 FONT_URL = "https://github.com/notofonts/tamil/raw/main/fonts/ttf/NotoSansTamil/NotoSansTamil-Regular.ttf"
-
 
 def find_tamil_font():
     root = os.path.dirname(os.path.abspath(__file__))
@@ -235,32 +213,27 @@ def find_tamil_font():
     except Exception:
         return None
 
-
 def load_pdf_font():
     global PDF_FONT_REGULAR, PDF_FONT_BOLD
     path = find_tamil_font()
     if not path:
-        raise FileNotFoundError("fonts/NotoSansTamil-Regular.ttf கிடைக்கவில்லை; இணைய இணைப்புடன் மீண்டும் முயற்சிக்கவும்.")
+        raise FileNotFoundError("fonts/NotoSansTamil-Regular.ttf கிடைக்கவில்லை.")
     if "TamilUI" not in pdfmetrics.getRegisteredFontNames():
         pdfmetrics.registerFont(TTFont("TamilUI", path))
         pdfmetrics.registerFontFamily("TamilUI", normal="TamilUI", bold="TamilUI", italic="TamilUI", boldItalic="TamilUI")
     PDF_FONT_REGULAR = PDF_FONT_BOLD = "TamilUI"
-
 
 try:
     load_pdf_font()
 except Exception as error:
     PDF_FONT_ERROR = error
 
-
 def safe_name(value):
     return re.sub(r"[^\w\u0B80-\u0BFF -]", "", str(value)).strip()[:80] or "Report"
-
 
 def get_vendor_number(vendor_id_name, vendor_name):
     match = re.search(r"\d+", str(vendor_id_name or vendor_name))
     return match.group(0) if match else "000"
-
 
 def excel_bytes(frame, sheet_name):
     output = io.BytesIO()
@@ -268,10 +241,8 @@ def excel_bytes(frame, sheet_name):
         frame.to_excel(writer, index=False, sheet_name=str(sheet_name)[:31])
     return output.getvalue()
 
-
 def csv_bytes(frame):
     return frame.to_csv(index=False).encode("utf-8-sig")
-
 
 def pdf_bytes(frame, title):
     if PDF_FONT_ERROR:
@@ -304,7 +275,6 @@ def pdf_bytes(frame, title):
     document.build([Paragraph(xml_escape(str(title)), title_style), Spacer(1, 4 * mm), table])
     return output.getvalue()
 
-
 def upload_pdf_to_drive(pdf_data, vendor_id, vendor_name):
     name = f"{get_vendor_number(vendor_id, vendor_name)}_{safe_name(vendor_name).replace(' ', '_')}_Physical_Verification.pdf"
     media = MediaIoBaseUpload(io.BytesIO(pdf_data), mimetype="application/pdf", resumable=False)
@@ -312,7 +282,6 @@ def upload_pdf_to_drive(pdf_data, vendor_id, vendor_name):
         body={"name": name, "parents": [DRIVE_FOLDER_ID], "mimeType": "application/pdf"},
         media_body=media, fields="id,name,webViewLink", supportsAllDrives=True,
     ).execute()
-
 
 def download_panel(frame, prefix, sheet_name, pdf_title=None):
     st.markdown("### 📥 பதிவிறக்க வசதிகள்")
@@ -324,14 +293,11 @@ def download_panel(frame, prefix, sheet_name, pdf_title=None):
     except Exception as error:
         st.error(f"❌ PDF உருவாக்க முடியவில்லை: {error}")
 
-
-# --------------------------- Search and common UI ---------------------------
 def search_options(options, query):
     query = clean_text(query)
     if not query:
         return list(options)
     return [option for option in options if query in clean_text(option)]
-
 
 def vendor_options():
     values = []
@@ -344,13 +310,12 @@ def vendor_options():
                 values.append(name)
     return values
 
-
 def title_options(frame):
     return list(dict.fromkeys(str(value) for value in frame["Title"].dropna().tolist()))
 
-
 st.session_state.setdefault("search_reset", 0)
 
+# அட்மின் அல்லது பயனருக்கான மெனு பட்டியல்கள்
 if st.session_state["user_role"] == "Admin":
     menu_items = [
         "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு", 
@@ -369,6 +334,7 @@ if st.session_state["current_page"] not in menu_items:
 
 st.title("📚 2026ஆம் ஆண்டு வெளிப்படைத் தன்மை நூல்கள் கொள்முதல்")
 
+# பயனர் சுயவிவரம் மற்றும் வெளியேறும் பொத்தான்
 info, logout = st.columns([3.2, 0.8])
 with info:
     role = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
@@ -379,22 +345,21 @@ with logout:
         st.session_state.clear()
         st.rerun()
 
-menu_choice = st.selectbox(
-    "🧭 செய்ய வேண்டிய பணியைத் தேர்ந்தெடுக்கவும்", 
-    menu_items, 
-    index=menu_items.index(st.session_state["current_page"]), 
-    key="main_menu"
-)
+st.markdown("---")
 
-if menu_choice != st.session_state["current_page"]:
-    st.session_state["current_page"] = menu_choice
-    st.rerun()
+# ----------------- கிடைமட்ட ஐகான் பொத்தான் மெனு (Horizontal Button Navigation) -----------------
+cols = st.columns(len(menu_items))
+for i, item in enumerate(menu_items):
+    with cols[i]:
+        if st.button(item, use_container_width=True, key=f"menu_btn_{i}"):
+            st.session_state["current_page"] = item
+            st.rerun()
 
 st.markdown("---")
 
 
 # ---------------------------- Task 1: verification --------------------------
-if menu_choice == menu_items[0]:
+if st.session_state["current_page"] == menu_items[0]:
     st.subheader("📥 பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
     if vendor_df is None or book_df is None or book_df.empty:
         st.error("❌ 'Book Supply-2026.xlsx' கோப்பு அல்லது புத்தகத் தரவு கிடைக்கவில்லை!")
@@ -497,7 +462,7 @@ if menu_choice == menu_items[0]:
 
 
 # -------------------------- Task 2: vendor sync ------------------------------
-elif menu_choice == menu_items[1]:
+elif len(menu_items) > 1 and st.session_state["current_page"] == menu_items[1]:
     st.subheader("🔄 பெறப்பட்ட எண்ணிக்கை ஒத்திசைவு (Sync)")
     if not sheet_physically or not sheet_vendor_wise:
         st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
@@ -556,7 +521,7 @@ elif menu_choice == menu_items[1]:
 
 
 # -------------------------- Task 3: vendor details ---------------------------
-elif menu_choice == menu_items[2]:
+elif len(menu_items) > 2 and st.session_state["current_page"] == menu_items[2]:
     st.subheader("🏢 மொத்த பதிப்பாளர் விவரங்கள் (480)")
     if vendor_df is None or book_df is None:
         st.error("❌ தரவு கிடைக்கவில்லை!")
@@ -578,7 +543,7 @@ elif menu_choice == menu_items[2]:
 
 
 # ---------------------- Tasks 4 and 5: library views -------------------------
-elif menu_choice in menu_items[3:]:
+elif len(menu_items) > 3 and st.session_state["current_page"] in menu_items[3:]:
     if book_df is None or book_df.empty:
         st.error("❌ புத்தகத் தரவு கிடைக்கவில்லை!")
         st.stop()
@@ -590,7 +555,7 @@ elif menu_choice in menu_items[3:]:
     if lib_name_col and lib_id_col:
         for _, row in base.dropna(subset=[lib_name_col, lib_id_col]).iterrows():
             libraries[str(row[lib_name_col]).strip()] = str(row[lib_id_col]).strip()
-    if menu_choice == menu_items[3]:
+    if st.session_state["current_page"] == menu_items[3]:
         st.subheader("🏛️ நூலகத்திற்கு விநியோகம் (103)")
         selected = st.selectbox(
             "🔎 நூலகம் தேடல்",
