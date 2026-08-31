@@ -39,26 +39,24 @@ st.markdown(
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@400;600;700;800&display=swap');
 
 :root{--primary:#064e3b;--accent:#047857;--bg:#f0fdf4;--card-bg:#ffffff}
-html,body,[class*="css"]{font-family: 'NotoSansTamil', sans-serif !important; -webkit-tap-highlight-color:transparent}
+html,body,[class*="css"]{font-family: 'Noto Sans Tamil', sans-serif !important; -webkit-tap-highlight-color:transparent}
 .stApp{background:linear-gradient(135deg,#f0fdf4,#e6f4ea)}
 
-/* தலைப்புகள் மற்றும் எழுத்து வடிவமைப்பு */
+[data-testid="stHeader"]{background:transparent}[data-testid="stToolbar"]{visibility:hidden}
 h1{font-size:26px!important;font-weight:800!important;padding:18px 22px!important;border-radius:14px;color:#fff!important;background:linear-gradient(135deg,#064e3b,#047857)!important;box-shadow:0 6px 15px rgba(6,78,59,0.3);text-align:center;margin-bottom:20px!important}
 h2,h3{color:#064e3b!important;font-weight:700!important;}
 p, span, label, div{font-size:16px!important; color:#111827;}
 
-/* கார்டுகள் மற்றும் பெட்டிகள் */
 .profile-card,.book-info-card,.login-card{background:#ffffff;border:1.5px solid #a7f3d0;box-shadow:0 6px 12px -2px rgba(0,0,0,0.08)}
 .profile-card{padding:16px 20px;border-radius:12px;font-size:16px!important;color:#064e3b;background:#ecfdf5;}
 .book-info-card{border-left:8px solid #047857;border-radius:12px;padding:18px 20px;line-height:2.1;margin:14px 0 18px;font-size:17px!important;background:#ffffff;}
 .total-qty{color:#047857;font-size:20px!important;font-weight:800}
 .not-received-card{background:#fffbeb;border-left:8px solid #f59e0b;border-radius:12px;padding:14px 18px;color:#b45309;font-size:18px!important;font-weight:800;margin:12px 0}
 
-/* பொத்தானl (Buttons) வடிவமைப்பு */
 .stButton>button,.stDownloadButton>button{min-height:50px!important;border-radius:10px!important;font-size:15px!important;font-weight:700!important;color:#ffffff!important;background:linear-gradient(135deg,#064e3b,#047857)!important;box-shadow:0 4px 10px rgba(0,0,0,0.15)!important;border:none!important;transition:all 0.3s ease!important;width:100%!important}
 .stButton>button:hover,.stDownloadButton>button:hover{transform:translateY(-2px);background:linear-gradient(135deg,#047857,#022c22)!important;box-shadow:0 6px 15px rgba(0,0,0,0.2)!important;color:#fff!important}
 
-/* உள்ளீட்டுப் பெட்டிகள் (Inputs & Selectboxes) */
+[data-testid="stMetric"]{background:#ffffff;border:1.5px solid #a7f3d0;border-radius:12px;padding:12px;box-shadow:0 3px 6px rgba(0,0,0,0.03)}
 div[data-testid="stTextInput"] label,div[data-testid="stSelectbox"] label,div[data-testid="stNumberInput"] label{font-size:16px!important;font-weight:700!important;color:#064e3b!important}
 div[data-testid="stSelectbox"] div[data-baseweb="select"] {font-size:16px!important;}
 
@@ -69,7 +67,6 @@ div[data-testid="stSelectbox"] div[data-baseweb="select"] {font-size:16px!import
 """,
     unsafe_allow_html=True,
 )
-
 def hash_password(password):
     return hashlib.sha256(str(password).encode("utf-8")).hexdigest()
 
