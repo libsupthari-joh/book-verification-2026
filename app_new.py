@@ -411,15 +411,12 @@ menu_choice = st.session_state["current_page"]
 st.markdown("---")
 
 def render_task_switcher(current_task):
-    """Quick way to jump to another task from the bottom of the page —
-    saves scrolling all the way back up on a phone after finishing a task.
-    Reuses the same tab-bar so it looks and behaves identically to the
-    top navigation."""
-    if len(menu_items) <= 1:
-        return
-    st.markdown("---")
-    st.markdown("### 🧭 இன்னொரு பணிக்குச் செல்ல வேண்டுமா?")
-    render_menu_bar("bottom")
+    """No-op now — the top tab bar already lets the user switch tasks from
+    anywhere on the page (it doesn't scroll away), so a duplicate copy at
+    the bottom of every task was redundant. Kept as a function (rather than
+    deleting every call site) so existing render_task_switcher(menu_choice)
+    calls at the end of each task don't need to change."""
+    return
 
 # ============================================================
 # 8. TASK 1 - PHYSICAL VERIFICATION + PDF + DRIVE
@@ -579,6 +576,41 @@ if menu_choice == "📥 1. பெறப்பட்ட நூல்கள் ச
                                     st.rerun()
                                 except Exception as error:
                                     st.error(f"❌ சேமிப்பதில் பிழை: {error}")
+
+    st.markdown("---")
+    st.markdown("### 📊 ஏற்கனவே சேமிக்கப்பட்ட அறிக்கை (Physically verified சீட்டில் இருந்து)")
+    st.caption("இதில் தேர்ந்தெடுக்கும் பதிப்பகத்திற்கு, இதுவரை 'Physically verified' சீட்டில் சேமிக்கப்பட்ட அனைத்து வரிசைகளையும் Excel/CSV/PDF ஆக பதிவிறக்கம் அல்லது Print செய்யலாம்.")
+    if sheet_physically:
+        try:
+            _pv_rows = sheet_physically.get_all_values()
+            if len(_pv_rows) > 1:
+                _pv_headers = [str(h).strip() for h in _pv_rows[0]]
+                _pv_df = pd.DataFrame(_pv_rows[1:], columns=_pv_headers)
+                _vendor_col = next((c for c in _pv_df.columns if "vendor" in c.lower()), None)
+                if _vendor_col:
+                    _pv_vendors = sorted({str(v).strip() for v in _pv_df[_vendor_col].tolist() if str(v).strip()})
+                    _report_vendor = st.selectbox(
+                        "பதிப்பகத்தின் பெயரைத் தேர்ந்தெடுக்கவும் (தட்டி தேடலாம்)",
+                        _pv_vendors, index=None, placeholder="அறிக்கை பெற பதிப்பகத்தின் பெயரைத் தேர்ந்தெடுக்கவும்",
+                        key="report_vendor_select",
+                    )
+                    if _report_vendor:
+                        _vendor_report_df = _pv_df[_pv_df[_vendor_col].astype(str).str.strip() == _report_vendor].reset_index(drop=True)
+                        st.markdown(f"**{_report_vendor}** — {len(_vendor_report_df)} வரிசைகள்")
+                        st.dataframe(_vendor_report_df, use_container_width=True, hide_index=True)
+                        download_panel(
+                            _vendor_report_df,
+                            safe_name(_report_vendor) + "_Physically_Verified_Report",
+                            "Physically Verified Report",
+                        )
+                else:
+                    st.warning("⚠️ சீட்டில் 'Vendor Name' column கிடைக்கவில்லை.")
+            else:
+                st.info("ℹ️ இதுவரை எந்த தரவும் 'Physically verified' சீட்டில் சேமிக்கப்படவில்லை.")
+        except Exception as report_error:
+            st.error(f"❌ அறிக்கையைப் படிக்க முடியவில்லை: {report_error}")
+    else:
+        st.warning("⚠️ Google Sheet இணைப்பு கிடைக்கவில்லை.")
 
     render_task_switcher(menu_choice)
 
