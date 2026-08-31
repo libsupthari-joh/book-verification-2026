@@ -40,41 +40,17 @@ st.markdown(
 html,body,[class*="css"]{-webkit-tap-highlight-color:transparent}
 .stApp{background:linear-gradient(135deg,#f0fdf4,#e6f4ea)}
 [data-testid="stHeader"]{background:transparent}[data-testid="stToolbar"]{visibility:hidden}
-
-/* தலைப்புப் பகுதி (Header Banner) */
 h1{font-size:22px!important;padding:16px 20px!important;border-radius:12px;color:#fff!important;background:linear-gradient(135deg,#064e3b,#047857)!important;box-shadow:0 4px 12px rgba(6,78,59,0.25);text-align:center;margin-bottom:16px!important;line-height:1.4}
-
 h2,h3{color:#064e3b!important}
-
-/* அட்டவணை மற்றும் கார்டுகள் */
 .profile-card,.book-info-card,.login-card{background:#ffffff;border:1px solid #a7f3d0;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05)}
 .profile-card{padding:12px 16px;border-radius:10px;font-size:14px;line-height:1.7;color:#064e3b;background:#ecfdf5;}
 .book-info-card{border-left:6px solid #047857;border-radius:10px;padding:14px 16px;line-height:1.9;margin:10px 0 16px;font-size:15px}
 .total-qty{color:#047857;font-size:18px;font-weight:900}
 .not-received-card{background:#fffbeb;border-left:6px solid #f59e0b;border-radius:10px;padding:12px 16px;color:#b45309;font-size:16px;font-weight:800;margin:10px 0}
-
-/* பொத்தான்கள் (Buttons) வடிவமைப்பு */
-.stButton>button,.stDownloadButton>button{
-    min-height:45px!important;
-    border-radius:8px!important;
-    font-size:13px!important;
-    font-weight:700!important;
-    color:#ffffff!important;
-    background:linear-gradient(135deg,#064e3b,#047857)!important;
-    box-shadow:0 2px 5px rgba(0,0,0,0.1)!important;
-    border:none!important;
-    transition:all 0.2s ease!important;
-    width:100%!important;
-}
-.stButton>button:hover,.stDownloadButton>button:hover{
-    transform:translateY(-1px);
-    background:linear-gradient(135deg,#047857,#022c22)!important;
-    color:#fff!important;
-}
-
+.stButton>button,.stDownloadButton>button{min-height:45px!important;border-radius:8px!important;font-size:13px!important;font-weight:700!important;color:#ffffff!important;background:linear-gradient(135deg,#064e3b,#047857)!important;box-shadow:0 2px 5px rgba(0,0,0,0.1)!important;border:none!important;transition:all 0.2s ease!important;width:100%!important}
+.stButton>button:hover,.stDownloadButton>button:hover{transform:translateY(-1px);background:linear-gradient(135deg,#047857,#022c22)!important;color:#fff!important}
 [data-testid="stMetric"]{background:#ffffff;border:1px solid #a7f3d0;border-radius:10px;padding:10px;box-shadow:0 2px 4px rgba(0,0,0,0.02)}
 div[data-testid="stTextInput"] label,div[data-testid="stSelectbox"] label,div[data-testid="stNumberInput"] label{font-weight:700!important;color:#064e3b!important}
-
 .login-card{text-align:center;border-radius:16px;padding:34px 26px 30px;background:#ffffff;border:1px solid #a7f3d0}
 .login-card .login-icon{font-size:52px}
 .login-card .login-badge{display:inline-block;margin-top:10px;padding:5px 16px;border-radius:999px;background:#064e3b;color:#fff;font-weight:800}
@@ -83,7 +59,6 @@ div[data-testid="stTextInput"] label,div[data-testid="stSelectbox"] label,div[da
     unsafe_allow_html=True,
 )
 
-# ------------------------------ Authentication ------------------------------
 def hash_password(password):
     return hashlib.sha256(str(password).encode("utf-8")).hexdigest()
 
@@ -166,12 +141,11 @@ if not st.session_state["logged_in"]:
     show_login_page()
     st.stop()
 
-# ------------------------------- Data access --------------------------------
 EXCEL_FILE = "Book Supply-2026.xlsx"
 SPREADSHEET_ID = "1LNogKaLvdqkoITSLE971jTBIy9QO4s90j1WDxY1cDrc"
 DRIVE_FOLDER_ID = "1T3HKPAExdNtC-LOCuh2cDXI-6Kf8dzyq"
 
-@st.cache_data
+@st.cache_data(ttl=3600)
 def load_data(file_path):
     if not os.path.exists(file_path):
         return None, None
@@ -212,7 +186,6 @@ try:
 except Exception as error:
     st.error(f"❌ Google Sheet இணைப்புப் பிழை: {error}")
 
-# -------------------------------- PDF export --------------------------------
 PDF_FONT_REGULAR = PDF_FONT_BOLD = None
 PDF_FONT_ERROR = None
 FONT_URL = "https://github.com/notofonts/tamil/raw/main/fonts/ttf/NotoSansTamil/NotoSansTamil-Regular.ttf"
@@ -275,7 +248,7 @@ def pdf_bytes(frame, title):
     output = io.BytesIO()
     document = SimpleDocTemplate(output, pagesize=landscape(A4), rightMargin=7 * mm, leftMargin=7 * mm, topMargin=7 * mm, bottomMargin=7 * mm)
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle("TamilTitle", parent=styles["Title"], fontName=PDF_FONT_REGULAR, fontSize=14, leading=18, alignment=TA_CENTER, textColor=colors.HexColor("#071a38"))
+    title_style = ParagraphStyle("TamilTitle", parent=styles["Title"], fontName=PDF_FONT_REGULAR, fontSize=14, leading=18, alignment=TA_CENTER, textColor=colors.HexColor("#064e3b"))
     body_style = ParagraphStyle("TamilBody", parent=styles["BodyText"], fontName=PDF_FONT_REGULAR, fontSize=8, leading=10)
     columns = list(frame.columns)
     data = [[Paragraph(xml_escape(str(column)), body_style) for column in columns]]
@@ -291,10 +264,10 @@ def pdf_bytes(frame, title):
         widths = [width * scale for width in widths]
     table = Table(data, colWidths=widths, repeatRows=1)
     table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b3d91")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#064e3b")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#9db6d5")),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#eef5ff")]),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#a7f3d0")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#ecfdf5")]),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
     ]))
     document.build([Paragraph(xml_escape(str(title)), title_style), Spacer(1, 4 * mm), table])
@@ -318,12 +291,6 @@ def download_panel(frame, prefix, sheet_name, pdf_title=None):
     except Exception as error:
         st.error(f"❌ PDF உருவாக்க முடியவில்லை: {error}")
 
-def search_options(options, query):
-    query = clean_text(query)
-    if not query:
-        return list(options)
-    return [option for option in options if query in clean_text(option)]
-
 def vendor_options():
     values = []
     if vendor_df is not None and not vendor_df.empty:
@@ -338,9 +305,6 @@ def vendor_options():
 def title_options(frame):
     return list(dict.fromkeys(str(value) for value in frame["Title"].dropna().tolist()))
 
-st.session_state.setdefault("search_reset", 0)
-
-# அட்மின் அல்லது பயனருக்கான மெனு பட்டியல்கள்
 if st.session_state["user_role"] == "Admin":
     menu_items = [
         "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு", 
@@ -359,7 +323,6 @@ if st.session_state["current_page"] not in menu_items:
 
 st.title("📚 2026ஆம் ஆண்டு வெளிப்படைத் தன்மை நூல்கள் கொள்முதல்")
 
-# பயனர் சுயவிவரம் மற்றும் வெளியேறும் பொத்தான்
 info, logout = st.columns([3.2, 0.8])
 with info:
     role = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
@@ -372,7 +335,6 @@ with logout:
 
 st.markdown("---")
 
-# ----------------- கிடைமட்ட ஐகான் பொத்தான் மெனு (Horizontal Button Navigation) -----------------
 cols = st.columns(len(menu_items))
 for i, item in enumerate(menu_items):
     with cols[i]:
@@ -382,8 +344,6 @@ for i, item in enumerate(menu_items):
 
 st.markdown("---")
 
-
-# ---------------------------- Task 1: verification --------------------------
 if st.session_state["current_page"] == menu_items[0]:
     st.subheader("📥 பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
     if vendor_df is None or book_df is None or book_df.empty:
@@ -485,8 +445,6 @@ if st.session_state["current_page"] == menu_items[0]:
                                 except Exception as error:
                                     st.error(f"❌ சேமிப்பதில் பிழை: {error}")
 
-
-# -------------------------- Task 2: vendor sync ------------------------------
 elif len(menu_items) > 1 and st.session_state["current_page"] == menu_items[1]:
     st.subheader("🔄 பெறப்பட்ட எண்ணிக்கை ஒத்திசைவு (Sync)")
     if not sheet_physically or not sheet_vendor_wise:
@@ -502,7 +460,6 @@ elif len(menu_items) > 1 and st.session_state["current_page"] == menu_items[1]:
         ri = next((i for i, x in enumerate(ph) if "received" in x and "not" not in x), 6)
         si = next((i for i, x in enumerate(wh) if "received" in x and "not" not in x), 18)
         vendors = sorted({row[vi].strip() for row in physical[1:] if len(row) > vi and row[vi].strip()})
-        st.info("ஒத்திசைவு செய்ய வேண்டிய பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்.")
         selected = st.selectbox(
             "🔎 பதிப்பகம் தேடல்",
             ["-- தேர்ந்தெடுக்கவும் --"] + vendors,
@@ -544,8 +501,6 @@ elif len(menu_items) > 1 and st.session_state["current_page"] == menu_items[1]:
     except Exception as error:
         st.error(f"❌ பிழை: {error}")
 
-
-# -------------------------- Task 3: vendor details ---------------------------
 elif len(menu_items) > 2 and st.session_state["current_page"] == menu_items[2]:
     st.subheader("🏢 மொத்த பதிப்பாளர் விவரங்கள் (480)")
     if vendor_df is None or book_df is None:
@@ -566,8 +521,6 @@ elif len(menu_items) > 2 and st.session_state["current_page"] == menu_items[2]:
     if not result.empty:
         download_panel(result, safe_name(selected) + "_Vendor_Details", "Vendor Details")
 
-
-# ---------------------- Tasks 4 and 5: library views -------------------------
 elif len(menu_items) > 3 and st.session_state["current_page"] in menu_items[3:]:
     if book_df is None or book_df.empty:
         st.error("❌ புத்தகத் தரவு கிடைக்கவில்லை!")
