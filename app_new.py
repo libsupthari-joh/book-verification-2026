@@ -43,7 +43,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# 📌 மெனுவை இடதுபுறத்திலிருந்து மேலே (Top Navigation) கொண்டுவர st.radio-வை st.selectbox அல்லது st.radio-வை horizontal முறையில் பயன்படுத்துதல்
+# முதன்மை மெனு (மேல் பகுதியில் горизонталь அமைப்பு)
 menu_options = [
     "🔀 பிரிக்க (Distribute)",
     "📤 அனுப்ப (Send)",
@@ -62,7 +62,7 @@ st.markdown("---")
 
 # 1. பிரிக்க (Distribute) பகுதி
 if menu_option == "🔀 பிரிக்க (Distribute)":
-    st.subheader("🔀 புத்தகங்களைப் பிரித்து வழங்குதல்")
+    st.subheader("🔀 புத்தகங்களைப் பிரித்து வழங்குதல்[cite: 1]")
     st.markdown("புத்தகத்தைத் தேடி, விவரங்களைச் சரிபார்த்து நூலகங்களுக்குப் பிரித்து வழங்கும் பகுதி[cite: 1].")
     search_query = st.text_input("🔍 புத்தகம் தலைப்பு அல்லது பதிப்பகம் தட்டச்சு செய்யவும்:")
 
@@ -81,7 +81,7 @@ if menu_option == "🔀 பிரிக்க (Distribute)":
 
 # 2. அனுப்ப (Send) பகுதி
 elif menu_option == "📤 அனுப்ப (Send)":
-    st.subheader("📤 நூலகங்களுக்குப் புத்தகங்கள் அனுப்புதல்")
+    st.subheader("📤 நூலகங்களுக்குப் புத்தகங்கள் அனுப்புதல்[cite: 1]")
     st.markdown("Set Number அடிப்படையில் நூலகங்களைத் தேர்ந்தெடுத்து அனுப்பியதாகப் பதிவு செய்யும் பகுதி[cite: 1].")
     set_number = st.selectbox("SET NUMBER தேர்வு செய்யவும்:", ["-- தேர்வு செய்க --", "Set 1", "Set 2"])
     
@@ -96,7 +96,7 @@ elif menu_option == "📤 அனுப்ப (Send)":
 
 # 3. அறிக்கைகள் (Reports) பகுதி
 elif menu_option == "📊 அறிக்கைகள் (Reports)":
-    st.subheader("📊 முழுமையான நிலை அறிக்கைகள்")
+    st.subheader("📊 முழுமையான நிலை அறிக்கைகள்[cite: 1]")
     st.markdown("தேதி வாரியான, நூலக வாரியான மற்றும் இதர முழுமையான நிலை அறிக்கைகளைப் பெறும் பகுதி[cite: 1].")
     report_type = st.selectbox(
         "அறிக்கை வகையைத் தேர்ந்தெடுக்கவும்:",
@@ -111,7 +111,7 @@ elif menu_option == "📊 அறிக்கைகள் (Reports)":
 
 # 4. கவனிக்க (Kavani) பகுதி
 elif menu_option == "⚠️ கவனிக்க (Kavani)":
-    st.subheader("⚠️ கவனிக்க வேண்டிய முரண்பாடுகள்")
+    st.subheader("⚠️ கவனிக்க வேண்டிய முரண்பாடுகள்[cite: 1]")
     st.markdown("ஒரே தலைப்பில் வேறு வேறு விலைகள்/ISBN உள்ளவை மற்றும் 85% ஒத்த தலைப்புகளை (Fuzzy Match) சரிபார்க்கும் பகுதி[cite: 1].")
     st.warning("🔴 முரண்பாடுகளை அடையாளம் காண கீழ்க்காணும் பொத்தானை அழுத்தவும்.")
     if st.button("🔄 மீண்டும் ஒப்பிட்டுப் பார்"):
@@ -119,7 +119,7 @@ elif menu_option == "⚠️ கவனிக்க (Kavani)":
 
 # 5. பதிவெண் மாற்ற (Renumber) பகுதி
 elif menu_option == "🔢 பதிவெண் மாற்ற (Renumber)":
-    st.subheader("🔢 மைய மற்றும் கிளைப் பதிவெண் மாற்றியமைத்தல்")
+    st.subheader("🔢 மைய மற்றும் கிளைப் பதிவெண் மாற்றியமைத்தல்[cite: 1]")
     st.markdown("மைய மற்றும் கிளைப் பதிவெண்களை மாற்றியமைக்கும் பகுதி[cite: 1].")
     renumber_type = st.radio("தேர்வு செய்க:", ["மையப் பதிவெண் மாற்றம்", "கிளைப் பதிவெண் மாற்றம்"], horizontal=True)
     new_start_num = st.number_input("புதிய தொடக்க எண்:", min_value=1, value=1000)
@@ -128,7 +128,7 @@ elif menu_option == "🔢 பதிவெண் மாற்ற (Renumber)":
 
 # 6. தவறான பதிவு நீக்கம் (Reclaim) பகுதி
 elif menu_option == "🗑️ தவறான பதிவு நீக்கம் (Reclaim)":
-    st.subheader("♻️ தவறாகப் பிரிக்கப்பட்ட/அனுப்பப்பட்ட பதிவுகளை நீக்குதல்")
+    st.subheader("♻️ தவறாகப் பிரிக்கப்பட்ட/அனுப்பப்பட்ட பதிவுகளை நீக்குதல்[cite: 1]")
     st.markdown("பிரிக்கப்பட்ட அல்லது அனுப்பப்பட்ட தவறான பதிவுகளை மீளப்பெறும் பகுதி[cite: 1].")
     reclaim_input = st.text_input("நீக்க வேண்டிய புத்தகத்தின் தலைப்பு / சேர்க்கை எண்:")
     if reclaim_input and st.button("🗑️ மீளப்பெறு (Reclaim)"):
@@ -136,7 +136,7 @@ elif menu_option == "🗑️ தவறான பதிவு நீக்கம�
 
 # 7. Excel பதிவிறக்கம் & அப்லோட் பகுதி
 elif menu_option == "📥 Excel பதிவிறக்கம் & அப்லோட்":
-    st.subheader("📥 தரவுப் பரிமாற்றம் (Excel Import / Export)")
+    st.subheader("📥 தரவுப் பரிமாற்றம் (Excel Import / Export)[cite: 1]")
     st.markdown("Assigned, Assigned & Sent, Total Data மற்றும் மாநிலப் பதிவெண் Template பதிவிறக்கம் மற்றும் அப்லோட் செய்யும் பகுதி[cite: 1].")
     col1, col2 = st.columns(2)
     with col1:
@@ -151,35 +151,35 @@ elif menu_option == "📥 Excel பதிவிறக்கம் & அப்ல
 
 # 8. மேலாண்மை & இதர வசதிகள்
 elif menu_option == "⚙️ மேலாண்மை & இதர வசதிகள்":
-    st.subheader("⚙️ நிர்வாக மற்றும் கூடுதல் வசதிகள்")
+    st.subheader("⚙️ நிர்வாக மற்றும் கூடுதல் வசதிகள்[cite: 1]")
     admin_tab = st.selectbox(
         "பிரிவைத் தேர்ந்தெடுக்கவும்:",
         [
-            "Master Data (Restore/Clear)",
-            "கடவுச்சொல் மாற்ற (Change Password)",
-            "நூலகர் பார்வை ஆண்டு (Librarian Year)",
-            "மாநிலப் பதிவெண் புதுப்பி (Update State Acc)",
-            "ISBN → தலைப்பு தேடு (ISBN Lookup)"
+            "Master Data (Restore/Clear)[cite: 1]",
+            "கடவுச்சொல் மாற்ற (Change Password)[cite: 1]",
+            "நூலகர் பார்வை ஆண்டு (Librarian Year)[cite: 1]",
+        "மாநிலப் பதிவெண் புதுப்பி (Update State Acc)[cite: 1]",
+            "ISBN → தலைப்பு தேடு (ISBN Lookup)[cite: 1]"
         ]
     )
-    if admin_tab == "Master Data (Restore/Clear)":
+    if "Master Data" in admin_tab:
         st.write("தரவுத்தள மீட்பு (Restore), Master Data அழிப்பு (Clear), மற்றும் Assigning Data அழிப்புக்கான பகுதி[cite: 1].")
         st.button("⚠️ Master Data-வை அழிக்கவும்")
-    elif admin_tab == "கடவுச்சொல் மாற்ற (Change Password)":
+    elif "கடவுச்சொல்" in admin_tab:
         st.write("Admin மற்றும் DCL Staff கடவுச்சொற்களை மாற்றும் பகுதி[cite: 1].")
         st.text_input("புதிய கடவுச்சொல்", type="password")
-    elif admin_tab == "நூலகர் பார்வை ஆண்டு (Librarian Year)":
+    elif "நூலகர் பார்வை" in admin_tab:
         st.write("நூலகர் Login-க்கு எந்த ஆண்டு தெரிய வேண்டும் என்பதைத் தீர்மானிக்கும் பகுதி[cite: 1].")
         st.selectbox("ஆண்டு தேர்வு:", ["2025-26", "2026-27"])
-    elif admin_tab == "மாநிலப் பதிவெண் புதுப்பி (Update State Acc)":
+    elif "மாநிலப் பதிவெண்" in admin_tab:
         st.write("மாநிலப் பதிவெண்களை மொத்தமாகப் (Bulk Update) புதுப்பிக்கும் பகுதி[cite: 1].")
-    elif admin_tab == "ISBN → தலைப்பு தேடு (ISBN Lookup)":
+    elif "ISBN" in admin_tab:
         st.write("ISBN மூலம் இணையம் வழியாகத் தலைப்புத் தேடும் பகுதி[cite: 1].")
         st.text_input("ISBN எண்ணை உள்ளிடவும்:")
 
 # அடிக்குறிப்பு
 st.markdown("---")
 st.markdown(
-    "<p style='text-align: center; color: gray; font-size: 0.85rem;'>மாவட்ட மைய நூலக நிர்வாகப் பிரிவு © 2026</p>",
+    "<p style='text-align: center; color: gray; font-size: 0.85rem;'>மாவட்ட மைய நூலக நிர்வாகப் பிரிவு © 2026[cite: 1]</p>",
     unsafe_allow_html=True,
 )
