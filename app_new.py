@@ -36,23 +36,48 @@ st.markdown(
     """
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
 <style>
-:root{--navy:#071a38;--blue:#1565c0;--cyan:#00acc1;--gold:#f59e0b}
+:root{--primary:#064e3b;--accent:#047857;--bg:#f0fdf4;--card-bg:#ffffff}
 html,body,[class*="css"]{-webkit-tap-highlight-color:transparent}
-.stApp{background:radial-gradient(circle at 8% 8%,rgba(0,188,212,.12),transparent 28%),linear-gradient(135deg,#eef5ff,#fbfdff 50%,#eaf2ff)}
+.stApp{background:linear-gradient(135deg,#f0fdf4,#e6f4ea)}
 [data-testid="stHeader"]{background:transparent}[data-testid="stToolbar"]{visibility:hidden}
-h1{font-size:20px!important;padding:14px 16px!important;border-radius:16px;color:#fff!important;background:linear-gradient(135deg,#071a38,#1565c0 58%,#00acc1);box-shadow:0 6px 0 #041126,0 14px 24px #071a3833;text-shadow:2px 3px 3px #0006;text-align:center;margin-bottom:16px!important;line-height:1.4}
-h2,h3{color:#092653!important}
-.profile-card,.book-info-card,.login-card{background:linear-gradient(145deg,#fff,#eef5ff);border:1px solid #cfe0f5;box-shadow:5px 5px 0 #c8d8ed,0 8px 18px #08265318}
-.profile-card{padding:12px 16px;border-radius:14px;font-size:14px;line-height:1.7}
-.book-info-card{border-left:7px solid #1565c0;border-radius:14px;padding:14px 16px;line-height:1.9;margin:10px 0 16px;font-size:15px;word-break:break-word}
-.total-qty{color:#0b3d91;font-size:18px;font-weight:900}
-.not-received-card{background:linear-gradient(145deg,#fff8e1,#fff3c4);border-left:7px solid #f59e0b;border-radius:12px;padding:12px 16px;color:#8a4b00;font-size:16px;font-weight:800;box-shadow:4px 4px 0 #ead69b;margin:10px 0}
-.stButton>button,.stDownloadButton>button{min-height:45px!important;border-radius:10px!important;font-size:13px!important;font-weight:700!important;color:#071a38!important;background:linear-gradient(145deg,#ffffff,#e2eeff)!important;box-shadow:0 3px 0 #cbd5e1,0 6px 12px #082b6815!important;border:1px solid #cbd5e1!important;transition:.2s!important;width:100%!important;white-space:normal!important}
-.stButton>button:hover,.stDownloadButton>button:hover{transform:translateY(-2px);background:linear-gradient(145deg,#1565c0,#071a38)!important;color:#fff!important}
-[data-testid="stMetric"]{background:linear-gradient(145deg,#fff,#eef5ff);border:1px solid #cfe0f5;border-radius:14px;box-shadow:4px 4px 0 #c8d8ed;padding:10px}
-div[data-testid="stTextInput"] label,div[data-testid="stSelectbox"] label,div[data-testid="stNumberInput"] label{font-weight:700!important;color:#092653!important}
-.login-card{text-align:center;border-radius:26px;padding:34px 26px 30px;position:relative;overflow:hidden}
-.login-card .login-icon{font-size:52px}.login-card .login-badge{display:inline-block;margin-top:10px;padding:5px 16px;border-radius:999px;background:linear-gradient(135deg,#071a38,#1565c0 60%,#00acc1);color:#fff;font-weight:800}.login-card h2{margin:16px 0 6px;font-size:22px}.login-card p{margin:0;color:#5b7aa3;font-size:13.5px;font-weight:600}
+
+/* தலைப்புப் பகுதி (Header Banner) */
+h1{font-size:22px!important;padding:16px 20px!important;border-radius:12px;color:#fff!important;background:linear-gradient(135deg,#064e3b,#047857)!important;box-shadow:0 4px 12px rgba(6,78,59,0.25);text-align:center;margin-bottom:16px!important;line-height:1.4}
+
+h2,h3{color:#064e3b!important}
+
+/* அட்டவணை மற்றும் கார்டுகள் */
+.profile-card,.book-info-card,.login-card{background:#ffffff;border:1px solid #a7f3d0;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05)}
+.profile-card{padding:12px 16px;border-radius:10px;font-size:14px;line-height:1.7;color:#064e3b;background:#ecfdf5;}
+.book-info-card{border-left:6px solid #047857;border-radius:10px;padding:14px 16px;line-height:1.9;margin:10px 0 16px;font-size:15px}
+.total-qty{color:#047857;font-size:18px;font-weight:900}
+.not-received-card{background:#fffbeb;border-left:6px solid #f59e0b;border-radius:10px;padding:12px 16px;color:#b45309;font-size:16px;font-weight:800;margin:10px 0}
+
+/* பொத்தான்கள் (Buttons) வடிவமைப்பு */
+.stButton>button,.stDownloadButton>button{
+    min-height:45px!important;
+    border-radius:8px!important;
+    font-size:13px!important;
+    font-weight:700!important;
+    color:#ffffff!important;
+    background:linear-gradient(135deg,#064e3b,#047857)!important;
+    box-shadow:0 2px 5px rgba(0,0,0,0.1)!important;
+    border:none!important;
+    transition:all 0.2s ease!important;
+    width:100%!important;
+}
+.stButton>button:hover,.stDownloadButton>button:hover{
+    transform:translateY(-1px);
+    background:linear-gradient(135deg,#047857,#022c22)!important;
+    color:#fff!important;
+}
+
+[data-testid="stMetric"]{background:#ffffff;border:1px solid #a7f3d0;border-radius:10px;padding:10px;box-shadow:0 2px 4px rgba(0,0,0,0.02)}
+div[data-testid="stTextInput"] label,div[data-testid="stSelectbox"] label,div[data-testid="stNumberInput"] label{font-weight:700!important;color:#064e3b!important}
+
+.login-card{text-align:center;border-radius:16px;padding:34px 26px 30px;background:#ffffff;border:1px solid #a7f3d0}
+.login-card .login-icon{font-size:52px}
+.login-card .login-badge{display:inline-block;margin-top:10px;padding:5px 16px;border-radius:999px;background:#064e3b;color:#fff;font-weight:800}
 </style>
 """,
     unsafe_allow_html=True,
