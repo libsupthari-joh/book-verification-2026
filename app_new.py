@@ -328,10 +328,6 @@ def vendor_options():
     return values
 
 
-def title_options(frame):
-    return list(dict.fromkeys(str(value) for value in frame["Title"].dropna().tolist()))
-
-
 # ------------------------------- Updated Menu Items -------------------------------
 menu_items = [
     "🔀 பிரிக்க (Distribute)",
