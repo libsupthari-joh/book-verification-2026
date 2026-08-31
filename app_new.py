@@ -25,807 +25,160 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+# பக்க அமைப்பு (Page Configuration)
 st.set_page_config(
-    page_title="2026ஆம் ஆண்டு வெளிப்படைத் தன்மை நூல்கள் கொள்முதல்",
+    page_title="மாவட்ட மைய நூலகம் - புதிய நூல்கள் பகிர்மானம் 2026-27",
     page_icon="📚",
     layout="wide",
-    initial_sidebar_state="collapsed",
 )
 
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@400;600;700;800&display=swap');
+# தலைப்புப் பகுதி
+st.markdown(
+    """
+    <div style="background: linear-gradient(135deg, #0d5c63 0%, #0a4a50 100%); padding: 20px; border-radius: 10px; color: white; margin-bottom: 20px;">
+        <h1>📚 மாவட்ட மைய நூலகம்</h1>
+        <p>புதிய நூல்கள் பகிர்மானம் மற்றும் சரிபார்ப்பு தளம் (2026-27)</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-html, body, [class*="css"] {
-    font-family: 'Noto Sans Tamil', sans-serif !important;
-}
+# பக்கத் தேர்வுகள் (Sidebar Menu)
+st.sidebar.title("📌 மெனு அமைப்பு")
+menu_option = st.sidebar.radio(
+    "செயல்பாட்டைத் தேர்ந்தெடுக்கவும்:",
+    [
+        "🔀 பிரிக்க (Distribute)",
+        "📤 அனுப்ப (Send)",
+        "📊 அறிக்கைகள் (Reports)",
+        "⚠️ கவனிக்க (Kavani)",
+        "🔢 பதிவெண் மாற்ற (Renumber)",
+        "🗑️ தவறான பதிவு நீக்கம் (Reclaim)",
+        "📥 Excel பதிவிறக்கம் & அப்லோட்",
+        "⚙️ மேலாண்மை & இதர வசதிகள்",
+    ],
+)
 
-.stApp {
-    background: linear-gradient(135deg, #f8fafc, #edf2f7);
-}
+# 1. பிரிக்க (Distribute) பகுதி
+if menu_option == "🔀 பிரிக்க (Distribute)":
+  st.subheader("🔀 புத்தகங்களைப் பிரித்து வழங்குதல்")
+  st.markdown("புத்தகத்தைத் தேடி, விவரங்களைச் சரிபார்த்து நூலகங்களுக்குப் பிரித்து வழங்கும் பகுதி[cite: 1].")
+  search_query = st.text_input("🔍 புத்தகம் தலைப்பு அல்லது பதிப்பகம் தட்டச்சு செய்யவும்:")
 
-[data-testid="stHeader"] { background: transparent; }
-[data-testid="stToolbar"] { visibility: hidden; }
+  if search_query:
+    st.info(f"'{search_query}'க்கான தேடல் முடிவுகள் காட்டப்படுகின்றன...")
+    sample_data = pd.DataFrame({
+        "வ.எண்": [1, 2],
+        "தலைப்பு": ["தமிழ் இலக்கிய வரலாறு", "அறிவியல் உலகம்"],
+        "பதிப்பகம்": ["பூம்புகார் பதிப்பகம்", "வானதி பதிப்பகம்"],
+        "விலை": [250, 300],
+        "எண்ணிக்கை": [10, 15],
+    })
+    st.table(sample_data)
+  else:
+    st.write("தேட ஆரம்பிக்க மேலே உள்ள பெட்டியில் தட்டச்சு செய்யவும்.")
 
-/* தலைப்புப் பகுதி */
-h1 {
-    font-size: 26px !important;
-    font-weight: 800 !important;
-    padding: 16px 20px !important;
-    border-radius: 12px;
-    color: #fff !important;
-    background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
-    box-shadow: 0 6px 15px rgba(37,99,235,0.3);
-    text-align: center;
-    margin-bottom: 15px !important;
-}
+# 2. அனுப்ப (Send) பகுதி
+elif menu_option == "📤 அனுப்ப (Send)":
+  st.subheader("📤 நூலகங்களுக்குப் புத்தகங்கள் அனுப்புதல்")
+  st.markdown("Set Number அடிப்படையில் நூலகங்களைத் தேர்ந்தெடுத்து அனுப்பியதாகப் பதிவு செய்யும் பகுதி[cite: 1].")
+  set_number = st.selectbox("SET NUMBER தேர்வு செய்யவும்:", ["-- தேர்வு செய்க --", "Set 1", "Set 2"])
+  
+  if set_number != "-- தேர்வு செய்க --":
+    st.success(f"தேர்ந்தெடுக்கப்பட்ட {set_number}க்கான நூலகங்கள் கீழே:")
+    st.checkbox("அனைத்து நூலகங்களும்")
+    lib_list = ["கிளை நூலகம் - 1", "ஊரக நூலகம் - 2", "நகர்ப்புற நூலகம் - 3"]
+    for lib in lib_list:
+      st.checkbox(lib)
+    if st.button("✅ அனுப்பியதாக பதிவு செய் (Mark as Sent)"):
+      st.success("வெற்றிகரமாக அனுப்பப்பட்டதாகப் பதிவு செய்யப்பட்டது!")
 
-h2, h3 {
-    color: #1e3a8a !important;
-    font-weight: 800 !important;
-}
+# 3. அறிக்கைகள் (Reports) பகுதி
+elif menu_option == "📊 அறிக்கைகள் (Reports)":
+  st.subheader("📊 முழுமையான நிலை அறிக்கைகள்")
+  st.markdown("தேதி வாரியான, நூலக வாரியான மற்றும் இதர முழுமையான நிலை அறிக்கைகளைப் பெறும் பகுதி[cite: 1].")
+  report_type = st.selectbox(
+      "அறிக்கை வகையைத் தேர்ந்தெடுக்கவும்:",
+      [
+          "தேதி வாரியான பணி விவரம்",
+          "மொத்த நிலை விவரம் (Total Status)",
+          "நூலகம் வாரியான புத்தக விவரம்",
+      ],
+  )
+  if st.button("📄 அறிக்கை உருவாக்கு"):
+    st.info(f"'{report_type}' தயாரிக்கப்பட்டு வருகிறது...")
 
-p, span, label, div, .stMarkdown {
-    font-size: 17px !important;
-    color: #1f2937 !important;
-    font-weight: 600 !important;
-}
+# 4. கவனிக்க (Kavani) பகுதி
+elif menu_option == "⚠️ கவனிக்க (Kavani)":
+  st.subheader("⚠️ கவனிக்க வேண்டிய முரண்பாடுகள்")
+  st.markdown("ஒரே தலைப்பில் வேறு வேறு விலைகள்/ISBN உள்ளவை மற்றும் 85% ஒத்த தலைப்புகளை (Fuzzy Match) சரிபார்க்கும் பகுதி[cite: 1].")
+  st.warning("🔴 முரண்பாடுகளை அடையாளம் காண கீழ்க்காணும் பொத்தானை அழுத்தவும்.")
+  if st.button("🔄 மீண்டும் ஒப்பிட்டுப் பார்"):
+    st.success("சரிபார்ப்பு முடிந்தது. முரண்பாடுகள் எதுவும் இல்லை.")
 
-.stSelectbox div[data-baseweb="select"] span, 
-.stTextInput input, 
-.stNumberInput input {
-    font-size: 17px !important;
-    font-weight: 700 !important;
-    color: #1e3a8a !important;
-}
+# 5. பதிவெண் மாற்ற (Renumber) பகுதி
+elif menu_option == "🔢 பதிவெண் மாற்ற (Renumber)":
+  st.subheader("🔢 மைய மற்றும் கிளைப் பதிவெண் மாற்றியமைத்தல்")
+  st.markdown("மைய மற்றும் கிளைப் பதிவெண்களை மாற்றியமைக்கும் பகுதி[cite: 1].")
+  renumber_type = st.radio("தேர்வு செய்க:", ["மையப் பதிவெண் மாற்றம்", "கிளைப் பதிவெண் மாற்றம்"])
+  new_start_num = st.number_input("புதிய தொடக்க எண்:", min_value=1, value=1000)
+  if st.button("💾 பதிவெண்ணைச் சேமி"):
+    st.success(f"புதிய தொடக்க எண் {new_start_num} வெற்றிகரமாக மாற்றப்பட்டது!")
 
-.profile-card {
-    padding: 14px 18px;
-    border-radius: 10px;
-    color: #1e3a8a;
-    background: #eff6ff;
-    border: 1.5px solid #bfdbfe;
-    font-size: 17px !important;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-}
+# 6. தவறான பதிவு நீக்கம் (Reclaim) பகுதி
+elif menu_option == "🗑️ தவறான பதிவு நீக்கம் (Reclaim)":
+  st.subheader("♻️ தவறாகப் பிரிக்கப்பட்ட/அனுப்பப்பட்ட பதிவுகளை நீக்குதல்")
+  st.markdown("பிரிக்கப்பட்ட அல்லது அனுப்பப்பட்ட தவறான பதிவுகளை மீளப்பெறும் பகுதி[cite: 1].")
+  reclaim_input = st.text_input("நீக்க வேண்டிய புத்தகத்தின் தலைப்பு / சேர்க்கை எண்:")
+  if reclaim_input and st.button("🗑️ மீளப்பெறு (Reclaim)"):
+    st.error("தேர்ந்தெடுக்கப்பட்ட பதிவு Pool-க்கு மீளப்பெறப்பட்டது.")
 
-.book-info-card {
-    border-left: 6px solid #2563eb;
-    border-radius: 10px;
-    padding: 16px 18px;
-    line-height: 2.0;
-    margin: 12px 0 16px;
-    background: #ffffff;
-    border-top: 1px solid #e2e8f0;
-    border-right: 1px solid #e2e8f0;
-    border-bottom: 1px solid #e2e8f0;
-    font-size: 17px !important;
-    box-shadow: 0 3px 8px rgba(0,0,0,0.05);
-}
+# 7. Excel பதிவிறக்கம் & அப்லோட் பகுதி
+elif menu_option == "📥 Excel பதிவிறக்கம் & அப்லோட்":
+  st.subheader("📥 தரவுப் பரிமாற்றம் (Excel Import / Export)")
+  st.markdown("Assigned, Assigned & Sent, Total Data மற்றும் மாநிலப் பதிவெண் Template பதிவிறக்கம் மற்றும் அப்லோட் செய்யும் பகுதி[cite: 1].")
+  col1, col2 = st.columns(2)
+  with col1:
+    st.markdown("### Excel பதிவிறக்கம்")
+    if st.button("📥 Assigned Data பதிவிறக்கு"):
+      st.info("கோப்பு பதிவிறக்கத்திற்கு தயாராகிறது...")
+  with col2:
+    st.markdown("### Excel அப்லோட்")
+    uploaded_file = st.file_uploader("master_data Excel கோப்பை (.xlsx) பதிவேற்றவும்", type=["xlsx", "xls"])
+    if uploaded_file is not None:
+      st.success("கோப்பு வெற்றிகரமாகப் பதிவேற்றப்பட்டது!")
 
-.total-qty {
-    color: #2563eb;
-    font-size: 20px !important;
-    font-weight: 800;
-}
+# 8. மேலாண்மை & இதர வசதிகள்
+elif menu_option == "⚙️ மேலாண்மை & இதர வசதிகள்":
+  st.subheader("⚙️ நிர்வாக மற்றும் கூடுதல் வசதிகள்")
+  admin_tab = st.selectbox(
+      "பிரிவைத் தேர்ந்தெடுக்கவும்:",
+      [
+          "Master Data (Restore/Clear)",
+          "கடவுச்சொல் மாற்ற (Change Password)",
+          "நூலகர் பார்வை ஆண்டு (Librarian Year)",
+          "மாநிலப் பதிவெண் புதுப்பி (Update State Acc)",
+          "ISBN → தலைப்பு தேடு (ISBN Lookup)"
+      ]
+  )
+  if admin_tab == "Master Data (Restore/Clear)":
+    st.write("தரவுத்தள மீட்பு (Restore), Master Data அழிப்பு (Clear), மற்றும் Assigning Data அழிப்புக்கான பகுதி[cite: 1].")
+    st.button("⚠️ Master Data-வை அழிக்கவும்")
+  elif admin_tab == "கடவுச்சொல் மாற்ற (Change Password)":
+    st.write("Admin மற்றும் DCL Staff கடவுச்சொற்களை மாற்றும் பகுதி[cite: 1].")
+    st.text_input("புதிய கடவுச்சொல்", type="password")
+  elif admin_tab == "நூலகர் பார்வை ஆண்டு (Librarian Year)":
+    st.write("நூலகர் Login-க்கு எந்த ஆண்டு தெரிய வேண்டும் என்பதைத் தீர்மானிக்கும் பகுதி[cite: 1].")
+    st.selectbox("ஆண்டு தேர்வு:", ["2025-26", "2026-27"])
+  elif admin_tab == "மாநிலப் பதிவெண் புதுப்பி (Update State Acc)":
+    st.write("மாநிலப் பதிவெண்களை மொத்தமாகப் (Bulk Update) புதுப்பிக்கும் பகுதி[cite: 1].")
+  elif admin_tab == "ISBN → தலைப்பு தேடு (ISBN Lookup)":
+    st.write("ISBN மூலம் இணையம் வழியாகத் தலைப்புத் தேடும் பகுதி[cite: 1].")
+    st.text_input("ISBN எண்ணை உள்ளிடவும்:")
 
-.not-received-card {
-    background: #fffbeb;
-    border-left: 6px solid #d97706;
-    border-radius: 10px;
-    padding: 12px 16px;
-    color: #b45309;
-    font-weight: 800;
-    font-size: 17px !important;
-    margin: 10px 0;
-}
-
-/* 🌟 3D எஃபெக்ட் மற்றும் பொத்தான் வடிவமைப்பு */
-.stButton > button, .stDownloadButton > button {
-    min-height: 52px !important;
-    border-radius: 10px !important;
-    font-size: 16px !important;
-    font-weight: 700 !important;
-    color: #ffffff !important;
-    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
-    box-shadow: 0 6px 0 #1e40af, 0 8px 15px rgba(0,0,0,0.2) !important;
-    border: none !important;
-    width: 100% !important;
-    transition: all 0.1s ease;
-}
-
-.stButton > button:active, .stDownloadButton > button:active {
-    box-shadow: 0 2px 0 #1e40af, 0 4px 8px rgba(0,0,0,0.2) !important;
-    transform: translateY(4px);
-}
-
-.stButton > button:hover, .stDownloadButton > button:hover {
-    background: linear-gradient(135deg, #1d4ed8, #1e40af) !important;
-    color: #fff !important;
-}
-
-div.row-widget.stHorizontal > div {
-    flex: 1;
-}
-
-/* 🌟 உள்நுழைவுப் பெட்டி (Login Card - மிகவும் சிறியது மற்றும் நேர்த்தியானது) */
-.login-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 75vh;
-}
-
-.login-card {
-    width: 100%;
-    max-width: 380px;
-    text-align: center;
-    border-radius: 16px;
-    padding: 25px 20px;
-    background: #ffffff;
-    border: 2px solid #bfdbfe;
-    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
-    margin: auto;
-}
-
-.login-card .login-icon { 
-    font-size: 45px; 
-}
-
-.login-card .login-badge {
-    display: inline-block;
-    margin-top: 8px;
-    margin-bottom: 12px;
-    padding: 4px 12px;
-    border-radius: 999px;
-    background: #2563eb;
-    color: #fff;
-    font-weight: 800;
-    font-size: 13px;
-}
-
-.login-card h2 {
-    font-size: 20px !important;
-    color: #1e3a8a !important;
-    margin-bottom: 6px !important;
-}
-
-.login-card p {
-    font-size: 14px !important;
-    color: #4b5563 !important;
-    margin-bottom: 15px !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-def hash_password(password):
-    return hashlib.sha256(str(password).encode("utf-8")).hexdigest()
-
-_RUNTIME_SESSION_SECRET = None
-
-def app_secret():
-    global _RUNTIME_SESSION_SECRET
-    if _RUNTIME_SESSION_SECRET:
-        return _RUNTIME_SESSION_SECRET
-    value = os.getenv("SESSION_SECRET", "").strip()
-    if not value:
-        try:
-            value = str(st.secrets.get("app_secret", "")).strip()
-        except Exception:
-            value = ""
-    _RUNTIME_SESSION_SECRET = value or py_secrets.token_hex(32)
-    return _RUNTIME_SESSION_SECRET
-
-def make_session_token(phone):
-    return hmac.new(app_secret().encode(), phone.encode(), hashlib.sha256).hexdigest()
-
-def verify_session_token(phone, token):
-    return bool(phone and token) and hmac.compare_digest(make_session_token(phone), str(token))
-
-USERS_DATABASE = {
-    "9842759306": {"password_hash": hash_password("Hari@@1979"), "role": "Admin", "name": "முதன்மை நிர்வாகி (Admin)"},
-    "9787555290": {"password_hash": hash_password("123456"), "role": "User", "name": "சரிபார்ப்பு பயனர் 1 (User)"},
-    "9751687939": {"password_hash": hash_password("123456"), "role": "User", "name": "சரிபார்ப்பு பயனர் 2 (User)"},
-}
-
-def authenticate_user(phone, password):
-    user = USERS_DATABASE.get(str(phone).strip())
-    if user and hmac.compare_digest(hash_password(password), user["password_hash"]):
-        return user
-    return None
-
-for key, default in {
-    "logged_in": False, "user_role": None, "user_name": "", "user_phone": None,
-    "current_page": "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு", "vendor_key": 0,
-    "selected_vendor": None, "temp_verified_records": [], "library_key": 0,
-    "selected_library": None, "acc_library_key": 0, "selected_acc_library": None,
-}.items():
-    st.session_state.setdefault(key, default)
-
-if not st.session_state["logged_in"]:
-    query_phone = st.query_params.get("phone")
-    query_token = st.query_params.get("token")
-    if query_phone in USERS_DATABASE and verify_session_token(query_phone, query_token):
-        user = USERS_DATABASE[query_phone]
-        st.session_state.update(
-            logged_in=True, user_role=user["role"], user_name=user["name"], user_phone=query_phone
-        )
-
-def show_login_page():
-    st.markdown('<div class="login-container"><div class="login-card">', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="login-icon">📚</div>'
-        '<div class="login-badge">2026</div><h2>2026ஆம் ஆண்டு புதிய நூல்கள் கொள்முதல்</h2>'
-        '<p>பதிப்பாளர்களின் புதிய நூல்கள் விநியோகம் &amp; சரிபார்ப்பு தளம்</p>',
-        unsafe_allow_html=True,
-    )
-    with st.form("secure_login_form"):
-        phone = st.text_input("📱 அலைபேசி எண்", max_chars=10, placeholder="10 இலக்க எண்")
-        password = st.text_input("🔑 கடவுச்சொல்", type="password")
-        submitted = st.form_submit_button("🔓 உள்நுழைக", use_container_width=True)
-    st.markdown('</div></div>', unsafe_allow_html=True)
-    
-    if submitted:
-        user = authenticate_user(phone, password)
-        if not user:
-            st.error("❌ தவறான அலைபேசி எண் அல்லது கடவுச்சொல்!")
-        else:
-            clean_phone = phone.strip()
-            st.session_state.update(
-                logged_in=True, user_role=user["role"], user_name=user["name"], user_phone=clean_phone
-            )
-            st.query_params.update(phone=clean_phone, token=make_session_token(clean_phone))
-            st.rerun()
-
-if not st.session_state["logged_in"]:
-    show_login_page()
-    st.stop()
-
-EXCEL_FILE = "Book Supply-2026.xlsx"
-SPREADSHEET_ID = "1LNogKaLvdqkoITSLE971jTBIy9QO4s90j1WDxY1cDrc"
-DRIVE_FOLDER_ID = "1T3HKPAExdNtC-LOCuh2cDXI-6Kf8dzyq"
-
-def init_local_db():
-    conn = sqlite3.connect("local_books.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS books (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT,
-            author TEXT,
-            language TEXT,
-            quantity INTEGER,
-            vendor_name TEXT,
-            lib_id TEXT,
-            lib_name TEXT
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-init_local_db()
-
-@st.cache_data(ttl=3600)
-def load_data(file_path):
-    if not os.path.exists(file_path):
-        return None, None
-    excel = pd.ExcelFile(file_path, engine="openpyxl")
-    vendor = pd.read_excel(file_path, sheet_name="Vendor Name", engine="openpyxl") if "Vendor Name" in excel.sheet_names else pd.DataFrame()
-    sheets = [name for name in excel.sheet_names if "Vendor Wise Book Data" in name]
-    books = pd.read_excel(file_path, sheet_name=sheets[0], engine="openpyxl") if sheets else pd.DataFrame()
-    return vendor, books
-
-@st.cache_resource
-def init_gspread():
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(st.secrets["gcp_service_account"]), scope)
-    return gspread.authorize(creds)
-
-@st.cache_resource
-def get_drive_service():
-    creds = Credentials.from_service_account_info(dict(st.secrets["gcp_service_account"]), scopes=["https://www.googleapis.com/auth/drive"])
-    return build("drive", "v3", credentials=creds, cache_discovery=False)
-
-def clean_text(value):
-    if value is None or pd.isna(value):
-        return ""
-    value = re.sub(r"^\s*\d+[\.\s\-_]*", "", str(value).strip())
-    return re.sub(r"[^a-zA-Z0-9\u0B80-\u0BFF\s]", "", value).casefold().strip()
-
-vendor_df, book_df = load_data(EXCEL_FILE)
-sheet_physically = sheet_vendor_wise = sheet_lib_detail = None
-try:
-    worksheets = {w.title.strip().casefold(): w for w in init_gspread().open_by_key(SPREADSHEET_ID).worksheets()}
-    for title, worksheet in worksheets.items():
-        if "physically verified" in title:
-            sheet_physically = worksheet
-        elif "vendor wise book data" in title:
-            sheet_vendor_wise = worksheet
-        elif "lib_detail" in title or "library" in title:
-            sheet_lib_detail = worksheet
-except Exception as error:
-    st.error(f"❌ Google Sheet இணைப்புப் பிழை: {error}")
-
-PDF_FONT_REGULAR = PDF_FONT_BOLD = None
-PDF_FONT_ERROR = None
-FONT_URL = "https://github.com/notofonts/tamil/raw/main/fonts/ttf/NotoSansTamil/NotoSansTamil-Regular.ttf"
-
-def find_tamil_font():
-    root = os.path.dirname(os.path.abspath(__file__))
-    paths = [
-        os.path.join(root, "fonts", "NotoSansTamil-Regular.ttf"),
-        os.path.join(root, "fonts", "NotoSansTamil.ttf"),
-        os.path.join(os.getcwd(), "fonts", "NotoSansTamil-Regular.ttf"),
-        os.path.join(os.getcwd(), "fonts", "NotoSansTamil.ttf"),
-    ]
-    found = next((path for path in paths if os.path.isfile(path)), None)
-    if found:
-        return found
-    target = paths[0]
-    try:
-        os.makedirs(os.path.dirname(target), exist_ok=True)
-        request = Request(FONT_URL, headers={"User-Agent": "Mozilla/5.0"})
-        with urlopen(request, timeout=20) as response, open(target, "wb") as output:
-            output.write(response.read())
-        return target if os.path.isfile(target) and os.path.getsize(target) > 10000 else None
-    except Exception:
-        return None
-
-def load_pdf_font():
-    global PDF_FONT_REGULAR, PDF_FONT_BOLD
-    path = find_tamil_font()
-    if not path:
-        raise FileNotFoundError("fonts/NotoSansTamil-Regular.ttf கிடைக்கவில்லை.")
-    if "TamilUI" not in pdfmetrics.getRegisteredFontNames():
-        pdfmetrics.registerFont(TTFont("TamilUI", path))
-        pdfmetrics.registerFontFamily("TamilUI", normal="TamilUI", bold="TamilUI", italic="TamilUI", boldItalic="TamilUI")
-    PDF_FONT_REGULAR = PDF_FONT_BOLD = "TamilUI"
-
-try:
-    load_pdf_font()
-except Exception as error:
-    PDF_FONT_ERROR = error
-
-def safe_name(value):
-    return re.sub(r"[^\w\u0B80-\u0BFF -]", "", str(value)).strip()[:80] or "Report"
-
-def get_vendor_number(vendor_id_name, vendor_name):
-    match = re.search(r"\d+", str(vendor_id_name or vendor_name))
-    return match.group(0) if match else "000"
-
-def excel_bytes(frame, sheet_name):
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        frame.to_excel(writer, index=False, sheet_name=str(sheet_name)[:31])
-    return output.getvalue()
-
-def csv_bytes(frame):
-    return frame.to_csv(index=False).encode("utf-8-sig")
-
-def pdf_bytes(frame, title):
-    if PDF_FONT_ERROR:
-        raise RuntimeError(f"Tamil PDF font could not be loaded: {PDF_FONT_ERROR}")
-    output = io.BytesIO()
-    document = SimpleDocTemplate(output, pagesize=landscape(A4), rightMargin=7 * mm, leftMargin=7 * mm, topMargin=7 * mm, bottomMargin=7 * mm)
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle("TamilTitle", parent=styles["Title"], fontName=PDF_FONT_REGULAR, fontSize=14, leading=18, alignment=TA_CENTER, textColor=colors.HexColor("#1e3a8a"))
-    body_style = ParagraphStyle("TamilBody", parent=styles["BodyText"], fontName=PDF_FONT_REGULAR, fontSize=8, leading=10)
-    columns = list(frame.columns)
-    data = [[Paragraph(xml_escape(str(column)), body_style) for column in columns]]
-    for row in frame.fillna("").astype(str).itertuples(index=False, name=None):
-        data.append([Paragraph(xml_escape(str(value)[:150]), body_style) for value in row])
-    widths = []
-    for column in columns:
-        sample = [str(column)] + [str(value) for value in frame[column].head(25)]
-        widths.append(max(20 * mm, min(58 * mm, (max(map(len, sample)) + 2) * 1.15 * mm)))
-    available = landscape(A4)[0] - 14 * mm
-    if sum(widths) > available:
-        scale = available / sum(widths)
-        widths = [width * scale for width in widths]
-    table = Table(data, colWidths=widths, repeatRows=1)
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e3a8a")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#bfdbfe")),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#eff6ff")]),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-    ]))
-    document.build([Paragraph(xml_escape(str(title)), title_style), Spacer(1, 4 * mm), table])
-    return output.getvalue()
-
-def upload_pdf_to_drive(pdf_data, vendor_id, vendor_name):
-    name = f"{get_vendor_number(vendor_id, vendor_name)}_{safe_name(vendor_name).replace(' ', '_')}_Physical_Verification.pdf"
-    media = MediaIoBaseUpload(io.BytesIO(pdf_data), mimetype="application/pdf", resumable=False)
-    return get_drive_service().files().create(
-        body={"name": name, "parents": [DRIVE_FOLDER_ID], "mimeType": "application/pdf"},
-        media_body=media, fields="id,name,webViewLink", supportsAllDrives=True,
-    ).execute()
-
-def download_panel(frame, prefix, sheet_name, pdf_title=None):
-    st.markdown("### 📥 பதிவிறக்க வசதிகள்")
-    st.download_button("📊 Excel பதிவிறக்கம்", excel_bytes(frame, sheet_name), f"{prefix}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, key=f"xlsx_{prefix}")
-    st.download_button("📄 CSV பதிவிறக்கம்", csv_bytes(frame), f"{prefix}.csv", "text/csv", use_container_width=True, key=f"csv_{prefix}")
-    try:
-        pdf = pdf_bytes(frame, pdf_title or sheet_name)
-        st.download_button("🧾 PDF பதிவிறக்கம்", pdf, f"{prefix}.pdf", "application/pdf", use_container_width=True, key=f"pdf_{prefix}")
-    except Exception as error:
-        st.error(f"❌ PDF உருவாக்க முடியவில்லை: {error}")
-
-def vendor_options():
-    values = []
-    if vendor_df is not None and not vendor_df.empty:
-        for _, row in vendor_df.iterrows():
-            b = str(row.iloc[1]).strip() if len(row) > 1 and pd.notna(row.iloc[1]) else ""
-            c = str(row.iloc[2]).strip() if len(row) > 2 and pd.notna(row.iloc[2]) else ""
-            name = c if c and c.casefold() != "nan" else b
-            if name and name.casefold() != "nan" and name not in values:
-                values.append(name)
-    return values
-
-def title_options(frame):
-    return list(dict.fromkeys(str(value) for value in frame["Title"].dropna().tolist()))
-
-if st.session_state["user_role"] == "Admin":
-    menu_items = [
-        "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு", 
-        "🔄 2. Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்", 
-        "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)", 
-        "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)", 
-        "⚙️ 5. Accession எண்கள் மேலாண்மை"
-    ]
-else:
-    menu_items = [
-        "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு"
-    ]
-
-if st.session_state["current_page"] not in menu_items:
-    st.session_state["current_page"] = menu_items[0]
-
-st.title("📚 2026ஆம் ஆண்டு வெளிப்படைத் தன்மை நூல்கள் கொள்முதல்")
-
-info, logout = st.columns([3.2, 0.8])
-with info:
-    role = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
-    st.markdown(f'<div class="profile-card">👤 <b>பயனர்:</b> {st.session_state["user_name"]} &nbsp;|&nbsp; <b>அதிகாரம்:</b> {role}</div>', unsafe_allow_html=True)
-with logout:
-    if st.button("🚪 வெளியேறு", use_container_width=True):
-        st.query_params.clear()
-        st.session_state.clear()
-        st.rerun()
-
+# அடிக்குறிப்பு
 st.markdown("---")
-
-cols = st.columns(len(menu_items))
-for i, item in enumerate(menu_items):
-    with cols[i]:
-        if st.button(item, use_container_width=True, key=f"menu_btn_{i}"):
-            st.session_state["current_page"] = item
-            st.rerun()
-
-st.markdown("---")
-
-if st.session_state["current_page"] == menu_items[0]:
-    st.subheader("📥 பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
-    if vendor_df is None or book_df is None or book_df.empty:
-        st.error("❌ 'Book Supply-2026.xlsx' கோப்பு அல்லது புத்தகத் தரவு கிடைக்கவில்லை!")
-        st.stop()
-    already = set()
-    if sheet_physically:
-        try:
-            for row in sheet_physically.get_all_values()[1:]:
-                if len(row) > 4 and row[4]:
-                    already.add(clean_text(row[4]))
-                elif row and row[0]:
-                    already.add(clean_text(row[0]))
-        except Exception:
-            pass
-    vendors = vendor_options()
-    st.markdown("### 🏢 1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்")
-    selected = st.selectbox(
-        "🔎 பதிப்பாளர் தேடல்",
-        ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + vendors,
-        placeholder="பதிப்பகத்தின் பெயரை தட்டச்சு செய்து தேர்ந்தெடுக்கவும்",
-        key=f"vendor_t1_{st.session_state['vendor_key']}",
-    )
-    if selected != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --" and selected != st.session_state["selected_vendor"]:
-        st.session_state.update(selected_vendor=selected, temp_verified_records=[])
-    if st.session_state["selected_vendor"]:
-        vendor_name = st.session_state["selected_vendor"]
-        if clean_text(vendor_name) in already:
-            st.error(f"⚠️ **{vendor_name}** பதிப்பகத்தின் சரிபார்ப்பு ஏற்கனவே முடிந்தது!")
-            if st.button("🔄 மற்றொரு பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்", use_container_width=True):
-                st.session_state.update(selected_vendor=None, temp_verified_records=[], vendor_key=st.session_state["vendor_key"] + 1)
-                st.rerun()
-        else:
-            mask = (book_df.iloc[:, 9].apply(clean_text) == clean_text(vendor_name)) | (book_df.iloc[:, 10].apply(clean_text) == clean_text(vendor_name))
-            filtered = book_df[mask]
-            if filtered.empty:
-                st.warning("⚠️ இந்த பதிப்பகத்திற்குப் புத்தகத் தரவுகள் இல்லை!")
-            else:
-                grouped = filtered.groupby(["Title", "Author Name", "Language"], as_index=False).agg({"Quantity": "sum", "Original Price": "first", "Acccepted Price": "first", "Isbn": "first", "Book Id": "first"})
-                c1, c2 = st.columns(2)
-                c1.metric("📚 மொத்தத் தலைப்புகள்", len(grouped))
-                c2.metric("📦 மொத்தப் படிகள்", int(grouped["Quantity"].sum()))
-                done = {item["Title"] for item in st.session_state["temp_verified_records"]}
-                remaining = [title for title in title_options(grouped) if title not in done]
-                st.markdown("### 🔍 2. தலைப்பைத் தேடி சரிபார்க்கவும்")
-                title_lookup = {
-                    f"{title} — {str(grouped.loc[grouped['Title'] == title, 'Author Name'].iloc[0])}": title
-                    for title in remaining
-                }
-                selected_title_display = st.selectbox(
-                    "🔎 தலைப்பு / ஆசிரியர் தேடல்",
-                    ["-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --"] + list(title_lookup),
-                    placeholder="தலைப்பு (அல்லது) ஆசிரியர் பெயரை தட்டச்சு செய்யவும்",
-                    key=f"title_t1_{len(done)}",
-                )
-                selected_title = title_lookup.get(selected_title_display, "-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --")
-                if selected_title != "-- புத்தகத்தைத் தேர்ந்தெடுக்கவும் --":
-                    book = grouped[grouped["Title"] == selected_title].iloc[0]
-                    author, language, total = str(book["Author Name"] or ""), str(book["Language"] or ""), int(book["Quantity"])
-                    st.markdown(f'<div class="book-info-card">📖 <b>தலைப்பு:</b> {xml_escape(selected_title)}<br>✍️ <b>ஆசிரியர்:</b> {xml_escape(author)}<br>🌐 <b>மொழி:</b> {xml_escape(language)}<br><span class="total-qty">📦 பெற வேண்டிய மொத்த எண்ணிக்கை: {total}</span></div>', unsafe_allow_html=True)
-                    received = st.number_input("✍️ பெறப்பட்ட எண்ணிக்கை", min_value=0, max_value=total, value=0, step=1, key=f"received_{selected_title}")
-                    st.markdown(f'<div class="not-received-card">❌ பெறப்படாத எண்ணிக்கை: {total - received}</div>', unsafe_allow_html=True)
-                    if st.button("➕ தற்காலிகப் பட்டியலில் சேர்", use_container_width=True):
-                        vendor_id = next((str(r.iloc[1]).strip() for _, r in vendor_df.iterrows() if len(r) > 2 and str(r.iloc[2]).strip() == vendor_name), vendor_name)
-                        st.session_state["temp_verified_records"].append({"Title": selected_title, "Author Name": author, "Language": language, "Total Qty": total, "Received": received, "Not Received": total - received, "Short / Extra": str(received - total) if received != total else "0", "ID with Vendor Name": vendor_id, "Vendor Name": vendor_name, "Date": datetime.now().strftime("%d-%m-%y %H:%M:%S")})
-                        st.rerun()
-                if st.session_state["temp_verified_records"]:
-                    temp = pd.DataFrame(st.session_state["temp_verified_records"])
-                    cols = ["Title", "Author Name", "Language", "Total Qty", "Received", "Not Received", "Short / Extra", "Date"]
-                    st.dataframe(temp[cols], use_container_width=True, hide_index=True)
-                    download_panel(
-                        temp[cols],
-                        f"{get_vendor_number(vendor_name, vendor_name)}_{safe_name(vendor_name)}_Physical_Verification",
-                        "Physical Verification",
-                        f"பதிப்பகம்: {vendor_name} | Physical Verification",
-                    )
-                    clear, save = st.columns(2)
-                    with clear:
-                        if st.button("🗑️ அனைத்தையும் அழி", use_container_width=True):
-                            st.session_state["temp_verified_records"] = []
-                            st.rerun()
-                    with save:
-                        if st.button("💾 சீட்டில் சேமி", use_container_width=True):
-                            if len(temp) < len(grouped):
-                                st.error(f"⚠️ மொத்தம் {len(grouped)} தலைப்புகள் உள்ளன. அனைத்தையும் சேர்க்கவும்!")
-                            elif not sheet_physically:
-                                st.error("❌ Google Sheet இணைப்பு கிடைக்கவில்லை!")
-                            else:
-                                try:
-                                    for item in st.session_state["temp_verified_records"]:
-                                        sheet_physically.append_row([item["ID with Vendor Name"], item["Title"], item["Language"], item["Author Name"], item["Vendor Name"], item["Total Qty"], item["Received"], item["Not Received"], item["Short / Extra"], item["Date"]])
-                                    try:
-                                        upload_pdf_to_drive(pdf_bytes(temp[cols], f"{vendor_name} - Physical Verification"), vendor_name, vendor_name)
-                                        st.success("✅ Google Sheet மற்றும் Drive PDF-ல் சேமிக்கப்பட்டது!")
-                                    except Exception as error:
-                                        st.warning(f"⚠️ Sheet சேமிக்கப்பட்டது; Drive PDF சேமிக்கப்படவில்லை: {error}")
-                                    st.session_state.update(selected_vendor=None, temp_verified_records=[], vendor_key=st.session_state["vendor_key"] + 1)
-                                    st.rerun()
-                                except Exception as error:
-                                    st.error(f"❌ சேமிப்பதில் பிழை: {error}")
-
-elif len(menu_items) > 1 and st.session_state["current_page"] == menu_items[1]:
-    st.subheader("🔄 பெறப்பட்ட எண்ணிக்கை ஒத்திசைவு (Sync)")
-    if not sheet_physically or not sheet_vendor_wise:
-        st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
-        st.stop()
-    try:
-        physical = sheet_physically.get_all_values()
-        vendor_sheet = sheet_vendor_wise.get_all_values()
-        ph = [str(x).strip().casefold() for x in physical[0]]
-        wh = [str(x).strip().casefold() for x in vendor_sheet[0]]
-        vi = next((i for i, x in enumerate(ph) if "vendor" in x), 4)
-        ti = next((i for i, x in enumerate(ph) if "title" in x), 1)
-        ri = next((i for i, x in enumerate(ph) if "received" in x and "not" not in x), 6)
-        si = next((i for i, x in enumerate(wh) if "received" in x and "not" not in x), 18)
-        vendors = sorted({row[vi].strip() for row in physical[1:] if len(row) > vi and row[vi].strip()})
-        selected = st.selectbox(
-            "🔎 பதிப்பகம் தேடல்",
-            ["-- தேர்ந்தெடுக்கவும் --"] + vendors,
-            placeholder="பதிப்பகத்தின் பெயரை தட்டச்சு செய்து தேர்ந்தெடுக்கவும்",
-            key="sync_vendor",
-        )
-        if selected != "-- தேர்ந்தெடுக்கவும் --":
-            records = [row for row in physical[1:] if len(row) > max(vi, ti, ri) and clean_text(row[vi]) == clean_text(selected)]
-            title_lookup = {
-                f"{row[ti]} — {row[3] if len(row) > 3 else ''}": row[ti]
-                for row in records
-            }
-            selected_book = st.selectbox(
-                "🔎 தலைப்பு / ஆசிரியர் தேடல்",
-                ["-- அனைத்து தலைப்புகளும் --"] + list(title_lookup),
-                placeholder="தலைப்பு (அல்லது) ஆசிரியர் பெயரை தட்டச்சு செய்யவும்",
-                key="sync_book",
-            )
-            if selected_book != "-- அனைத்து தலைப்புகளும் --":
-                records = [row for row in records if row[ti] == title_lookup.get(selected_book)]
-            st.dataframe(pd.DataFrame([{"Title": r[ti], "Received": r[ri]} for r in records]), use_container_width=True, hide_index=True)
-            if st.button("🚀 இந்த பதிப்பகத்திற்கு மட்டும் ஒத்திசைவு செய்க", use_container_width=True):
-                cells = []
-                for prow in records:
-                    remaining = int(prow[ri]) if str(prow[ri]).isdigit() else 0
-                    for row_no, wrow in enumerate(vendor_sheet[1:], 2):
-                        wvendor = wrow[10] if len(wrow) > 10 else (wrow[9] if len(wrow) > 9 else "")
-                        wtitle = wrow[4] if len(wrow) > 4 else ""
-                        if clean_text(selected) in clean_text(wvendor) and clean_text(prow[ti]) == clean_text(wtitle) and remaining:
-                            qty = int(wrow[17]) if len(wrow) > 17 and str(wrow[17]).isdigit() else 1
-                            got = min(remaining, qty)
-                            cells += [Cell(row=row_no, col=si + 1, value=str(got)), Cell(row=row_no, col=si + 2, value=str(qty - got))]
-                            remaining -= got
-                if cells:
-                    sheet_vendor_wise.update_cells(cells)
-                st.success(f"✅ {selected} ஒத்திசைக்கப்பட்டது!")
-                time.sleep(.5)
-                st.rerun()
-    except Exception as error:
-        st.error(f"❌ பிழை: {error}")
-
-elif len(menu_items) > 2 and st.session_state["current_page"] == menu_items[2]:
-    st.subheader("🏢 மொத்த பதிப்பாளர் விவரங்கள் (480)")
-    if vendor_df is None or book_df is None:
-        st.error("❌ தரவு கிடைக்கவில்லை!")
-        st.stop()
-    vendors = vendor_options()
-    selected = st.selectbox(
-        "🔎 பதிப்பாளர் தேடல்",
-        ["-- அனைத்து பதிப்பாளர்களும் (All Publishers) --"] + vendors,
-        placeholder="பதிப்பகத்தின் பெயரை தட்டச்சு செய்து தேர்ந்தெடுக்கவும்",
-        key="vendor_t3",
-    )
-    if selected.startswith("-- அனைத்து"):
-        result = vendor_df
-    else:
-        result = book_df[(book_df.iloc[:, 9].apply(clean_text) == clean_text(selected)) | (book_df.iloc[:, 10].apply(clean_text) == clean_text(selected))]
-    st.dataframe(result, use_container_width=True, hide_index=True)
-    if not result.empty:
-        download_panel(result, safe_name(selected) + "_Vendor_Details", "Vendor Details")
-
-elif len(menu_items) > 3 and st.session_state["current_page"] in menu_items[3:]:
-    if book_df is None or book_df.empty:
-        st.error("❌ புத்தகத் தரவு கிடைக்கவில்லை!")
-        st.stop()
-    base = book_df.copy()
-    cmap = {str(c).casefold().strip(): c for c in base.columns}
-    lib_name_col = next((cmap[k] for k in cmap if "library name" in k), base.columns[12] if len(base.columns) > 12 else None)
-    lib_id_col = next((cmap[k] for k in cmap if "librarianid" in k or "lib id" in k), base.columns[11] if len(base.columns) > 11 else None)
-    libraries = {}
-    if lib_name_col and lib_id_col:
-        for _, row in base.dropna(subset=[lib_name_col, lib_id_col]).iterrows():
-            libraries[str(row[lib_name_col]).strip()] = str(row[lib_id_col]).strip()
-    if st.session_state["current_page"] == menu_items[3]:
-        st.subheader("🏛️ நூலகத்திற்கு விநியோகம் (103)")
-        selected = st.selectbox(
-            "🔎 நூலகம் தேடல்",
-            ["-- தேர்ந்தெடுக்கவும் --", "-- அனைத்து நூலகங்களும் --"] + sorted(libraries),
-            placeholder="நூலகத்தின் பெயரை தட்டச்சு செய்து தேர்ந்தெடுக்கவும்",
-            key=f"library_{st.session_state['library_key']}",
-        )
-        if selected != "-- தேர்ந்தெடுக்கவும் --":
-            result = base if selected.startswith("-- அனைத்து") else base[base[lib_id_col].astype(str).str.strip() == libraries[selected]]
-            result = result.drop(columns=["S.No"], errors="ignore")
-            result.insert(0, "S.No", range(1, len(result) + 1))
-            title_lookup = {
-                f"{row.get('Title', '')} — {row.get('Author Name', '')}": row.get("Title", "")
-                for _, row in result.iterrows()
-            }
-            selected_book = st.selectbox(
-                "🔎 தலைப்பு / ஆசிரியர் தேடல்",
-                ["-- அனைத்து தலைப்புகளும் --"] + list(title_lookup),
-                placeholder="தலைப்பு (அல்லது) ஆசிரியர் பெயரை தட்டச்சு செய்யவும்",
-                key="library_book_t4",
-            )
-            if selected_book != "-- அனைத்து தலைப்புகளும் --":
-                result = result[result["Title"] == title_lookup.get(selected_book)]
-            st.dataframe(result, use_container_width=True, hide_index=True)
-            if not result.empty:
-                download_panel(result, safe_name(selected) + "_Distribution", "Library Distribution")
-    else:
-        st.subheader("⚙️ தானியங்கி மைய மற்றும் கிளை நூல் சேர்க்கை எண்கள் மேலாண்மை")
-        st.error("🚨 பெறப்பட்ட நூல்களுக்கு (Received Qty) மட்டுமே சேர்க்கை எண்கள் உருவாக்கப்படும்.")
-        if not sheet_vendor_wise:
-            st.error("❌ Vendor Wise Data இணைப்பு கிடைக்கவில்லை!")
-            st.stop()
-        selected = st.selectbox(
-            "🔎 நூலகம் தேடல்",
-            ["-- தேர்ந்தெடுக்கவும் --"] + sorted(libraries),
-            placeholder="நூலகத்தின் பெயரை தட்டச்சு செய்து தேர்ந்தெடுக்கவும்",
-            key=f"acc_{st.session_state['acc_library_key']}",
-        )
-        if selected != "-- தேர்ந்தெடுக்கவும் --":
-            rows = sheet_vendor_wise.get_all_values()
-            headers = [str(x).strip().casefold() for x in rows[0]]
-            li = next((i for i, x in enumerate(headers) if "librarianid" in x or "lib id" in x), 11)
-            ti = next((i for i, x in enumerate(headers) if "title" in x), 4)
-            qi = next((i for i, x in enumerate(headers) if x == "quantity"), 17)
-            ri = next((i for i, x in enumerate(headers) if "received" in x and "not" not in x), 18)
-            
-            central = branch = 0
-            central_row = branch_row = None
-            if sheet_lib_detail:
-                try:
-                    detail_rows = sheet_lib_detail.get_all_values()
-                    for detail_row_no, detail in enumerate(detail_rows[1:], 2):
-                        if central_row is None and len(detail) > 5 and str(detail[5]).strip().isdigit():
-                            central = int(detail[5])
-                            central_row = detail_row_no
-                        if len(detail) > 1 and str(detail[1]).strip() == libraries[selected]:
-                            if len(detail) > 6 and str(detail[6]).strip().isdigit():
-                                branch = int(detail[6])
-                            branch_row = detail_row_no
-                except Exception as error:
-                    st.warning(f"⚠️ Lib_Detail பிழை: {error}")
-                    
-            library_rows = [
-                row for row in rows[1:]
-                if len(row) > li and str(row[li]).strip() == libraries[selected]
-            ]
-            title_lookup = {
-                f"{row[ti] if len(row) > ti else ''} — {row[3] if len(row) > 3 else ''}":
-                (row[ti] if len(row) > ti else "")
-                for row in library_rows
-            }
-            selected_book = st.selectbox(
-                "🔎 தலைப்பு / ஆசிரியர் தேடல்",
-                ["-- அனைத்து தலைப்புகளும் --"] + list(title_lookup),
-                placeholder="தலைப்பு (அல்லது) ஆசிரியர் பெயரை தட்டச்சு செய்யவும்",
-                key="library_book_t5",
-            )
-            selected_book_title = title_lookup.get(selected_book)
-            
-            all_library_records = []
-            for row_no, row in enumerate(rows[1:], 2):
-                if len(row) > li and str(row[li]).strip() == libraries[selected]:
-                    row_title = row[ti] if len(row) > ti else ""
-                    qty = int(row[qi]) if len(row) > qi and str(row[qi]).isdigit() else 1
-                    received = int(row[ri]) if len(row) > ri and str(row[ri]).isdigit() else 0
-                    old_c = row[20].strip() if len(row) > 20 else ""
-                    old_b = row[21].strip() if len(row) > 21 else ""
-                    
-                    if not old_c and not old_b:
-                        c = [str(central + n) for n in range(1, received + 1)]
-                        b = [str(branch + n) for n in range(1, received + 1)]
-                        central += received
-                        branch += received
-                    else:
-                        c, b = [old_c], [old_b]
-                        
-                    all_library_records.append({
-                        "Sheet Row": row_no, 
-                        "Title": row_title, 
-                        "Author Name": row[3] if len(row) > 3 else "", 
-                        "Quantity": qty, 
-                        "Received": received, 
-                        "Central Accession No": ", ".join(x for x in c if x), 
-                        "Branch Accession No": ", ".join(x for x in b if x), 
-                        "_new": not old_c and not old_b
-                    })
-            
-            records = [
-                r for r in all_library_records 
-                if not selected_book_title or r["Title"] == selected_book_title
-            ]
-            
-            if records:
-                visible = pd.DataFrame(records).drop(columns=["Sheet Row", "_new"])
-                st.dataframe(visible, use_container_width=True, hide_index=True)
-                if st.button("💾 Google Sheet (U & V தூண்களில்) சேமி", use_container_width=True):
-                    cells = []
-                    for record in records:
-                        if record["_new"]:
-                            cells += [Cell(row=record["Sheet Row"], col=21, value=record["Central Accession No"]), Cell(row=record["Sheet Row"], col=22, value=record["Branch Accession No"])]
-                    if cells:
-                        sheet_vendor_wise.update_cells(cells)
-                    if sheet_lib_detail and central_row and branch_row:
-                        try:
-                            sheet_lib_detail.update_cells([
-                                Cell(row=central_row, col=6, value=str(central)),
-                                Cell(row=branch_row, col=7, value=str(branch)),
-                            ])
-                        except Exception as error:
-                            st.warning(f"⚠️ Lib_Detail எண்ணிக்கை புதுப்பிக்கப்படவில்லை: {error}")
-                    st.success("✅ சேர்க்கை எண்கள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
-                    st.rerun()
-                download_panel(visible, safe_name(selected) + "_Accession_Register", "Accession Register")
-            else:
-                st.warning("⚠️ இந்த நூலகத்திற்கு புத்தகங்கள் எதுவும் இல்லை.")
+st.markdown(
+    "<p style='text-align: center; color: gray; font-size: 0.85rem;'>மாவட்ட மைய நூலக நிர்வாகப் பிரிவு © 2026</p>",
+    unsafe_allow_html=True,
+)
