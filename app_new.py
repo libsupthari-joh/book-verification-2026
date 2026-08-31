@@ -4,6 +4,7 @@ import io
 import os
 import re
 import secrets as py_secrets
+import sqlite3
 import time
 from datetime import datetime
 from urllib.request import Request, urlopen
@@ -32,33 +33,119 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-st.markdown(
-    """
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+st.markdown("""
 <style>
-:root{--navy:#071a38;--blue:#1565c0;--cyan:#00acc1;--gold:#f59e0b}
-html,body,[class*="css"]{-webkit-tap-highlight-color:transparent}
-.stApp{background:radial-gradient(circle at 8% 8%,rgba(0,188,212,.12),transparent 28%),linear-gradient(135deg,#eef5ff,#fbfdff 50%,#eaf2ff)}
-[data-testid="stHeader"]{background:transparent}[data-testid="stToolbar"]{visibility:hidden}
-h1{font-size:20px!important;padding:14px 16px!important;border-radius:16px;color:#fff!important;background:linear-gradient(135deg,#071a38,#1565c0 58%,#00acc1);box-shadow:0 6px 0 #041126,0 14px 24px #071a3833;text-shadow:2px 3px 3px #0006;text-align:center;margin-bottom:16px!important;line-height:1.4}
-h2,h3{color:#092653!important}
-.profile-card,.book-info-card,.login-card{background:linear-gradient(145deg,#fff,#eef5ff);border:1px solid #cfe0f5;box-shadow:5px 5px 0 #c8d8ed,0 8px 18px #08265318}
-.profile-card{padding:12px 16px;border-radius:14px;font-size:14px;line-height:1.7}
-.book-info-card{border-left:7px solid #1565c0;border-radius:14px;padding:14px 16px;line-height:1.9;margin:10px 0 16px;font-size:15px;word-break:break-word}
-.total-qty{color:#0b3d91;font-size:18px;font-weight:900}
-.not-received-card{background:linear-gradient(145deg,#fff8e1,#fff3c4);border-left:7px solid #f59e0b;border-radius:12px;padding:12px 16px;color:#8a4b00;font-size:16px;font-weight:800;box-shadow:4px 4px 0 #ead69b;margin:10px 0}
-.stButton>button,.stDownloadButton>button{min-height:45px!important;border-radius:10px!important;font-size:13px!important;font-weight:700!important;color:#071a38!important;background:linear-gradient(145deg,#ffffff,#e2eeff)!important;box-shadow:0 3px 0 #cbd5e1,0 6px 12px #082b6815!important;border:1px solid #cbd5e1!important;transition:.2s!important;width:100%!important;white-space:normal!important}
-.stButton>button:hover,.stDownloadButton>button:hover{transform:translateY(-2px);background:linear-gradient(145deg,#1565c0,#071a38)!important;color:#fff!important}
-[data-testid="stMetric"]{background:linear-gradient(145deg,#fff,#eef5ff);border:1px solid #cfe0f5;border-radius:14px;box-shadow:4px 4px 0 #c8d8ed;padding:10px}
-div[data-testid="stTextInput"] label,div[data-testid="stSelectbox"] label,div[data-testid="stNumberInput"] label{font-weight:700!important;color:#092653!important}
-.login-card{text-align:center;border-radius:26px;padding:34px 26px 30px;position:relative;overflow:hidden}
-.login-card .login-icon{font-size:52px}.login-card .login-badge{display:inline-block;margin-top:10px;padding:5px 16px;border-radius:999px;background:linear-gradient(135deg,#071a38,#1565c0 60%,#00acc1);color:#fff;font-weight:800}.login-card h2{margin:16px 0 6px;font-size:22px}.login-card p{margin:0;color:#5b7aa3;font-size:13.5px;font-weight:600}
-</style>
-""",
-    unsafe_allow_html=True,
-)
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@400;600;700;800&display=swap');
 
-# ------------------------------ Authentication ------------------------------
+html, body, [class*="css"] {
+    font-family: 'Noto Sans Tamil', sans-serif !important;
+}
+
+.stApp {
+    background: linear-gradient(135deg, #f0fdf4, #e6f4ea);
+}
+
+[data-testid="stHeader"] { background: transparent; }
+[data-testid="stToolbar"] { visibility: hidden; }
+
+h1 {
+    font-size: 26px !important;
+    font-weight: 800 !important;
+    padding: 18px 22px !important;
+    border-radius: 14px;
+    color: #fff !important;
+    background: linear-gradient(135deg, #064e3b, #047857) !important;
+    box-shadow: 0 6px 15px rgba(6,78,59,0.3);
+    text-align: center;
+    margin-bottom: 20px !important;
+}
+
+h2, h3 {
+    color: #064e3b !important;
+    font-weight: 700 !important;
+}
+
+p, span, label, div {
+    font-size: 16px !important;
+    color: #111827;
+}
+
+.profile-card, .book-info-card, .login-card {
+    background: #ffffff;
+    border: 1.5px solid #a7f3d0;
+    box-shadow: 0 6px 12px -2px rgba(0,0,0,0.08);
+}
+
+.profile-card {
+    padding: 16px 20px;
+    border-radius: 12px;
+    color: #064e3b;
+    background: #ecfdf5;
+}
+
+.book-info-card {
+    border-left: 8px solid #047857;
+    border-radius: 12px;
+    padding: 18px 20px;
+    line-height: 2.1;
+    margin: 14px 0 18px;
+    background: #ffffff;
+}
+
+.total-qty {
+    color: #047857;
+    font-size: 20px !important;
+    font-weight: 800;
+}
+
+.not-received-card {
+    background: #fffbeb;
+    border-left: 8px solid #f59e0b;
+    border-radius: 12px;
+    padding: 14px 18px;
+    color: #b45309;
+    font-weight: 800;
+    margin: 12px 0;
+}
+
+.stButton > button, .stDownloadButton > button {
+    min-height: 50px !important;
+    border-radius: 10px !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+    background: linear-gradient(135deg, #064e3b, #047857) !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15) !important;
+    border: none !important;
+    width: 100% !important;
+}
+
+.stButton > button:hover, .stDownloadButton > button:hover {
+    background: linear-gradient(135deg, #047857, #022c22) !important;
+    color: #fff !important;
+}
+
+.login-card {
+    text-align: center;
+    border-radius: 18px;
+    padding: 38px 30px 34px;
+    background: #ffffff;
+    border: 1.5px solid #a7f3d0;
+}
+
+.login-card .login-icon { font-size: 60px; }
+.login-card .login-badge {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 6px 18px;
+    border-radius: 999px;
+    background: #064e3b;
+    color: #fff;
+    font-weight: 800;
+}
+</style>
+""", unsafe_allow_html=True)
+
 def hash_password(password):
     return hashlib.sha256(str(password).encode("utf-8")).hexdigest()
 
@@ -141,12 +228,32 @@ if not st.session_state["logged_in"]:
     show_login_page()
     st.stop()
 
-# ------------------------------- Data access --------------------------------
 EXCEL_FILE = "Book Supply-2026.xlsx"
 SPREADSHEET_ID = "1LNogKaLvdqkoITSLE971jTBIy9QO4s90j1WDxY1cDrc"
 DRIVE_FOLDER_ID = "1T3HKPAExdNtC-LOCuh2cDXI-6Kf8dzyq"
 
-@st.cache_data
+# SQLite உள்ளூர் டேட்டாபேஸ் அமைப்பு
+def init_local_db():
+    conn = sqlite3.connect("local_books.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS books (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT,
+            author TEXT,
+            language TEXT,
+            quantity INTEGER,
+            vendor_name TEXT,
+            lib_id TEXT,
+            lib_name TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+init_local_db()
+
+@st.cache_data(ttl=3600)
 def load_data(file_path):
     if not os.path.exists(file_path):
         return None, None
@@ -187,7 +294,6 @@ try:
 except Exception as error:
     st.error(f"❌ Google Sheet இணைப்புப் பிழை: {error}")
 
-# -------------------------------- PDF export --------------------------------
 PDF_FONT_REGULAR = PDF_FONT_BOLD = None
 PDF_FONT_ERROR = None
 FONT_URL = "https://github.com/notofonts/tamil/raw/main/fonts/ttf/NotoSansTamil/NotoSansTamil-Regular.ttf"
@@ -250,7 +356,7 @@ def pdf_bytes(frame, title):
     output = io.BytesIO()
     document = SimpleDocTemplate(output, pagesize=landscape(A4), rightMargin=7 * mm, leftMargin=7 * mm, topMargin=7 * mm, bottomMargin=7 * mm)
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle("TamilTitle", parent=styles["Title"], fontName=PDF_FONT_REGULAR, fontSize=14, leading=18, alignment=TA_CENTER, textColor=colors.HexColor("#071a38"))
+    title_style = ParagraphStyle("TamilTitle", parent=styles["Title"], fontName=PDF_FONT_REGULAR, fontSize=14, leading=18, alignment=TA_CENTER, textColor=colors.HexColor("#064e3b"))
     body_style = ParagraphStyle("TamilBody", parent=styles["BodyText"], fontName=PDF_FONT_REGULAR, fontSize=8, leading=10)
     columns = list(frame.columns)
     data = [[Paragraph(xml_escape(str(column)), body_style) for column in columns]]
@@ -266,10 +372,10 @@ def pdf_bytes(frame, title):
         widths = [width * scale for width in widths]
     table = Table(data, colWidths=widths, repeatRows=1)
     table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b3d91")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#064e3b")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#9db6d5")),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#eef5ff")]),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#a7f3d0")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#ecfdf5")]),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
     ]))
     document.build([Paragraph(xml_escape(str(title)), title_style), Spacer(1, 4 * mm), table])
@@ -293,12 +399,6 @@ def download_panel(frame, prefix, sheet_name, pdf_title=None):
     except Exception as error:
         st.error(f"❌ PDF உருவாக்க முடியவில்லை: {error}")
 
-def search_options(options, query):
-    query = clean_text(query)
-    if not query:
-        return list(options)
-    return [option for option in options if query in clean_text(option)]
-
 def vendor_options():
     values = []
     if vendor_df is not None and not vendor_df.empty:
@@ -313,9 +413,6 @@ def vendor_options():
 def title_options(frame):
     return list(dict.fromkeys(str(value) for value in frame["Title"].dropna().tolist()))
 
-st.session_state.setdefault("search_reset", 0)
-
-# அட்மின் அல்லது பயனருக்கான மெனு பட்டியல்கள்
 if st.session_state["user_role"] == "Admin":
     menu_items = [
         "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு", 
@@ -334,7 +431,6 @@ if st.session_state["current_page"] not in menu_items:
 
 st.title("📚 2026ஆம் ஆண்டு வெளிப்படைத் தன்மை நூல்கள் கொள்முதல்")
 
-# பயனர் சுயவிவரம் மற்றும் வெளியேறும் பொத்தான்
 info, logout = st.columns([3.2, 0.8])
 with info:
     role = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
@@ -347,7 +443,6 @@ with logout:
 
 st.markdown("---")
 
-# ----------------- கிடைமட்ட ஐகான் பொத்தான் மெனு (Horizontal Button Navigation) -----------------
 cols = st.columns(len(menu_items))
 for i, item in enumerate(menu_items):
     with cols[i]:
@@ -357,8 +452,6 @@ for i, item in enumerate(menu_items):
 
 st.markdown("---")
 
-
-# ---------------------------- Task 1: verification --------------------------
 if st.session_state["current_page"] == menu_items[0]:
     st.subheader("📥 பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
     if vendor_df is None or book_df is None or book_df.empty:
@@ -460,8 +553,6 @@ if st.session_state["current_page"] == menu_items[0]:
                                 except Exception as error:
                                     st.error(f"❌ சேமிப்பதில் பிழை: {error}")
 
-
-# -------------------------- Task 2: vendor sync ------------------------------
 elif len(menu_items) > 1 and st.session_state["current_page"] == menu_items[1]:
     st.subheader("🔄 பெறப்பட்ட எண்ணிக்கை ஒத்திசைவு (Sync)")
     if not sheet_physically or not sheet_vendor_wise:
@@ -477,7 +568,6 @@ elif len(menu_items) > 1 and st.session_state["current_page"] == menu_items[1]:
         ri = next((i for i, x in enumerate(ph) if "received" in x and "not" not in x), 6)
         si = next((i for i, x in enumerate(wh) if "received" in x and "not" not in x), 18)
         vendors = sorted({row[vi].strip() for row in physical[1:] if len(row) > vi and row[vi].strip()})
-        st.info("ஒத்திசைவு செய்ய வேண்டிய பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்.")
         selected = st.selectbox(
             "🔎 பதிப்பகம் தேடல்",
             ["-- தேர்ந்தெடுக்கவும் --"] + vendors,
@@ -519,8 +609,6 @@ elif len(menu_items) > 1 and st.session_state["current_page"] == menu_items[1]:
     except Exception as error:
         st.error(f"❌ பிழை: {error}")
 
-
-# -------------------------- Task 3: vendor details ---------------------------
 elif len(menu_items) > 2 and st.session_state["current_page"] == menu_items[2]:
     st.subheader("🏢 மொத்த பதிப்பாளர் விவரங்கள் (480)")
     if vendor_df is None or book_df is None:
@@ -541,8 +629,6 @@ elif len(menu_items) > 2 and st.session_state["current_page"] == menu_items[2]:
     if not result.empty:
         download_panel(result, safe_name(selected) + "_Vendor_Details", "Vendor Details")
 
-
-# ---------------------- Tasks 4 and 5: library views -------------------------
 elif len(menu_items) > 3 and st.session_state["current_page"] in menu_items[3:]:
     if book_df is None or book_df.empty:
         st.error("❌ புத்தகத் தரவு கிடைக்கவில்லை!")
