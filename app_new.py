@@ -49,7 +49,7 @@ html, body, [class*="css"] {
 [data-testid="stToolbar"] { visibility: hidden; }
 
 h1 {
-    font-size: 26px !important;
+    font-size: 28px !important;
     font-weight: 800 !important;
     padding: 18px 22px !important;
     border-radius: 14px;
@@ -62,12 +62,24 @@ h1 {
 
 h2, h3 {
     color: #064e3b !important;
-    font-weight: 700 !important;
+    font-weight: 800 !important;
+    font-size: 20px !important;
 }
 
-p, span, label, div {
-    font-size: 16px !important;
-    color: #111827;
+/* அனைத்து எழுத்துக்களின் அளவையும் தெளிவையும் கூட்டுதல் */
+p, span, label, div, .stMarkdown {
+    font-size: 18px !important;
+    color: #0f172a !important;
+    font-weight: 600 !important;
+}
+
+/* டிராப் டவுன் மற்றும் இன்புட் எழுத்துக்கள் */
+.stSelectbox div[data-baseweb="select"] span, 
+.stTextInput input, 
+.stNumberInput input {
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    color: #064e3b !important;
 }
 
 .profile-card, .book-info-card, .login-card {
@@ -81,20 +93,22 @@ p, span, label, div {
     border-radius: 12px;
     color: #064e3b;
     background: #ecfdf5;
+    font-size: 18px !important;
 }
 
 .book-info-card {
     border-left: 8px solid #047857;
     border-radius: 12px;
     padding: 18px 20px;
-    line-height: 2.1;
+    line-height: 2.2;
     margin: 14px 0 18px;
     background: #ffffff;
+    font-size: 18px !important;
 }
 
 .total-qty {
     color: #047857;
-    font-size: 20px !important;
+    font-size: 22px !important;
     font-weight: 800;
 }
 
@@ -105,14 +119,15 @@ p, span, label, div {
     padding: 14px 18px;
     color: #b45309;
     font-weight: 800;
+    font-size: 18px !important;
     margin: 12px 0;
 }
 
 .stButton > button, .stDownloadButton > button {
-    min-height: 50px !important;
+    min-height: 52px !important;
     border-radius: 10px !important;
-    font-size: 15px !important;
-    font-weight: 700 !important;
+    font-size: 17px !important;
+    font-weight: 800 !important;
     color: #ffffff !important;
     background: linear-gradient(135deg, #064e3b, #047857) !important;
     box-shadow: 0 4px 10px rgba(0,0,0,0.15) !important;
@@ -123,25 +138,6 @@ p, span, label, div {
 .stButton > button:hover, .stDownloadButton > button:hover {
     background: linear-gradient(135deg, #047857, #022c22) !important;
     color: #fff !important;
-}
-
-.login-card {
-    text-align: center;
-    border-radius: 18px;
-    padding: 38px 30px 34px;
-    background: #ffffff;
-    border: 1.5px solid #a7f3d0;
-}
-
-.login-card .login-icon { font-size: 60px; }
-.login-card .login-badge {
-    display: inline-block;
-    margin-top: 12px;
-    padding: 6px 18px;
-    border-radius: 999px;
-    background: #064e3b;
-    color: #fff;
-    font-weight: 800;
 }
 </style>
 """, unsafe_allow_html=True)
