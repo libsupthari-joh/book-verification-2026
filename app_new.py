@@ -77,6 +77,9 @@ st.markdown(
     "div[data-baseweb=\"select\"] > div{min-height:48px!important;font-size:15px!important}\n"
     "input[type=\"number\"], input[type=\"text\"], input[type=\"password\"]{min-height:44px!important;font-size:15px!important}\n"
     "[data-testid=\"stDataFrame\"]{overflow-x:auto!important}\n"
+    "button[kind=\"secondary\"]{background:linear-gradient(145deg,#eef5ff,#dce9fb)!important;color:#0b3d91!important;box-shadow:0 3px 0 #c8d8ed!important;font-weight:700!important}\n"
+    "button[kind=\"secondary\"]:hover{background:linear-gradient(145deg,#dce9fb,#cfe0f5)!important}\n"
+    "button[kind=\"primary\"]{background:linear-gradient(135deg,#071a38,#1565c0 58%,#00acc1)!important;box-shadow:0 4px 0 #041126!important}\n"
     "@media (max-width: 640px){\n"
     "  h1{font-size:17px!important;padding:12px!important}\n"
     "  .block-container{padding-left:10px!important;padding-right:10px!important;padding-top:12px!important}\n"
@@ -373,36 +376,50 @@ with logout_col:
         st.session_state.clear()
         st.rerun()
 
-selected_main_menu = st.selectbox(
-    "🧭 செய்ய வேண்டிய பணியைத் தேர்ந்தெடுக்கவும்", menu_items,
-    index=menu_items.index(st.session_state["current_page"]),
-    key=f"main_screen_menu_selectbox__{st.session_state['current_page']}",
-)
-if selected_main_menu != st.session_state["current_page"]:
-    st.session_state["current_page"] = selected_main_menu
-    st.rerun()
+# Short labels for the tab-bar buttons (full descriptive text stays as the
+# st.subheader inside each task — same pattern as the reference HTML, where
+# nav tabs are short ("🔀 பிரிக்க") but the page content has a fuller title).
+MENU_SHORT_LABELS = {
+    "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு": "📥 சரிபார்ப்பு",
+    "🔄 2. Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்": "🔄 Sync",
+    "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)": "🏢 பதிப்பாளர்",
+    "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)": "🏛️ விநியோகம்",
+    "⚙️ 5. Accession எண்கள் மேலாண்மை": "⚙️ Accession",
+}
+
+def render_menu_bar(location_key):
+    """Horizontal tab-bar navigation, styled like the reference app's nav
+    tabs: the active task is highlighted (Streamlit 'primary' button),
+    the rest are muted ('secondary') — one tap switches tasks, no dropdown
+    needed. On phones the columns stack into a vertical button list
+    (existing mobile CSS), which is still a one-tap switch either way."""
+    cols = st.columns(len(menu_items))
+    for i, item in enumerate(menu_items):
+        with cols[i]:
+            is_active = item == st.session_state["current_page"]
+            if st.button(
+                MENU_SHORT_LABELS.get(item, item),
+                use_container_width=True,
+                type="primary" if is_active else "secondary",
+                key=f"navbtn_{location_key}_{i}",
+            ) and not is_active:
+                st.session_state["current_page"] = item
+                st.rerun()
+
+render_menu_bar("top")
 menu_choice = st.session_state["current_page"]
 st.markdown("---")
 
 def render_task_switcher(current_task):
     """Quick way to jump to another task from the bottom of the page —
     saves scrolling all the way back up on a phone after finishing a task.
-    NOTE: the selectbox key includes current_task so a fresh widget is
-    created every time the page changes — otherwise Streamlit keeps the
-    widget's OLD remembered value and silently ignores the `index` we pass,
-    which was bouncing the app straight back to Task 1."""
+    Reuses the same tab-bar so it looks and behaves identically to the
+    top navigation."""
     if len(menu_items) <= 1:
         return
     st.markdown("---")
     st.markdown("### 🧭 இன்னொரு பணிக்குச் செல்ல வேண்டுமா?")
-    jump_to = st.selectbox(
-        "பணியைத் தேர்ந்தெடுக்கவும்", menu_items,
-        index=menu_items.index(current_task),
-        key=f"bottom_menu_selectbox__{current_task}",
-    )
-    if jump_to != current_task:
-        st.session_state["current_page"] = jump_to
-        st.rerun()
+    render_menu_bar("bottom")
 
 # ============================================================
 # 8. TASK 1 - PHYSICAL VERIFICATION + PDF + DRIVE
