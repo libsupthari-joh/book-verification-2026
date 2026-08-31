@@ -67,6 +67,7 @@ div[data-testid="stSelectbox"] div[data-baseweb="select"] {font-size:16px!import
 """,
     unsafe_allow_html=True,
 )
+
 def hash_password(password):
     return hashlib.sha256(str(password).encode("utf-8")).hexdigest()
 
