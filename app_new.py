@@ -49,88 +49,83 @@ html, body, [class*="css"] {
 [data-testid="stToolbar"] { visibility: hidden; }
 
 h1 {
-    font-size: 28px !important;
+    font-size: 26px !important;
     font-weight: 800 !important;
-    padding: 18px 22px !important;
-    border-radius: 14px;
+    padding: 16px 20px !important;
+    border-radius: 12px;
     color: #fff !important;
     background: linear-gradient(135deg, #064e3b, #047857) !important;
-    box-shadow: 0 6px 15px rgba(6,78,59,0.3);
+    box-shadow: 0 4px 12px rgba(6,78,59,0.3);
     text-align: center;
-    margin-bottom: 20px !important;
+    margin-bottom: 15px !important;
 }
 
 h2, h3 {
     color: #064e3b !important;
     font-weight: 800 !important;
-    font-size: 20px !important;
 }
 
-/* அனைத்து எழுத்துக்களின் அளவையும் தெளிவையும் கூட்டுதல் */
 p, span, label, div, .stMarkdown {
-    font-size: 18px !important;
-    color: #0f172a !important;
+    font-size: 17px !important;
+    color: #111827 !important;
     font-weight: 600 !important;
 }
 
-/* டிராப் டவுன் மற்றும் இன்புட் எழுத்துக்கள் */
 .stSelectbox div[data-baseweb="select"] span, 
 .stTextInput input, 
 .stNumberInput input {
-    font-size: 18px !important;
+    font-size: 17px !important;
     font-weight: 700 !important;
     color: #064e3b !important;
 }
 
-.profile-card, .book-info-card, .login-card {
-    background: #ffffff;
-    border: 1.5px solid #a7f3d0;
-    box-shadow: 0 6px 12px -2px rgba(0,0,0,0.08);
-}
-
 .profile-card {
-    padding: 16px 20px;
-    border-radius: 12px;
+    padding: 14px 18px;
+    border-radius: 10px;
     color: #064e3b;
     background: #ecfdf5;
-    font-size: 18px !important;
+    border: 1.5px solid #a7f3d0;
+    font-size: 17px !important;
 }
 
 .book-info-card {
-    border-left: 8px solid #047857;
-    border-radius: 12px;
-    padding: 18px 20px;
-    line-height: 2.2;
-    margin: 14px 0 18px;
+    border-left: 6px solid #047857;
+    border-radius: 10px;
+    padding: 16px 18px;
+    line-height: 2.0;
+    margin: 12px 0 16px;
     background: #ffffff;
-    font-size: 18px !important;
+    border-top: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 17px !important;
 }
 
 .total-qty {
     color: #047857;
-    font-size: 22px !important;
+    font-size: 20px !important;
     font-weight: 800;
 }
 
 .not-received-card {
     background: #fffbeb;
-    border-left: 8px solid #f59e0b;
-    border-radius: 12px;
-    padding: 14px 18px;
+    border-left: 6px solid #f59e0b;
+    border-radius: 10px;
+    padding: 12px 16px;
     color: #b45309;
     font-weight: 800;
-    font-size: 18px !important;
-    margin: 12px 0;
+    font-size: 17px !important;
+    margin: 10px 0;
 }
 
 .stButton > button, .stDownloadButton > button {
-    min-height: 52px !important;
-    border-radius: 10px !important;
-    font-size: 17px !important;
-    font-weight: 800 !important;
+    min-height: 48px !important;
+    border-radius: 8px !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
     color: #ffffff !important;
     background: linear-gradient(135deg, #064e3b, #047857) !important;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.15) !important;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.12) !important;
     border: none !important;
     width: 100% !important;
 }
@@ -138,6 +133,49 @@ p, span, label, div, .stMarkdown {
 .stButton > button:hover, .stDownloadButton > button:hover {
     background: linear-gradient(135deg, #047857, #022c22) !important;
     color: #fff !important;
+}
+
+div.row-widget.stHorizontal > div {
+    flex: 1;
+}
+
+.login-card {
+    max-width: 420px;
+    margin: 30px auto;
+    text-align: center;
+    border-radius: 16px;
+    padding: 30px 25px;
+    background: #ffffff;
+    border: 2px solid #a7f3d0;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+}
+
+.login-card .login-icon { 
+    font-size: 50px; 
+}
+
+.login-card .login-badge {
+    display: inline-block;
+    margin-top: 10px;
+    margin-bottom: 15px;
+    padding: 4px 14px;
+    border-radius: 999px;
+    background: #064e3b;
+    color: #fff;
+    font-weight: 800;
+    font-size: 14px;
+}
+
+.login-card h2 {
+    font-size: 22px !important;
+    color: #064e3b !important;
+    margin-bottom: 8px !important;
+}
+
+.login-card p {
+    font-size: 15px !important;
+    color: #4b5563 !important;
+    margin-bottom: 20px !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -196,29 +234,29 @@ if not st.session_state["logged_in"]:
         )
 
 def show_login_page():
-    _, column, _ = st.columns([1, 1.4, 1])
-    with column:
-        st.markdown(
-            '<div class="login-card"><div class="login-icon">📚</div>'
-            '<div class="login-badge">2026</div><h2>2026ஆம் ஆண்டு புதிய நூல்கள் கொள்முதல்</h2>'
-            '<p>பதிப்பாளர்களின் புதிய நூல்கள் விநியோகம் &amp; சரிபார்ப்பு தளம்</p></div>',
-            unsafe_allow_html=True,
-        )
-        with st.form("secure_login_form"):
-            phone = st.text_input("📱 அலைபேசி எண்", max_chars=10, placeholder="10 இலக்க எண்")
-            password = st.text_input("🔑 கடவுச்சொல்", type="password")
-            submitted = st.form_submit_button("🔓 உள்நுழைக", use_container_width=True)
-        if submitted:
-            user = authenticate_user(phone, password)
-            if not user:
-                st.error("❌ தவறான அலைபேசி எண் அல்லது கடவுச்சொல்!")
-            else:
-                clean_phone = phone.strip()
-                st.session_state.update(
-                    logged_in=True, user_role=user["role"], user_name=user["name"], user_phone=clean_phone
-                )
-                st.query_params.update(phone=clean_phone, token=make_session_token(clean_phone))
-                st.rerun()
+    st.markdown(
+        '<div class="login-card"><div class="login-icon">📚</div>'
+        '<div class="login-badge">2026</div><h2>2026ஆம் ஆண்டு புதிய நூல்கள் கொள்முதல்</h2>'
+        '<p>பதிப்பாளர்களின் புதிய நூல்கள் விநியோகம் &amp; சரிபார்ப்பு தளம்</p>',
+        unsafe_allow_html=True,
+    )
+    with st.form("secure_login_form"):
+        phone = st.text_input("📱 அலைபேசி எண்", max_chars=10, placeholder="10 இலக்க எண்")
+        password = st.text_input("🔑 கடவுச்சொல்", type="password")
+        submitted = st.form_submit_button("🔓 உள்நுழைக", use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    if submitted:
+        user = authenticate_user(phone, password)
+        if not user:
+            st.error("❌ தவறான அலைபேசி எண் அல்லது கடவுச்சொல்!")
+        else:
+            clean_phone = phone.strip()
+            st.session_state.update(
+                logged_in=True, user_role=user["role"], user_name=user["name"], user_phone=clean_phone
+            )
+            st.query_params.update(phone=clean_phone, token=make_session_token(clean_phone))
+            st.rerun()
 
 if not st.session_state["logged_in"]:
     show_login_page()
@@ -228,7 +266,6 @@ EXCEL_FILE = "Book Supply-2026.xlsx"
 SPREADSHEET_ID = "1LNogKaLvdqkoITSLE971jTBIy9QO4s90j1WDxY1cDrc"
 DRIVE_FOLDER_ID = "1T3HKPAExdNtC-LOCuh2cDXI-6Kf8dzyq"
 
-# SQLite உள்ளூர் டேட்டாபேஸ் அமைப்பு
 def init_local_db():
     conn = sqlite3.connect("local_books.db")
     cursor = conn.cursor()
