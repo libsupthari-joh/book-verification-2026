@@ -255,12 +255,10 @@ def clean_text(value):
     value = re.sub(r"^\s*\d+[\.\s\-_]*", "", str(value).strip())
     return re.sub(r"[^a-zA-Z0-9\u0B80-\u0BFF\s]", "", value).casefold().strip()
 
-# Helper to find correct column names dynamically
 def get_col(df, possible_names):
     for col in df.columns:
         if str(col).strip() in possible_names:
             return col
-    # Fallback to partial match
     for col in df.columns:
         for name in possible_names:
             if name.lower() in str(col).lower():
@@ -412,7 +410,6 @@ if st.session_state["current_page"] == menu_items[0]:
         st.error("❌ தரவுகள் கிடைக்கவில்லை!")
         st.stop()
         
-    # Dynamically find column names for books dataframe
     c_pub = get_col(df_books, ["Publication Name", "Publisher", "Vendor Name", "Publication Name / Vendor Name"])
     c_title = get_col(df_books, ["Title", "Book Title", "Book Name", "Name"])
     c_author = get_col(df_books, ["Author Name", "Author"])
@@ -436,9 +433,6 @@ if st.session_state["current_page"] == menu_items[0]:
     else:
         pub_filtered_books = df_books
 
-    # 2. தலைப்பு மூலம் தேடும் பகுதி
-    search_query = st.text_input("2. புத்தகத் தலைப்பு தட்டச்சு செய்யவும் (குறைந்தது 2 எழுத்துக்கள்)...", placeholder="புத்தகத்தின் தலைப்பை இங்கு தட்டச்சு செய்யவும்...")
-    
     # Group books by Title using dynamic columns
     grouped_df = pub_filtered_books.groupby(c_title, as_index=False).agg({
         c_pub: "first",
@@ -447,24 +441,21 @@ if st.session_state["current_page"] == menu_items[0]:
         c_price: "first",
         c_qty: "sum"
     }).rename(columns={c_pub: "பதிப்பகம்", c_title: "தலைப்பு", c_price: "விலை", c_qty: "எண்ணிக்கை"})
+
+    # 2. பதிப்பாளரைத் தேர்ந்தெடுத்தவுடன் அந்தப் பதிப்பக தலைப்புகள் தானாகவே கீழிறங்கு பட்டியலில் (selectbox) வரும்
+    st.markdown("2. புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும்:")
     
-    if search_query and len(search_query.strip()) >= 2:
-        q_clean = clean_text(search_query)
-        filtered_books = grouped_df[grouped_df["தலைப்பு"].apply(clean_text).str.contains(q_clean, na=False)]
-    else:
-        filtered_books = pd.DataFrame(columns=grouped_df.columns)
+    if not grouped_df.empty:
+        book_titles = ["-- தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + grouped_df["தலைப்பு"].tolist()
+        selected_book_title = st.selectbox(
+            "புத்தகத் தலைப்பு தேர்வு:",
+            book_titles,
+            label_visibility="collapsed",
+            key="auto_book_title_select"
+        )
         
-    if not filtered_books.empty:
-        st.markdown(f"**தேடல் முடிவுகள் ({len(filtered_books)} தலைப்புகள் கண்டுபிடிக்கப்பட்டன):**")
-        
-        display_view = filtered_books[["தலைப்பு", "பதிப்பகம்", "விலை", "எண்ணிக்கை"]].reset_index(drop=True)
-        display_view.index = display_view.index + 1
-        st.dataframe(display_view, use_container_width=True)
-        
-        selected_book_title = st.selectbox("சரிபார்க்க வேண்டிய தலைப்பைத் தேர்ந்தெடுக்கவும்", ["-- தேர்ந்தெடுக்கவும் --"] + filtered_books["தலைப்பு"].tolist())
-        
-        if selected_book_title != "-- தேர்ந்தெடுக்கவும் --":
-            b_row = filtered_books[filtered_books["தலைப்பு"] == selected_book_title].iloc[0]
+        if selected_book_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
+            b_row = grouped_df[grouped_df["தலைப்பு"] == selected_book_title].iloc[0]
             orig_qty = int(b_row["எண்ணிக்கை"])
             
             with st.form("verify_single_form"):
@@ -486,10 +477,8 @@ if st.session_state["current_page"] == menu_items[0]:
                     })
                     st.success(f"✅ '{b_row['தலைப்பு']}' வெற்றிகரமாகச் சேமிக்கப்பட்டது!")
                     st.rerun()
-    elif search_query and len(search_query.strip()) >= 2:
-        st.info("ℹ️ எந்தப் புத்தகமும் கிடைக்கவில்லை. வேறு பெயரைக் முயற்சிக்கவும்.")
     else:
-        st.markdown("*(தேடலைத் தொடங்க மேலே உள்ள பெட்டியில் குறைந்தபட்சம் 2 எழுத்துக்களைத் தட்டச்சு செய்யவும் அல்லது பதிப்பாளரை மாற்றவும்)*")
+        st.info("ℹ️ தேர்ந்தெடுக்கப்பட்ட பதிப்பகத்திற்குப் புத்தகங்கள் எதுவும் கிடைக்கவில்லை.")
         
     # Show saved verified records table & download options
     if st.session_state["verified_records"]:
