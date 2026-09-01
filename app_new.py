@@ -63,7 +63,7 @@ p, span, label, div {
     color: #111827;
 }
 
-.profile-card, .book-info-card, .login-card {
+.profile-card, .book-info-card {
     background: #ffffff;
     border: 1.5px solid #a7f3d0;
     box-shadow: 0 6px 12px -2px rgba(0,0,0,0.08);
@@ -91,10 +91,43 @@ p, span, label, div {
     font-weight: 800;
 }
 
+/* Modern Login Box Styling */
+.login-main-container {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 40px 35px;
+    box-shadow: 0 12px 30px rgba(6, 78, 59, 0.12);
+    border: 2px solid #a7f3d0;
+    max-width: 500px;
+    margin: 40px auto;
+}
+
+.login-header-icon {
+    font-size: 45px;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.login-title {
+    text-align: center;
+    color: #064e3b;
+    font-size: 24px;
+    font-weight: 800;
+    margin-bottom: 8px;
+}
+
+.login-subtitle {
+    text-align: center;
+    color: #047857;
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 30px;
+}
+
 .stButton > button, .stDownloadButton > button {
     min-height: 50px !important;
     border-radius: 10px !important;
-    font-size: 15px !important;
+    font-size: 16px !important;
     font-weight: 700 !important;
     color: #ffffff !important;
     background: linear-gradient(135deg, #064e3b, #047857) !important;
@@ -123,14 +156,6 @@ button[kind="primary"] {
     background: linear-gradient(135deg, #064e3b, #047857) !important;
     box-shadow: 0 4px 12px rgba(6,78,59,0.4) !important;
     border: 1.5px solid #064e3b !important;
-}
-
-.login-card {
-    text-align: center;
-    border-radius: 18px;
-    padding: 38px 30px 34px;
-    background: #ffffff;
-    border: 1.5px solid #a7f3d0;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -188,18 +213,22 @@ if not st.session_state["logged_in"]:
         )
 
 def show_login_page():
-    _, column, _ = st.columns([1, 1.4, 1])
-    with column:
-        st.markdown(
-            '<div class="login-card"><div class="login-icon">📚</div>'
-            '<div class="login-badge">2026</div><h2>2026ஆம் ஆண்டு புதிய நூல்கள் கொள்முதல்</h2>'
-            '<p>பதிப்பாளர்களின் புதிய நூல்கள் விநியோகம் &amp; சரிபார்ப்பு தளம்</p></div>',
-            unsafe_allow_html=True,
-        )
+    _, col, _ = st.columns([1, 1.3, 1])
+    with col:
+        st.markdown("""
+        <div class="login-main-container">
+            <div class="login-header-icon">📚</div>
+            <div class="login-title">2026ஆம் ஆண்டு புதிய நூல்கள் கொள்முதல்</div>
+            <div class="login-subtitle">பதிப்பாளர்களின் புதிய நூல்கள் விநியோகம் & சரிபார்ப்பு தளம்</div>
+        """, unsafe_allow_html=True)
+        
         with st.form("secure_login_form"):
             phone = st.text_input("📱 அலைபேசி எண்", max_chars=10, placeholder="10 இலக்க எண்")
-            password = st.text_input("🔑 கடவுச்சொல்", type="password")
+            password = st.text_input("🔑 கடவுச்சொல்", type="password", placeholder="கடவுச்சொல்லை உள்ளிடவும்")
             submitted = st.form_submit_button("🔓 உள்நுழைக", use_container_width=True)
+            
+        st.markdown("</div>", unsafe_allow_html=True)
+        
         if submitted:
             user = authenticate_user(phone, password)
             if not user:
@@ -408,7 +437,6 @@ if st.session_state["current_page"] == menu_items[0]:
             books_filtered = df_books[df_books["Vendor Name"].apply(clean_text) == clean_text(vendor_name)]
             
         if not books_filtered.empty:
-            # Group or list unique titles for this vendor
             remaining_rows = [row for _, row in books_filtered.iterrows() if row.get("Title") not in st.session_state["completed_titles"]]
             
             if remaining_rows:
