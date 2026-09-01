@@ -242,15 +242,25 @@ if not st.session_state["logged_in"]:
 # Neon / SQLite டேட்டாபேஸிலிருந்து தரவுகளைப் பெறுதல்
 @st.cache_data(ttl=60)
 def load_data_from_db():
-    conn = sqlite3.connect("local_books.db")
+    db_file = "local_books.db"
+    conn = sqlite3.connect(db_file)
     try:
         books_df = pd.read_sql("SELECT * FROM books", conn)
+        if books_df.empty:
+            raise Exception("Empty table")
     except Exception:
-        books_df = pd.DataFrame()
+        # டேட்டாபேஸ் இல்லையெனில், GitHub-ல் உள்ள Excel கோப்பிலிருந்து தரவை ஏற்றி டேட்டாபேஸை உருவாக்குகிறது
+        excel_path = "Book Supply-2026.xlsx"
+        if os.path.exists(excel_path):
+            books_df = pd.read_excel(excel_path)
+            # காலூன்ற ஏதுவாக நெடுவரிசைப் பெயர்களைச் சீரமைத்தல்
+            books_df.columns = [str(c).strip().lower() for c in books_df.columns]
+            books_df.to_sql("books", conn, if_exists="replace", index=False)
+            books_df = pd.read_sql("SELECT * FROM books", conn)
+        else:
+            books_df = pd.DataFrame()
     conn.close()
     return books_df
-
-book_df = load_data_from_db()
 
 def clean_text(value):
     if value is None or pd.isna(value):
