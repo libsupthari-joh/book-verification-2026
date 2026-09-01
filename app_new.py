@@ -91,7 +91,6 @@ p, span, label, div {
     font-weight: 800;
 }
 
-/* Modern Login Box Styling */
 .login-main-container {
     background: #ffffff;
     border-radius: 20px;
@@ -437,7 +436,14 @@ if st.session_state["current_page"] == menu_items[0]:
             books_filtered = df_books[df_books["Vendor Name"].apply(clean_text) == clean_text(vendor_name)]
             
         if not books_filtered.empty:
-            remaining_rows = [row for _, row in books_filtered.iterrows() if row.get("Title") not in st.session_state["completed_titles"]]
+            # Group by Title to aggregate total requested quantities across all libraries for each title
+            grouped_books = books_filtered.groupby("Title", as_index=False).agg({
+                "Author Name": "first",
+                "Language": "first",
+                "Quantity": "sum"
+            })
+            
+            remaining_rows = [row for _, row in grouped_books.iterrows() if row.get("Title") not in st.session_state["completed_titles"]]
             
             if remaining_rows:
                 st.markdown("### 📚 2. புத்தகத் தலைப்புகளின் சரிபார்ப்பு")
@@ -445,26 +451,24 @@ if st.session_state["current_page"] == menu_items[0]:
                     title = book_row.get("Title", "Unknown Title")
                     author = book_row.get("Author Name", "")
                     lang = book_row.get("Language", "")
-                    lib_name = book_row.get("Library Name", "")
                     orig_qty = int(book_row.get("Quantity", 1))
                     
                     with st.expander(f"📖 {title} ({lang})"):
-                        st.markdown(f"✍️ **ஆசிரியர்:** `{author}` &nbsp;|&nbsp; 🏢 **பதிப்பகம்:** `{vendor_name}`<br>🏛️ **நூலகம்:** `{lib_name}` &nbsp;|&nbsp; 📦 **கோரப்பட்ட படிகள்:** `{orig_qty}`")
+                        st.markdown(f"✍️ **ஆசிரியர்:** `{author}` &nbsp;|&nbsp; 🏢 **பதிப்பகம்:** `{vendor_name}`<br>📦 **மொத்தக் கோரப்பட்ட படிகள்:** `{orig_qty}`")
                         
                         rec_val = st.number_input(
                             f"பெறப்பட்ட படிகளின் எண்ணிக்கை ({title[:25]})", 
                             min_value=0, max_value=orig_qty, value=orig_qty, step=1, 
-                            key=f"rec_t_{safe_name(title)}_{safe_name(lib_name)}"
+                            key=f"rec_t_{safe_name(title)}"
                         )
                         not_rec = orig_qty - rec_val
                         st.markdown(f"❌ பெறப்படாதது: **{not_rec}**")
                         
-                        if st.button("💾 இந்தத் தலைப்பைச் சேமி", key=f"btn_save_{safe_name(title)}_{safe_name(lib_name)}", use_container_width=True):
+                        if st.button("💾 இந்தத் தலைப்பைச் சேமி", key=f"btn_save_{safe_name(title)}", use_container_width=True):
                             st.session_state["saved_vendor_records"].append({
                                 "Title": title,
                                 "Author Name": author,
                                 "Language": lang,
-                                "Library Name": lib_name,
                                 "Quantity": orig_qty,
                                 "Received": rec_val,
                                 "Not Received": not_rec,
