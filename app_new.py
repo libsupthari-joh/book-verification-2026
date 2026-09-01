@@ -125,6 +125,26 @@ p, span, label, div {
     color: #fff !important;
 }
 
+/* Menu tab-bar: active task highlighted, inactive tasks muted — so the
+   current page is obvious at a glance instead of every button looking
+   identical. */
+button[kind="secondary"] {
+    background: linear-gradient(135deg, #ecfdf5, #d1fae5) !important;
+    color: #064e3b !important;
+    box-shadow: 0 3px 8px rgba(6,78,59,0.12) !important;
+    font-weight: 700 !important;
+    border: 1.5px solid #a7f3d0 !important;
+}
+button[kind="secondary"]:hover {
+    background: linear-gradient(135deg, #d1fae5, #a7f3d0) !important;
+    color: #064e3b !important;
+}
+button[kind="primary"] {
+    background: linear-gradient(135deg, #064e3b, #047857) !important;
+    box-shadow: 0 4px 12px rgba(6,78,59,0.4) !important;
+    border: 1.5px solid #064e3b !important;
+}
+
 .login-card {
     text-align: center;
     border-radius: 18px;
@@ -443,10 +463,29 @@ with logout:
 
 st.markdown("---")
 
+# Short labels for the tab-bar (the full descriptive text is still shown as
+# the st.subheader inside each task page). The currently-open task is
+# rendered as a "primary" button (solid, highlighted) and the rest as
+# "secondary" (muted) — so it's obvious at a glance which task you're on,
+# instead of five identical-looking buttons.
+MENU_SHORT_LABELS = {
+    "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு": "📥 சரிபார்ப்பு",
+    "🔄 2. Vendor Wise Book Data சீட்டிற்கு பெறப்பட்ட எண்ணிக்கை மாற்றம் செய்தல்": "🔄 Sync",
+    "🏢 3. மொத்த பதிப்பாளர் விவரங்கள் (480)": "🏢 பதிப்பாளர்",
+    "🏛️ 4. நூலகத்திற்கு விநியோகம் (103)": "🏛️ விநியோகம்",
+    "⚙️ 5. Accession எண்கள் மேலாண்மை": "⚙️ Accession",
+}
+
 cols = st.columns(len(menu_items))
 for i, item in enumerate(menu_items):
     with cols[i]:
-        if st.button(item, use_container_width=True, key=f"menu_btn_{i}"):
+        is_active = item == st.session_state["current_page"]
+        if st.button(
+            MENU_SHORT_LABELS.get(item, item),
+            use_container_width=True,
+            type="primary" if is_active else "secondary",
+            key=f"menu_btn_{i}",
+        ) and not is_active:
             st.session_state["current_page"] = item
             st.rerun()
 
