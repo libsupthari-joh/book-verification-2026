@@ -275,7 +275,7 @@ def find_tamil_font():
         os.makedirs(os.path.dirname(target), exist_ok=True)
         request = Request(FONT_URL, headers={"User-Agent": "Mozilla/5.0"})
         with urlopen(request, timeout=20) as response, open(target, "wb") as output:
-            output.read() # Read safely
+            output.read()
         return target if os.path.isfile(target) and os.path.getsize(target) > 10000 else None
     except Exception:
         return None
@@ -395,15 +395,32 @@ for i, item in enumerate(menu_items):
 st.markdown("---python" if False else "")
 
 if st.session_state["current_page"] == menu_items[0]:
-    st.subheader("🔎 புத்தகம் தேடுக & சரிபார்க்கவும்")
+    st.subheader("🔎 பதிப்பாளர் வாரியான நூல்கள் சரிபார்ப்பு")
     if df_summary is None or df_summary.empty or df_books is None or df_books.empty:
         st.error("❌ தரவுகள் கிடைக்கவில்லை!")
         st.stop()
         
-    search_query = st.text_input("🔍 தலைப்பு தட்டச்சு செய்யவும் (குறைந்தது 2 எழுத்துக்கள்)...", placeholder="புத்தகத்தின் தலைப்பை இங்கு தட்டச்சு செய்யவும்...")
+    # 1. பதிப்பாளரைத் தேர்ந்தெடுக்கும் பகுதி
+    if "Publication Name" in df_books.columns:
+        publishers = sorted(df_books["Publication Name"].dropna().unique().tolist())
+        selected_publisher = st.selectbox(
+            "1. பதிப்பாளரைத் தேர்ந்தெடுக்கவும் (Select Publisher):",
+            ["-- அனைத்து பதிப்பாளர்களும் (All Publishers) --"] + publishers,
+            key="pub_select_dropdown"
+        )
+        
+        if not selected_publisher.startswith("-- அனைத்து"):
+            pub_filtered_books = df_books[df_books["Publication Name"] == selected_publisher]
+        else:
+            pub_filtered_books = df_books
+    else:
+        pub_filtered_books = df_books
+
+    # 2. தலைப்பு மூலம் தேடும் பகுதி
+    search_query = st.text_input("2. புத்தகத் தலைப்பு தட்டச்சு செய்யவும் (குறைந்தது 2 எழுத்துக்கள்)...", placeholder="புத்தகத்தின் தலைப்பை இங்கு தட்டச்சு செய்யவும்...")
     
-    # Group books by Title across all vendors
-    grouped_df = df_books.groupby("Title", as_index=False).agg({
+    # Group books by Title
+    grouped_df = pub_filtered_books.groupby("Title", as_index=False).agg({
         "Publication Name": "first",
         "Author Name": "first",
         "Language": "first",
@@ -420,7 +437,6 @@ if st.session_state["current_page"] == menu_items[0]:
     if not filtered_books.empty:
         st.markdown(f"**தேடல் முடிவுகள் ({len(filtered_books)} தலைப்புகள் கண்டுபிடிக்கப்பட்டன):**")
         
-        # Display table format matching user request
         display_view = filtered_books[["தலைப்பு", "பதிப்பகம்", "விலை", "எண்ணிக்கை"]].reset_index(drop=True)
         display_view.index = display_view.index + 1
         st.dataframe(display_view, use_container_width=True)
@@ -433,7 +449,7 @@ if st.session_state["current_page"] == menu_items[0]:
             
             with st.form("verify_single_form"):
                 st.markdown(f"📖 **தலைப்பு:** {b_row['தலைப்பு']} | 🏢 **பதிப்பகம்:** {b_row['பதிப்பகம்']}")
-                rec_qty = st.number_input("பெறப்பட்ட படıகளின் எண்ணிக்கை (Received Quantity)", min_value=0, max_value=orig_qty, value=orig_qty, step=1)
+                rec_qty = st.number_input("பெறப்பட்ட புத்தகங்களின் எண்ணிக்கை (Received Quantity)", min_value=0, max_value=orig_qty, value=orig_qty, step=1)
                 
                 submitted_rec = st.form_submit_button("💾 இந்தத் தலைப்பைச் சரிபார்த்துச் சேமி", use_container_width=True)
                 if submitted_rec:
@@ -453,7 +469,7 @@ if st.session_state["current_page"] == menu_items[0]:
     elif search_query and len(search_query.strip()) >= 2:
         st.info("ℹ️ எந்தப் புத்தகமும் கிடைக்கவில்லை. வேறு பெயரைக் முயற்சிக்கவும்.")
     else:
-        st.markdown("*(தேடலைத் தொடங்க மேலே உள்ள பெட்டியில் குறைந்தபட்சம் 2 எழுத்துக்களைத் தட்டச்சு செய்யவும்)*")
+        st.markdown("*(தேடலைத் தொடங்க மேலே உள்ள பெட்டியில் குறைந்தபட்சம் 2 எழுத்துக்களைத் தட்டச்சு செய்யவும் அல்லது பதிப்பாளரை மாற்றவும்)*")
         
     # Show saved verified records table & download options
     if st.session_state["verified_records"]:
@@ -487,3 +503,4 @@ elif len(menu_items) > 1 and st.session_state["current_page"] == menu_items[1]:
     st.dataframe(result, use_container_width=True, hide_index=True)
     if not result.empty:
         download_panel(result, safe_name(selected) + "_Vendor_Details", "Vendor Details")
+```[cite: 11]
