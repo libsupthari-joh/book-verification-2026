@@ -80,7 +80,7 @@ p, span, label, div {
     border-left: 8px solid #047857;
     border-radius: 12px;
     padding: 18px 20px;
-    line-height: 2.1;
+    line-height: 2.2;
     margin: 14px 0 18px;
     background: #ffffff;
 }
@@ -413,9 +413,10 @@ if st.session_state["current_page"] == menu_items[0]:
     c_pub = get_col(df_books, ["Publication Name", "Publisher", "Vendor Name", "Publication Name / Vendor Name"])
     c_title = get_col(df_books, ["Title", "Book Title", "Book Name", "Name"])
     c_author = get_col(df_books, ["Author Name", "Author"])
+    c_isbn = get_col(df_books, ["ISBN", "ISBN No", "ISBN Number"])
     c_lang = get_col(df_books, ["Language"])
     c_price = get_col(df_books, ["Price", "Amount"])
-    c_qty = get_col(df_books, ["Quantity", "Qty", "Count"])
+    c_qty = get_col(df_books, ["Quantity", "Qty", "Count", "No of Libraries", "Libraries Count"])
 
     # 1. பதிப்பாளரைத் தேர்ந்தெடுக்கும் பகுதி
     if c_pub in df_books.columns:
@@ -437,12 +438,19 @@ if st.session_state["current_page"] == menu_items[0]:
     grouped_df = pub_filtered_books.groupby(c_title, as_index=False).agg({
         c_pub: "first",
         c_author: "first",
+        c_isbn: "first" if c_isbn in pub_filtered_books.columns else lambda x: "N/A",
         c_lang: "first",
         c_price: "first",
         c_qty: "sum"
-    }).rename(columns={c_pub: "பதிப்பகம்", c_title: "தலைப்பு", c_price: "விலை", c_qty: "எண்ணிக்கை"})
+    }).rename(columns={
+        c_pub: "பதிப்பகம்", 
+        c_title: "தலைப்பு", 
+        c_author: "ஆசிரியர்",
+        c_isbn: "ISBN",
+        c_price: "விலை", 
+        c_qty: "எண்ணிக்கை"
+    })
 
-    # 2. பதிப்பாளரைத் தேர்ந்தெடுத்தவுடன் அந்தப் பதிப்பக தலைப்புகள் தானாகவே கீழிறங்கு பட்டியலில் (selectbox) வரும்
     st.markdown("2. புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும்:")
     
     if not grouped_df.empty:
@@ -457,19 +465,34 @@ if st.session_state["current_page"] == menu_items[0]:
         if selected_book_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
             b_row = grouped_df[grouped_df["தலைப்பு"] == selected_book_title].iloc[0]
             orig_qty = int(b_row["எண்ணிக்கை"])
+            author_val = b_row.get("ஆசிரியர்", "N/A")
+            isbn_val = b_row.get("ISBN", "N/A")
+            price_val = b_row.get("விலை", 0)
+            
+            # முழு விவரங்களுடன் கூடிய அட்டைப் பெட்டி (Icons Included)
+            st.markdown(f"""
+            <div class="book-info-card">
+                📖 <b>தலைப்பு:</b> {b_row['தலைப்பு']}<br>
+                🏢 <b>பதிப்பகம்:</b> {b_row['பதிப்பகம்']}<br>
+                ✍️ <b>ஆசிரியர்:</b> {author_val}<br>
+                🏷️ <b>ISBN:</b> {isbn_val}<br>
+                💰 <b>விலை/தொகை:</b> ₹{price_val}<br>
+                📚 <b>நூலகங்களின் எண்ணிக்கை (மொத்தம் கோரப்பட்டது):</b> {orig_qty}
+            </div>
+            """, unsafe_allow_html=True)
             
             with st.form("verify_single_form"):
-                st.markdown(f"📖 **தலைப்பு:** {b_row['தலைப்பு']} | 🏢 **பதிப்பகம்:** {b_row['பதிப்பகம்']}")
                 rec_qty = st.number_input("பெறப்பட்ட புத்தகங்களின் எண்ணிக்கை (Received Quantity)", min_value=0, max_value=orig_qty, value=orig_qty, step=1)
-                
                 submitted_rec = st.form_submit_button("💾 இந்தத் தலைப்பைச் சரிபார்த்துச் சேமி", use_container_width=True)
+                
                 if submitted_rec:
                     st.session_state["verified_records"].append({
                         "தலைப்பு": b_row["தலைப்பு"],
                         "பதிப்பகம்": b_row["பதிப்பகம்"],
-                        "ஆசிரியர்": b_row[c_author],
+                        "ஆசிரியர்": author_val,
+                        "ISBN": isbn_val,
                         "மொழி": b_row[c_lang],
-                        "விலை": b_row["விலை"],
+                        "விலை": price_val,
                         "கோரப்பட்ட எண்ணிக்கை": orig_qty,
                         "பெறப்பட்ட எண்ணிக்கை": rec_qty,
                         "பெறப்படாத எண்ணிக்கை": orig_qty - rec_qty,
