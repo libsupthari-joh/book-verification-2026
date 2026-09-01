@@ -142,17 +142,6 @@ button[kind="primary"] {
     background: #ffffff;
     border: 1.5px solid #a7f3d0;
 }
-
-.login-card .login-icon { font-size: 60px; }
-.login-card .login-badge {
-    display: inline-block;
-    margin-top: 12px;
-    padding: 6px 18px;
-    border-radius: 999px;
-    background: #064e3b;
-    color: #fff;
-    font-weight: 800;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -195,8 +184,7 @@ def authenticate_user(phone, password):
 for key, default in {
     "logged_in": False, "user_role": None, "user_name": "", "user_phone": None,
     "current_page": "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு", "vendor_key": 0,
-    "selected_vendor": None, "temp_verified_records": [], "library_key": 0,
-    "selected_library": None,
+    "selected_vendor": None, "temp_verified_records": [],
 }.items():
     st.session_state.setdefault(key, default)
 
@@ -239,25 +227,16 @@ if not st.session_state["logged_in"]:
     st.stop()
 
 @st.cache_data(ttl=60)
-def load_data_from_db():
-    db_file = "local_books.db"
-    conn = sqlite3.connect(db_file)
-    try:
-        books_df = pd.read_sql("SELECT * FROM books", conn)
-        if books_df.empty:
-            raise Exception("Empty table")
-    except Exception:
-        excel_path = "Book Supply-2026.xlsx"
-        if os.path.exists(excel_path):
-            books_df = pd.read_excel(excel_path)
-            books_df.to_sql("books", conn, if_exists="replace", index=False)
-            books_df = pd.read_sql("SELECT * FROM books", conn)
-        else:
-            books_df = pd.DataFrame()
-    conn.close()
-    return books_df
+def load_all_data():
+    excel_path = "Book Supply-2026.xlsx"
+    if os.path.exists(excel_path):
+        xls = pd.ExcelFile(excel_path)
+        df_summary = pd.read_excel(xls, sheet_name="Vendor Name")
+        df_books = pd.read_excel(xls, sheet_name="Vendor Wise Book Data ")
+        return df_summary, df_books
+    return pd.DataFrame(), pd.DataFrame()
 
-book_df = load_data_from_db()
+df_summary, df_books = load_all_data()
 
 def clean_text(value):
     if value is None or pd.isna(value):
@@ -359,8 +338,8 @@ def download_panel(frame, prefix, sheet_name, pdf_title=None):
         st.error(f"❌ PDF உருவாக்க முடியவில்லை: {error}")
 
 def vendor_options():
-    if book_df is not None and not book_df.empty and "Publication Name / Vendor Name" in book_df.columns:
-        return sorted(book_df["Publication Name / Vendor Name"].dropna().unique().tolist())
+    if df_summary is not None and not df_summary.empty and "Publication Name / Vendor Name" in df_summary.columns:
+        return sorted(df_summary["Publication Name / Vendor Name"].dropna().unique().tolist())
     return []
 
 menu_items = [
@@ -407,8 +386,8 @@ st.markdown("---")
 
 if st.session_state["current_page"] == menu_items[0]:
     st.subheader("📥 பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
-    if book_df is None or book_df.empty:
-        st.error("❌ டேட்டாபேஸில் புத்தகத் தரவுகள் கிடைக்கவில்லை!")
+    if df_summary is None or df_summary.empty or df_books is None or df_books.empty:
+        st.error("❌ தரவுகள் கிடைக்கவில்லை!")
         st.stop()
     
     vendors = vendor_options()
@@ -424,42 +403,69 @@ if st.session_state["current_page"] == menu_items[0]:
     
     if st.session_state["selected_vendor"]:
         vendor_name = st.session_state["selected_vendor"]
-        filtered = book_df[book_df["Publication Name / Vendor Name"].apply(clean_text) == clean_text(vendor_name)]
-        if filtered.empty:
-            st.warning("⚠️ இந்த பதிப்பகத்திற்குப் புத்தகத் தரவுகள் இல்லை!")
-        else:
-            row = filtered.iloc[0]
-            total_titles = int(row.get("No. of Titals", 0))
-            total_qty = int(row.get("No of Book Quantity", 0))
-            tamil_qty = int(row.get("No. of Tamil Books", 0))
-            eng_qty = int(row.get("No. of Engilsh Books", 0))
+        
+        # Summary row
+        sum_rows = df_summary[df_summary["Publication Name / Vendor Name"].apply(clean_text) == clean_text(vendor_name)]
+        if not sum_rows.empty:
+            s_row = sum_rows.iloc[0]
+            tot_titles = int(s_row.get("No. of Titals", 0))
+            tot_qty = int(s_row.get("No of Book Quantity", 0))
+            tam_qty = int(s_row.get("No. of Tamil Books", 0))
+            eng_qty = int(s_row.get("No. of Engilsh Books", 0))
+            st.markdown(f'<div class="book-info-card">🏢 <b>பதிப்பகம்:</b> {xml_escape(vendor_name)}<br>📚 <b>மொத்தத் தலைப்புகள்:</b> {tot_titles}<br>🇮🇳 <b>தமிழ் நூல்கள்:</b> {tam_qty} &nbsp;|&nbsp; 🇬🇧 <b>ஆங்கில நூல்கள்:</b> {eng_qty}<br><span class="total-qty">📦 பெற வேண்டிய மொத்த எண்ணிக்கை: {tot_qty}</span></div>', unsafe_allow_html=True)
+        
+        # Books / Titles breakdown
+        books_filtered = df_books[df_books["Publication Name"].apply(clean_text) == clean_text(vendor_name)]
+        if books_filtered.empty:
+            books_filtered = df_books[df_books["Vendor Name"].apply(clean_text) == clean_text(vendor_name)]
             
-            st.markdown(f'<div class="book-info-card">🏢 <b>பதிப்பகம்:</b> {xml_escape(vendor_name)}<br>📚 <b>மொத்தத் தலைப்புகள்:</b> {total_titles}<br>🇮🇳 <b>தமிழ் நூல்கள்:</b> {tamil_qty} &nbsp;|&nbsp; 🇬🇧 <b>ஆங்கில நூல்கள்:</b> {eng_qty}<br><span class="total-qty">📦 பெற வேண்டிய மொத்த எண்ணிக்கை: {total_qty}</span></div>', unsafe_allow_html=True)
+        if not books_filtered.empty:
+            st.markdown("### 📚 2. புத்தகத் தலைப்புகளின் விவரங்கள் & சரிபார்ப்பு")
             
-            received = st.number_input("✍️ பெறப்பட்ட எண்ணிக்கை", min_value=0, max_value=total_qty, value=0, step=1, key=f"received_{vendor_name}")
-            st.markdown(f'<div class="not-received-card">❌ பெறப்படாத எண்ணிக்கை: {total_qty - received}</div>', unsafe_allow_html=True)
+            verified_items = []
+            for idx, book_row in books_filtered.iterrows():
+                title = book_row.get("Title", "Unknown Title")
+                author = book_row.get("Author Name", "")
+                lang = book_row.get("Language", "")
+                lib_name = book_row.get("Library Name", "")
+                orig_qty = int(book_row.get("Quantity", 1))
+                
+                with st.expander(f"📖 {title} ({lang}) - நூலகம்: {lib_name} [கோரப்பட்ட எண்ணிக்கை: {orig_qty}]"):
+                    st.write(লেখক: `{author}` | பதிப்பகம்: `{vendor_name}`)")
+                    rec_val = st.number_input(
+                        f"பெறப்பட்ட எண்ணிக்கை ({title[:30]})", 
+                        min_value=0, max_value=orig_qty, value=orig_qty, step=1, 
+                        key=f"rec_book_{idx}"
+                    )
+                    not_rec = orig_qty - rec_val
+                    st.markdown(f"❌ பெறப்படாதது: **{not_rec}**")
+                    verified_items.append({
+                        "Title": title,
+                        "Author Name": author,
+                        "Language": lang,
+                        "Library Name": lib_name,
+                        "Quantity": orig_qty,
+                        "Received": rec_val,
+                        "Not Received": not_rec
+                    })
             
-            if st.button("➕ தற்காலிகப் பட்டியலில் சேர்", use_container_width=True):
-                st.session_state["temp_verified_records"].append({
-                    "Vendor Name": vendor_name,
-                    "Total Titles": total_titles,
-                    "Total Qty": total_qty,
-                    "Received": received,
-                    "Not Received": total_qty - received,
-                    "Short / Extra": str(received - total_qty) if received != total_qty else "0",
-                    "Date": datetime.now().strftime("%d-%m-%y %H:%M:%S")
-                })
+            if st.button("➕ சரிபார்த்த விவரங்களைத் தற்காலிகப் பட்டியலில் சேர்", use_container_width=True):
+                for item in verified_items:
+                    item["Vendor Name"] = vendor_name
+                    item["Date"] = datetime.now().strftime("%d-%m-%y %H:%M:%S")
+                    st.session_state["temp_verified_records"].append(item)
+                st.success("✅ தற்காலிகப் பட்டியலில் வெற்றிகரமாகச் சேர்க்கப்பட்டது!")
                 st.rerun()
             
             if st.session_state["temp_verified_records"]:
-                temp = pd.DataFrame(st.session_state["temp_verified_records"])
-                cols = ["Vendor Name", "Total Titles", "Total Qty", "Received", "Not Received", "Short / Extra", "Date"]
-                st.dataframe(temp[cols], use_container_width=True, hide_index=True)
+                st.markdown("### 📋 தற்காலிகச் சரிபார்ப்புப் பட்டியல்")
+                temp_df = pd.DataFrame(st.session_state["temp_verified_records"])
+                st.dataframe(temp_df, use_container_width=True, hide_index=True)
                 download_panel(
-                    temp[cols],
-                    f"{safe_name(vendor_name)}_Physical_Verification",
-                    "Physical Verification",
-                    f"பதிப்பகம்: {vendor_name} | Physical Verification",
+                    temp_df,
+                    f"{safe_name(vendor_name)}_Title_Verification",
+                    "Verification Report",
+                    f"பதிப்பகம்: {vendor_name} | தலைப்புகள் சரிபார்ப்பு",
                 )
                 clear, save = st.columns(2)
                 with clear:
@@ -468,13 +474,13 @@ if st.session_state["current_page"] == menu_items[0]:
                         st.rerun()
                 with save:
                     if st.button("💾 சேமி", use_container_width=True):
-                        st.success("✅ சரிபார்ப்பு வெற்றிகரமாகச் சேமிக்கப்பட்டது!")
+                        st.success("✅ அனைத்து விவரங்களும் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
                         st.session_state.update(selected_vendor=None, temp_verified_records=[], vendor_key=st.session_state["vendor_key"] + 1)
                         st.rerun()
 
 elif len(menu_items) > 1 and st.session_state["current_page"] == menu_items[1]:
     st.subheader("🏢 மொத்த பதிப்பாளர் விவரங்கள்")
-    if book_df is None or book_df.empty:
+    if df_summary is None or df_summary.empty:
         st.error("❌ தரவு கிடைக்கவில்லை!")
         st.stop()
     vendors = vendor_options()
@@ -485,9 +491,9 @@ elif len(menu_items) > 1 and st.session_state["current_page"] == menu_items[1]:
         key="vendor_t2",
     )
     if selected.startswith("-- அனைத்து"):
-        result = book_df
+        result = df_summary
     else:
-        result = book_df[book_df["Publication Name / Vendor Name"].apply(clean_text) == clean_text(selected)]
+        result = df_summary[df_summary["Publication Name / Vendor Name"].apply(clean_text) == clean_text(selected)]
     st.dataframe(result, use_container_width=True, hide_index=True)
     if not result.empty:
         download_panel(result, safe_name(selected) + "_Vendor_Details", "Vendor Details")
