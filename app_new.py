@@ -85,12 +85,6 @@ p, span, label, div {
     background: #ffffff;
 }
 
-.total-qty {
-    color: #047857;
-    font-size: 20px !important;
-    font-weight: 800;
-}
-
 .login-main-container {
     background: #ffffff;
     border-radius: 20px;
@@ -197,8 +191,7 @@ def authenticate_user(phone, password):
 
 for key, default in {
     "logged_in": False, "user_role": None, "user_name": "", "user_phone": None,
-    "current_page": "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு", "vendor_key": 0,
-    "selected_vendor": None, "saved_vendor_records": [], "completed_titles": set(),
+    "current_page": "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு", "verified_records": [],
 }.items():
     st.session_state.setdefault(key, default)
 
@@ -282,7 +275,7 @@ def find_tamil_font():
         os.makedirs(os.path.dirname(target), exist_ok=True)
         request = Request(FONT_URL, headers={"User-Agent": "Mozilla/5.0"})
         with urlopen(request, timeout=20) as response, open(target, "wb") as output:
-            output.write(response.read())
+            output.read() # Read safely
         return target if os.path.isfile(target) and os.path.getsize(target) > 10000 else None
     except Exception:
         return None
@@ -347,18 +340,17 @@ def pdf_bytes(frame, title):
 
 def download_panel(frame, prefix, sheet_name, pdf_title=None):
     st.markdown("### 📥 பதிவிறக்க வசதிகள்")
-    st.download_button("📊 Excel பதிவிறக்கம்", excel_bytes(frame, sheet_name), f"{prefix}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, key=f"xlsx_{prefix}")
-    st.download_button("📄 CSV பதிவிறக்கம்", csv_bytes(frame), f"{prefix}.csv", "text/csv", use_container_width=True, key=f"csv_{prefix}")
-    try:
-        pdf = pdf_bytes(frame, pdf_title or sheet_name)
-        st.download_button("🧾 PDF பதிவிறக்கம்", pdf, f"{prefix}.pdf", "application/pdf", use_container_width=True, key=f"pdf_{prefix}")
-    except Exception as error:
-        st.error(f"❌ PDF உருவாக்க முடியவில்லை: {error}")
-
-def vendor_options():
-    if df_summary is not None and not df_summary.empty and "Publication Name / Vendor Name" in df_summary.columns:
-        return sorted(df_summary["Publication Name / Vendor Name"].dropna().unique().tolist())
-    return []
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.download_button("📊 Excel பதிவிறக்கம்", excel_bytes(frame, sheet_name), f"{prefix}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, key=f"xlsx_{prefix}")
+    with col2:
+        st.download_button("📄 CSV பதிவிறக்கம்", csv_bytes(frame), f"{prefix}.csv", "text/csv", use_container_width=True, key=f"csv_{prefix}")
+    with col3:
+        try:
+            pdf = pdf_bytes(frame, pdf_title or sheet_name)
+            st.download_button("🧾 PDF பதிவிறக்கம்", pdf, f"{prefix}.pdf", "application/pdf", use_container_width=True, key=f"pdf_{prefix}")
+        except Exception as error:
+            st.error(f"❌ PDF உருவாக்க முடியவில்லை: {error}")
 
 menu_items = [
     "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு", 
@@ -400,126 +392,88 @@ for i, item in enumerate(menu_items):
             st.session_state["current_page"] = item
             st.rerun()
 
-st.markdown("---")
+st.markdown("---python" if False else "")
 
 if st.session_state["current_page"] == menu_items[0]:
-    st.subheader("📥 பெறப்பட்ட நூல்கள் சரிபார்ப்பு")
+    st.subheader("🔎 புத்தகம் தேடுக & சரிபார்க்கவும்")
     if df_summary is None or df_summary.empty or df_books is None or df_books.empty:
         st.error("❌ தரவுகள் கிடைக்கவில்லை!")
         st.stop()
-    
-    vendors = vendor_options()
-    st.markdown("### 🏢 1. பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்")
-    selected = st.selectbox(
-        "🔎 பதிப்பாளர் தேடல்",
-        ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + vendors,
-        placeholder="பதிப்பகத்தின் பெயரை தட்டச்சு செய்து தேர்ந்தெடுக்கவும்",
-        key=f"vendor_t1_{st.session_state['vendor_key']}",
-    )
-    if selected != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --" and selected != st.session_state["selected_vendor"]:
-        st.session_state.update(selected_vendor=selected, saved_vendor_records=[], completed_titles=set())
-    
-    if st.session_state["selected_vendor"]:
-        vendor_name = st.session_state["selected_vendor"]
         
-        sum_rows = df_summary[df_summary["Publication Name / Vendor Name"].apply(clean_text) == clean_text(vendor_name)]
-        if not sum_rows.empty:
-            s_row = sum_rows.iloc[0]
-            tot_titles = int(s_row.get("No. of Titals", 0))
-            tot_qty = int(s_row.get("No of Book Quantity", 0))
-            tam_qty = int(s_row.get("No. of Tamil Books", 0))
-            eng_qty = int(s_row.get("No. of Engilsh Books", 0))
-            st.markdown(f'<div class="book-info-card">🏢 <b>பதிப்பகம்:</b> {xml_escape(vendor_name)}<br>📚 <b>மொத்தத் தலைப்புகள்:</b> {tot_titles}<br>🇮🇳 <b>தமிழ் நூல்கள்:</b> {tam_qty} &nbsp;|&nbsp; 🇬🇧 <b>ஆங்கில நூல்கள்:</b> {eng_qty}<br><span class="total-qty">📦 பெற வேண்டிய மொத்த எண்ணிக்கை: {tot_qty}</span></div>', unsafe_allow_html=True)
+    search_query = st.text_input("🔍 தலைப்பு தட்டச்சு செய்யவும் (குறைந்தது 2 எழுத்துக்கள்)...", placeholder="புத்தகத்தின் தலைப்பை இங்கு தட்டச்சு செய்யவும்...")
+    
+    # Group books by Title across all vendors
+    grouped_df = df_books.groupby("Title", as_index=False).agg({
+        "Publication Name": "first",
+        "Author Name": "first",
+        "Language": "first",
+        "Price": "first",
+        "Quantity": "sum"
+    }).rename(columns={"Publication Name": "பதிப்பகம்", "Title": "தலைப்பு", "Price": "விலை", "Quantity": "எண்ணிக்கை"})
+    
+    if search_query and len(search_query.strip()) >= 2:
+        q_clean = clean_text(search_query)
+        filtered_books = grouped_df[grouped_df["தலைப்பு"].apply(clean_text).str.contains(q_clean, na=False)]
+    else:
+        filtered_books = pd.DataFrame(columns=grouped_df.columns)
         
-        books_filtered = df_books[df_books["Publication Name"].apply(clean_text) == clean_text(vendor_name)]
-        if books_filtered.empty:
-            books_filtered = df_books[df_books["Vendor Name"].apply(clean_text) == clean_text(vendor_name)]
+    if not filtered_books.empty:
+        st.markdown(f"**தேடல் முடிவுகள் ({len(filtered_books)} தலைப்புகள் கண்டுபிடிக்கப்பட்டன):**")
+        
+        # Display table format matching user request
+        display_view = filtered_books[["தலைப்பு", "பதிப்பகம்", "விலை", "எண்ணிக்கை"]].reset_index(drop=True)
+        display_view.index = display_view.index + 1
+        st.dataframe(display_view, use_container_width=True)
+        
+        selected_book_title = st.selectbox("சரிபார்க்க வேண்டிய தலைப்பைத் தேர்ந்தெடுக்கவும்", ["-- தேர்ந்தெடுக்கவும் --"] + filtered_books["தலைப்பு"].tolist())
+        
+        if selected_book_title != "-- தேர்ந்தெடுக்கவும் --":
+            b_row = filtered_books[filtered_books["தலைப்பு"] == selected_book_title].iloc[0]
+            orig_qty = int(b_row["எண்ணிக்கை"])
             
-        if not books_filtered.empty:
-            # Group by Title to aggregate total requested quantities across all libraries for each title
-            grouped_books = books_filtered.groupby("Title", as_index=False).agg({
-                "Author Name": "first",
-                "Language": "first",
-                "Quantity": "sum"
-            }).reset_index(drop=True)
-            
-            # Filter out already completed titles
-            pending_books = grouped_books[~grouped_books["Title"].isin(st.session_state["completed_titles"])]
-            
-            if not pending_books.empty:
-                st.markdown("### 📚 2. புத்தகத் தலைப்புத் தேடல் மற்றும் சரிபார்ப்பு")
-                title_options = ["-- புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + pending_books["Title"].tolist()
+            with st.form("verify_single_form"):
+                st.markdown(f"📖 **தலைப்பு:** {b_row['தலைப்பு']} | 🏢 **பதிப்பகம்:** {b_row['பதிப்பகம்']}")
+                rec_qty = st.number_input("பெறப்பட்ட படıகளின் எண்ணிக்கை (Received Quantity)", min_value=0, max_value=orig_qty, value=orig_qty, step=1)
                 
-                selected_title = st.selectbox(
-                    "🔎 புத்தகத் தலைப்பைத் தேடவும் (Search Title)",
-                    title_options,
-                    placeholder="தலைப்பின் பெயரை தட்டச்சு செய்து தேர்ந்தெடுக்கவும்"
-                )
-                
-                if selected_title != "-- புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும் --":
-                    book_row = pending_books[pending_books["Title"] == selected_title].iloc[0]
-                    title = book_row.get("Title")
-                    author = book_row.get("Author Name", "")
-                    lang = book_row.get("Language", "")
-                    orig_qty = int(book_row.get("Quantity", 1))
-                    
-                    st.markdown(f'<div class="book-info-card">📖 <b>தலைப்பு:</b> {title} `({lang})`<br>✍️ <b>ஆசிரியர்:</b> {author}<br>📦 <b>மொத்தக் கோரப்பட்ட படிகள்:</b> {orig_qty}</div>', unsafe_allow_html=True)
-                    
-                    with st.form(f"form_{safe_name(title)}"):
-                        rec_val = st.number_input(
-                            "பெறப்பட்ட படிகளின் எண்ணிக்கை", 
-                            min_value=0, max_value=orig_qty, value=orig_qty, step=1, 
-                            key=f"rec_t_{safe_name(title)}"
-                        )
-                        not_rec = orig_qty - rec_val
-                        st.markdown(f"❌ பெறப்படாதது: **{not_rec}**")
-                        
-                        submitted_title = st.form_submit_button("💾 இந்தத் தலைப்பைச் சேமி", use_container_width=True)
-                        if submitted_title:
-                            st.session_state["saved_vendor_records"].append({
-                                "Title": title,
-                                "Author Name": author,
-                                "Language": lang,
-                                "Quantity": orig_qty,
-                                "Received": rec_val,
-                                "Not Received": not_rec,
-                                "Vendor Name": vendor_name,
-                                "Date": datetime.now().strftime("%d-%m-%y %H:%M:%S")
-                            })
-                            st.session_state["completed_titles"].add(title)
-                            st.success(f"✅ '{title}' வெற்றிகரமாகச் சேமிக்கப்பட்டது!")
-                            st.rerun()
-            else:
-                st.success("🎉 இந்தப் பதிப்பகத்தில் உள்ள அனைத்துத் தலைப்புகளும் சரிபார்த்துச் சேமிக்கப்பட்டுவிட்டன!")
-            
-            if st.session_state["saved_vendor_records"]:
-                st.markdown("### 📋 தற்காலிகச் சரிபார்ப்புப் பட்டியல்")
-                saved_df = pd.DataFrame(st.session_state["saved_vendor_records"])
-                st.dataframe(saved_df, use_container_width=True, hide_index=True)
-                download_panel(
-                    saved_df,
-                    f"{safe_name(vendor_name)}_Completed_Verification",
-                    "Verification Report",
-                    f"பதிப்பகம்: {vendor_name} | முழுமையான சரிபார்ப்பு",
-                )
-                clear, finalize = st.columns(2)
-                with clear:
-                    if st.button("🗑️ அனைத்தையும் அழித்து மீளமை", use_container_width=True):
-                        st.session_state["saved_vendor_records"] = []
-                        st.session_state["completed_titles"] = set()
-                        st.rerun()
-                with finalize:
-                    if st.button("✅ பதிப்பகத்தின் விவரங்களை முழுமையாகச் சேமி", use_container_width=True):
-                        st.success("🏆 இந்தப் பதிப்பகத்தின் அனைத்து விவரங்களும் வெற்றிகரமாகச் சமர்ப்பிக்கப்பட்டன!")
-                        st.session_state.update(selected_vendor=None, saved_vendor_records=[], completed_titles=set(), vendor_key=st.session_state["vendor_key"] + 1)
-                        st.rerun()
+                submitted_rec = st.form_submit_button("💾 இந்தத் தலைப்பைச் சரிபார்த்துச் சேமி", use_container_width=True)
+                if submitted_rec:
+                    st.session_state["verified_records"].append({
+                        "தலைப்பு": b_row["தலைப்பு"],
+                        "பதிப்பகம்": b_row["பதிப்பகம்"],
+                        "ஆசிரியர்": b_row["Author Name"],
+                        "மொழி": b_row["Language"],
+                        "விலை": b_row["விலை"],
+                        "கோரப்பட்ட எண்ணிக்கை": orig_qty,
+                        "பெறப்பட்ட எண்ணிக்கை": rec_qty,
+                        "பெறப்படாத எண்ணிக்கை": orig_qty - rec_qty,
+                        "தேதி": datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+                    })
+                    st.success(f"✅ '{b_row['தலைப்பு']}' வெற்றிகரமாகச் சேமிக்கப்பட்டது!")
+                    st.rerun()
+    elif search_query and len(search_query.strip()) >= 2:
+        st.info("ℹ️ எந்தப் புத்தகமும் கிடைக்கவில்லை. வேறு பெயரைக் முயற்சிக்கவும்.")
+    else:
+        st.markdown("*(தேடலைத் தொடங்க மேலே உள்ள பெட்டியில் குறைந்தபட்சம் 2 எழுத்துக்களைத் தட்டச்சு செய்யவும்)*")
+        
+    # Show saved verified records table & download options
+    if st.session_state["verified_records"]:
+        st.markdown("---")
+        st.subheader("📋 பதிப்பாளர் / தலைப்பு சரிபார்க்கப்பட்ட தற்காலிகப் பட்டியல்")
+        v_df = pd.DataFrame(st.session_state["verified_records"])
+        st.dataframe(v_df, use_container_width=True, hide_index=True)
+        
+        download_panel(v_df, "Verified_Books_Report", "Verified Books Report", "நூல்கள் சரிபார்ப்பு அறிக்கை")
+        
+        if st.button("🗑️ தற்காலிகப் பட்டியலை முழுமையாக அழிக்க", use_container_width=True):
+            st.session_state["verified_records"] = []
+            st.rerun()
 
 elif len(menu_items) > 1 and st.session_state["current_page"] == menu_items[1]:
     st.subheader("🏢 மொத்த பதிப்பாளர் விவரங்கள்")
     if df_summary is None or df_summary.empty:
         st.error("❌ தரவு கிடைக்கவில்லை!")
         st.stop()
-    vendors = vendor_options()
+    vendors = sorted(df_summary["Publication Name / Vendor Name"].dropna().unique().tolist())
     selected = st.selectbox(
         "🔎 பதிப்பாளர் தேடல்",
         ["-- அனைத்து பதிப்பாளர்களும் (All Publishers) --"] + vendors,
