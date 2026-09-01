@@ -91,16 +91,6 @@ p, span, label, div {
     font-weight: 800;
 }
 
-.not-received-card {
-    background: #fffbeb;
-    border-left: 8px solid #f59e0b;
-    border-radius: 12px;
-    padding: 14px 18px;
-    color: #b45309;
-    font-weight: 800;
-    margin: 12px 0;
-}
-
 .stButton > button, .stDownloadButton > button {
     min-height: 50px !important;
     border-radius: 10px !important;
@@ -184,7 +174,7 @@ def authenticate_user(phone, password):
 for key, default in {
     "logged_in": False, "user_role": None, "user_name": "", "user_phone": None,
     "current_page": "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு", "vendor_key": 0,
-    "selected_vendor": None, "temp_verified_records": [],
+    "selected_vendor": None, "saved_vendor_records": [], "completed_titles": set(),
 }.items():
     st.session_state.setdefault(key, default)
 
@@ -399,7 +389,7 @@ if st.session_state["current_page"] == menu_items[0]:
         key=f"vendor_t1_{st.session_state['vendor_key']}",
     )
     if selected != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --" and selected != st.session_state["selected_vendor"]:
-        st.session_state.update(selected_vendor=selected, temp_verified_records=[])
+        st.session_state.update(selected_vendor=selected, saved_vendor_records=[], completed_titles=set())
     
     if st.session_state["selected_vendor"]:
         vendor_name = st.session_state["selected_vendor"]
@@ -418,62 +408,67 @@ if st.session_state["current_page"] == menu_items[0]:
             books_filtered = df_books[df_books["Vendor Name"].apply(clean_text) == clean_text(vendor_name)]
             
         if not books_filtered.empty:
-            st.markdown("### 📚 2. புத்தகத் தலைப்புகளின் விவரங்கள் & சரிபார்ப்பு")
+            # Group or list unique titles for this vendor
+            remaining_rows = [row for _, row in books_filtered.iterrows() if row.get("Title") not in st.session_state["completed_titles"]]
             
-            verified_items = []
-            for idx, book_row in books_filtered.iterrows():
-                title = book_row.get("Title", "Unknown Title")
-                author = book_row.get("Author Name", "")
-                lang = book_row.get("Language", "")
-                lib_name = book_row.get("Library Name", "")
-                orig_qty = int(book_row.get("Quantity", 1))
-                
-                with st.expander(f"📖 {title} ({lang}) - நூலகம்: {lib_name} [கோரப்பட்ட எண்ணிக்கை: {orig_qty}]"):
-                    st.write(f"✍️ ஆசிரியர்: `{author}` | 🏢 பதிப்பகம்: `{vendor_name}`")
-                    rec_val = st.number_input(
-                        f"பெறப்பட்ட எண்ணிக்கை ({title[:30]})", 
-                        min_value=0, max_value=orig_qty, value=orig_qty, step=1, 
-                        key=f"rec_book_{idx}"
-                    )
-                    not_rec = orig_qty - rec_val
-                    st.markdown(f"❌ பெறப்படாதது: **{not_rec}**")
-                    verified_items.append({
-                        "Title": title,
-                        "Author Name": author,
-                        "Language": lang,
-                        "Library Name": lib_name,
-                        "Quantity": orig_qty,
-                        "Received": rec_val,
-                        "Not Received": not_rec
-                    })
+            if remaining_rows:
+                st.markdown("### 📚 2. புத்தகத் தலைப்புகளின் சரிபார்ப்பு")
+                for book_row in remaining_rows:
+                    title = book_row.get("Title", "Unknown Title")
+                    author = book_row.get("Author Name", "")
+                    lang = book_row.get("Language", "")
+                    lib_name = book_row.get("Library Name", "")
+                    orig_qty = int(book_row.get("Quantity", 1))
+                    
+                    with st.expander(f"📖 {title} ({lang})"):
+                        st.markdown(f"✍️ **ஆசிரியர்:** `{author}` &nbsp;|&nbsp; 🏢 **பதிப்பகம்:** `{vendor_name}`<br>🏛️ **நூலகம்:** `{lib_name}` &nbsp;|&nbsp; 📦 **கோரப்பட்ட படிகள்:** `{orig_qty}`")
+                        
+                        rec_val = st.number_input(
+                            f"பெறப்பட்ட படிகளின் எண்ணிக்கை ({title[:25]})", 
+                            min_value=0, max_value=orig_qty, value=orig_qty, step=1, 
+                            key=f"rec_t_{safe_name(title)}_{safe_name(lib_name)}"
+                        )
+                        not_rec = orig_qty - rec_val
+                        st.markdown(f"❌ பெறப்படாதது: **{not_rec}**")
+                        
+                        if st.button("💾 இந்தத் தலைப்பைச் சேமி", key=f"btn_save_{safe_name(title)}_{safe_name(lib_name)}", use_container_width=True):
+                            st.session_state["saved_vendor_records"].append({
+                                "Title": title,
+                                "Author Name": author,
+                                "Language": lang,
+                                "Library Name": lib_name,
+                                "Quantity": orig_qty,
+                                "Received": rec_val,
+                                "Not Received": not_rec,
+                                "Vendor Name": vendor_name,
+                                "Date": datetime.now().strftime("%d-%m-%y %H:%M:%S")
+                            })
+                            st.session_state["completed_titles"].add(title)
+                            st.success(f"✅ '{title}' வெற்றிகரமாகச் சேமிக்கப்பட்டது!")
+                            st.rerun()
+            else:
+                st.success("🎉 இந்தப் பதிப்பகத்தில் உள்ள அனைத்துத் தலைப்புகளும் சரிபார்த்துச் சேமிக்கப்பட்டுவிட்டன!")
             
-            if st.button("➕ சரிபார்த்த விவரங்களைத் தற்காலிகப் பட்டியலில் சேர்", use_container_width=True):
-                for item in verified_items:
-                    item["Vendor Name"] = vendor_name
-                    item["Date"] = datetime.now().strftime("%d-%m-%y %H:%M:%S")
-                    st.session_state["temp_verified_records"].append(item)
-                st.success("✅ தற்காலிகப் பட்டியலில் வெற்றிகரமாகச் சேர்க்கப்பட்டது!")
-                st.rerun()
-            
-            if st.session_state["temp_verified_records"]:
+            if st.session_state["saved_vendor_records"]:
                 st.markdown("### 📋 தற்காலிகச் சரிபார்ப்புப் பட்டியல்")
-                temp_df = pd.DataFrame(st.session_state["temp_verified_records"])
-                st.dataframe(temp_df, use_container_width=True, hide_index=True)
+                saved_df = pd.DataFrame(st.session_state["saved_vendor_records"])
+                st.dataframe(saved_df, use_container_width=True, hide_index=True)
                 download_panel(
-                    temp_df,
-                    f"{safe_name(vendor_name)}_Title_Verification",
+                    saved_df,
+                    f"{safe_name(vendor_name)}_Completed_Verification",
                     "Verification Report",
-                    f"பதிப்பகம்: {vendor_name} | தலைப்புகள் சரிபார்ப்பு",
+                    f"பதிப்பகம்: {vendor_name} | முழுமையான சரிபார்ப்பு",
                 )
-                clear, save = st.columns(2)
+                clear, finalize = st.columns(2)
                 with clear:
-                    if st.button("🗑️ அனைத்தையும் அழி", use_container_width=True):
-                        st.session_state["temp_verified_records"] = []
+                    if st.button("🗑️ அனைத்தையும் அழித்து மீளமை", use_container_width=True):
+                        st.session_state["saved_vendor_records"] = []
+                        st.session_state["completed_titles"] = set()
                         st.rerun()
-                with save:
-                    if st.button("💾 சேமி", use_container_width=True):
-                        st.success("✅ அனைத்து விவரங்களும் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
-                        st.session_state.update(selected_vendor=None, temp_verified_records=[], vendor_key=st.session_state["vendor_key"] + 1)
+                with finalize:
+                    if st.button("✅ பதிப்பகத்தின் விவரங்களை முழுமையாகச் சேமி", use_container_width=True):
+                        st.success("🏆 இந்தப் பதிப்பகத்தின் அனைத்து விவரங்களும் வெற்றிகரமாகச் சமர்ப்பிக்கப்பட்டன!")
+                        st.session_state.update(selected_vendor=None, saved_vendor_records=[], completed_titles=set(), vendor_key=st.session_state["vendor_key"] + 1)
                         st.rerun()
 
 elif len(menu_items) > 1 and st.session_state["current_page"] == menu_items[1]:
