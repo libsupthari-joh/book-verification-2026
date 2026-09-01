@@ -300,6 +300,27 @@ def clean_text(value):
     value = re.sub(r"^\s*\d+[\.\s\-_]*", "", str(value).strip())
     return re.sub(r"[^a-zA-Z0-9\u0B80-\u0BFF\s]", "", value).casefold().strip()
 
+# ------------------------------------------------------------
+# PERFORMANCE: cached sheet reads
+# ------------------------------------------------------------
+# "Vendor Wise Book Data" has 45,000+ rows. Streamlit reruns this ENTIRE
+# script on every click, so without caching, all 45,000+ rows were being
+# re-fetched from Google Sheets (and re-parsed) on every single interaction
+# — that's what was making the app feel slow. get_sheet_values() caches the
+# raw values for a short time; call invalidate_sheet_cache(bucket) right
+# after writing to that sheet so the next read picks up the fresh data.
+@st.cache_data(ttl=60, show_spinner=False)
+def _get_sheet_values_cached(_worksheet, cache_bucket, version):
+    return _worksheet.get_all_values()
+
+def get_sheet_values(worksheet, cache_bucket):
+    version = st.session_state.get(f"_sheet_cache_v__{cache_bucket}", 0)
+    return _get_sheet_values_cached(worksheet, cache_bucket, version)
+
+def invalidate_sheet_cache(cache_bucket):
+    key = f"_sheet_cache_v__{cache_bucket}"
+    st.session_state[key] = st.session_state.get(key, 0) + 1
+
 vendor_df, book_df = load_data(EXCEL_FILE)
 sheet_physically = sheet_vendor_wise = sheet_lib_detail = None
 try:
@@ -499,7 +520,7 @@ if st.session_state["current_page"] == menu_items[0]:
     already = set()
     if sheet_physically:
         try:
-            for row in sheet_physically.get_all_values()[1:]:
+            for row in get_sheet_values(sheet_physically, "physically_verified")[1:]:
                 if len(row) > 4 and row[4]:
                     already.add(clean_text(row[4]))
                 elif row and row[0]:
@@ -582,6 +603,7 @@ if st.session_state["current_page"] == menu_items[0]:
                                 try:
                                     for item in st.session_state["temp_verified_records"]:
                                         sheet_physically.append_row([item["ID with Vendor Name"], item["Title"], item["Language"], item["Author Name"], item["Vendor Name"], item["Total Qty"], item["Received"], item["Not Received"], item["Short / Extra"], item["Date"]])
+                                    invalidate_sheet_cache("physically_verified")
                                     try:
                                         upload_pdf_to_drive(pdf_bytes(temp[cols], f"{vendor_name} - Physical Verification"), vendor_name, vendor_name)
                                         st.success("✅ Google Sheet மற்றும் Drive PDF-ல் சேமிக்கப்பட்டது!")
@@ -598,8 +620,8 @@ elif len(menu_items) > 1 and st.session_state["current_page"] == menu_items[1]:
         st.error("❌ Google Sheet இணைப்புகள் கிடைக்கவில்லை!")
         st.stop()
     try:
-        physical = sheet_physically.get_all_values()
-        vendor_sheet = sheet_vendor_wise.get_all_values()
+        physical = get_sheet_values(sheet_physically, "physically_verified")
+        vendor_sheet = get_sheet_values(sheet_vendor_wise, "vendor_wise")
         ph = [str(x).strip().casefold() for x in physical[0]]
         wh = [str(x).strip().casefold() for x in vendor_sheet[0]]
         vi = next((i for i, x in enumerate(ph) if "vendor" in x), 4)
@@ -629,19 +651,33 @@ elif len(menu_items) > 1 and st.session_state["current_page"] == menu_items[1]:
                 records = [row for row in records if row[ti] == title_lookup.get(selected_book)]
             st.dataframe(pd.DataFrame([{"Title": r[ti], "Received": r[ri]} for r in records]), use_container_width=True, hide_index=True)
             if st.button("🚀 இந்த பதிப்பகத்திற்கு மட்டும் ஒத்திசைவு செய்க", use_container_width=True):
+                # PERFORMANCE: build a title -> [(vendor, row_no, qty), ...] index
+                # ONCE over the 45,000+ row sheet (a single O(45,603) pass),
+                # instead of re-scanning all 45,603 rows for every record being
+                # synced (which was O(records × 45,603) — the main cause of the
+                # long delay with a sheet this size).
+                title_index = {}
+                for row_no, wrow in enumerate(vendor_sheet[1:], 2):
+                    wvendor = wrow[10] if len(wrow) > 10 else (wrow[9] if len(wrow) > 9 else "")
+                    wtitle = wrow[4] if len(wrow) > 4 else ""
+                    qty = int(wrow[17]) if len(wrow) > 17 and str(wrow[17]).isdigit() else 1
+                    title_index.setdefault(clean_text(wtitle), []).append((clean_text(wvendor), row_no, qty))
+
                 cells = []
+                selected_clean = clean_text(selected)
                 for prow in records:
                     remaining = int(prow[ri]) if str(prow[ri]).isdigit() else 0
-                    for row_no, wrow in enumerate(vendor_sheet[1:], 2):
-                        wvendor = wrow[10] if len(wrow) > 10 else (wrow[9] if len(wrow) > 9 else "")
-                        wtitle = wrow[4] if len(wrow) > 4 else ""
-                        if clean_text(selected) in clean_text(wvendor) and clean_text(prow[ti]) == clean_text(wtitle) and remaining:
-                            qty = int(wrow[17]) if len(wrow) > 17 and str(wrow[17]).isdigit() else 1
-                            got = min(remaining, qty)
-                            cells += [Cell(row=row_no, col=si + 1, value=str(got)), Cell(row=row_no, col=si + 2, value=str(qty - got))]
-                            remaining -= got
+                    for wvendor_clean, row_no, qty in title_index.get(clean_text(prow[ti]), []):
+                        if remaining <= 0:
+                            break
+                        if selected_clean not in wvendor_clean:
+                            continue
+                        got = min(remaining, qty)
+                        cells += [Cell(row=row_no, col=si + 1, value=str(got)), Cell(row=row_no, col=si + 2, value=str(qty - got))]
+                        remaining -= got
                 if cells:
                     sheet_vendor_wise.update_cells(cells)
+                    invalidate_sheet_cache("vendor_wise")
                 st.success(f"✅ {selected} ஒத்திசைக்கப்பட்டது!")
                 time.sleep(.5)
                 st.rerun()
@@ -720,7 +756,7 @@ elif len(menu_items) > 3 and st.session_state["current_page"] in menu_items[3:]:
             key=f"acc_{st.session_state['acc_library_key']}",
         )
         if selected != "-- தேர்ந்தெடுக்கவும் --":
-            rows = sheet_vendor_wise.get_all_values()
+            rows = get_sheet_values(sheet_vendor_wise, "vendor_wise")
             headers = [str(x).strip().casefold() for x in rows[0]]
             li = next((i for i, x in enumerate(headers) if "librarianid" in x or "lib id" in x), 11)
             ti = next((i for i, x in enumerate(headers) if "title" in x), 4)
@@ -731,7 +767,7 @@ elif len(menu_items) > 3 and st.session_state["current_page"] in menu_items[3:]:
             central_row = branch_row = None
             if sheet_lib_detail:
                 try:
-                    detail_rows = sheet_lib_detail.get_all_values()
+                    detail_rows = get_sheet_values(sheet_lib_detail, "lib_detail")
                     for detail_row_no, detail in enumerate(detail_rows[1:], 2):
                         if central_row is None and len(detail) > 5 and str(detail[5]).strip().isdigit():
                             central = int(detail[5])
@@ -803,12 +839,14 @@ elif len(menu_items) > 3 and st.session_state["current_page"] in menu_items[3:]:
                             cells += [Cell(row=record["Sheet Row"], col=21, value=record["Central Accession No"]), Cell(row=record["Sheet Row"], col=22, value=record["Branch Accession No"])]
                     if cells:
                         sheet_vendor_wise.update_cells(cells)
+                        invalidate_sheet_cache("vendor_wise")
                     if sheet_lib_detail and central_row and branch_row:
                         try:
                             sheet_lib_detail.update_cells([
                                 Cell(row=central_row, col=6, value=str(central)),
                                 Cell(row=branch_row, col=7, value=str(branch)),
                             ])
+                            invalidate_sheet_cache("lib_detail")
                         except Exception as error:
                             st.warning(f"⚠️ Lib_Detail எண்ணிக்கை புதுப்பிக்கப்படவில்லை: {error}")
                     st.success("✅ சேர்க்கை எண்கள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
