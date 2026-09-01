@@ -364,7 +364,7 @@ def download_panel(frame, prefix, sheet_name, pdf_title=None):
 
 menu_items = [
     "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு", 
-    "🏢 2. மொத்த பதிப்பாளர் விவரங்கள்"
+    "🏢 2. சரிபார்க்கப்பட்ட பதிப்பாளர்"
 ]
 
 if st.session_state["current_page"] not in menu_items:
@@ -386,7 +386,7 @@ st.markdown("---")
 
 MENU_SHORT_LABELS = {
     "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு": "📥 சரிபார்ப்பு",
-    "🏢 2. மொத்த பதிப்பாளர் விவரங்கள்": "🏢 பதிப்பாளர்",
+    "🏢 2. சரிபார்க்கப்பட்ட பதிப்பாளர்": "🏢 சரிபார்க்கப்பட்ட பதிப்பாளர்",
 }
 
 cols = st.columns(len(menu_items))
@@ -418,7 +418,6 @@ if st.session_state["current_page"] == menu_items[0]:
     c_price = get_col(df_books, ["Price", "Amount"])
     c_qty = get_col(df_books, ["Quantity", "Qty", "Count", "No of Libraries", "Libraries Count"])
 
-    # 1. பதிப்பாளரைத் தேர்ந்தெடுக்கும் பகுதி
     if c_pub in df_books.columns:
         publishers = sorted(df_books[c_pub].dropna().unique().tolist())
         selected_publisher = st.selectbox(
@@ -434,7 +433,6 @@ if st.session_state["current_page"] == menu_items[0]:
     else:
         pub_filtered_books = df_books
 
-    # Group books by Title using dynamic columns
     grouped_df = pub_filtered_books.groupby(c_title, as_index=False).agg({
         c_pub: "first",
         c_author: "first",
@@ -448,7 +446,7 @@ if st.session_state["current_page"] == menu_items[0]:
         c_author: "ஆசிரியர்",
         c_isbn: "ISBN",
         c_price: "விலை", 
-        c_qty: "எண்ணிக்கை"
+        c_qty: "அனுமதிக்கப்பட்ட எண்ணிக்கை"
     })
 
     st.markdown("2. புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும்:")
@@ -464,12 +462,11 @@ if st.session_state["current_page"] == menu_items[0]:
         
         if selected_book_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
             b_row = grouped_df[grouped_df["தலைப்பு"] == selected_book_title].iloc[0]
-            orig_qty = int(b_row["எண்ணிக்கை"])
+            orig_qty = int(b_row["அனுமதிக்கப்பட்ட எண்ணிக்கை"])
             author_val = b_row.get("ஆசிரியர்", "N/A")
             isbn_val = b_row.get("ISBN", "N/A")
             price_val = b_row.get("விலை", 0)
             
-            # முழு விவரங்களுடன் கூடிய அட்டைப் பெட்டி (Icons Included)
             st.markdown(f"""
             <div class="book-info-card">
                 📖 <b>தலைப்பு:</b> {b_row['தலைப்பு']}<br>
@@ -477,7 +474,7 @@ if st.session_state["current_page"] == menu_items[0]:
                 ✍️ <b>ஆசிரியர்:</b> {author_val}<br>
                 🏷️ <b>ISBN:</b> {isbn_val}<br>
                 💰 <b>விலை/தொகை:</b> ₹{price_val}<br>
-                📚 <b>நூலகங்களின் எண்ணிக்கை (மொத்தம் கோரப்பட்டது):</b> {orig_qty}
+                📚 <b>நூலகங்களின் எண்ணிக்கை (அனுமதிக்கப்பட்டது):</b> {orig_qty}
             </div>
             """, unsafe_allow_html=True)
             
@@ -493,7 +490,7 @@ if st.session_state["current_page"] == menu_items[0]:
                         "ISBN": isbn_val,
                         "மொழி": b_row[c_lang],
                         "விலை": price_val,
-                        "கோரப்பட்ட எண்ணிக்கை": orig_qty,
+                        "அனுமதிக்கப்பட்ட எண்ணிக்கை": orig_qty,
                         "பெறப்பட்ட எண்ணிக்கை": rec_qty,
                         "பெறப்படாத எண்ணிக்கை": orig_qty - rec_qty,
                         "தேதி": datetime.now().strftime("%d-%m-%Y %H:%M:%S")
@@ -503,36 +500,40 @@ if st.session_state["current_page"] == menu_items[0]:
     else:
         st.info("ℹ️ தேர்ந்தெடுக்கப்பட்ட பதிப்பகத்திற்குப் புத்தகங்கள் எதுவும் கிடைக்கவில்லை.")
         
-    # Show saved verified records table & download options
     if st.session_state["verified_records"]:
         st.markdown("---")
-        st.subheader("📋 பதிப்பாளர் / தலைப்பு சரிபார்க்கப்பட்ட தற்காலிகப் பட்டியல்")
+        st.subheader("📋 இதுவரை சரிபார்க்கப்பட்ட நூல்களின் தற்காலிகப் பட்டியல்")
         v_df = pd.DataFrame(st.session_state["verified_records"])
         st.dataframe(v_df, use_container_width=True, hide_index=True)
-        
-        download_panel(v_df, "Verified_Books_Report", "Verified Books Report", "நூல்கள் சரிபார்ப்பு அறிக்கை")
         
         if st.button("🗑️ தற்காலிகப் பட்டியலை முழுமையாக அழிக்க", use_container_width=True):
             st.session_state["verified_records"] = []
             st.rerun()
 
 elif len(menu_items) > 1 and st.session_state["current_page"] == menu_items[1]:
-    st.subheader("🏢 மொத்த பதிப்பாளர் விவரங்கள்")
-    if df_summary is None or df_summary.empty:
-        st.error("❌ தரவு கிடைக்கவில்லை!")
-        st.stop()
-    c_summary_pub = get_col(df_summary, ["Publication Name / Vendor Name", "Publication Name", "Vendor Name", "Publisher"])
-    vendors = sorted(df_summary[c_summary_pub].dropna().unique().tolist())
-    selected = st.selectbox(
-        "🔎 பதிப்பாளர் தேடல்",
-        ["-- அனைத்து பதிப்பாளர்களும் (All Publishers) --"] + vendors,
-        placeholder="பதிப்பகத்தின் பெயரை தட்டச்சு செய்து தேர்ந்தெடுக்கவும்",
-        key="vendor_t2",
-    )
-    if selected.startswith("-- அனைத்து"):
-        result = df_summary
+    st.subheader("🏢 சரிபார்க்கப்பட்ட பதிப்பாளர் வாரியான அறிக்கைகள்")
+    if not st.session_state["verified_records"]:
+        st.info("ℹ️ இதுவரை எந்தப் பதிப்பக நூல்களும் சரிபார்க்கப்பட்டுச் சேமிக்கப்படவில்லை. முதலாவது பக்கத்தில் சரிபார்க்கவும்.")
     else:
-        result = df_summary[df_summary[c_summary_pub].apply(clean_text) == clean_text(selected)]
-    st.dataframe(result, use_container_width=True, hide_index=True)
-    if not result.empty:
-        download_panel(result, safe_name(selected) + "_Vendor_Details", "Vendor Details")
+        v_df = pd.DataFrame(st.session_state["verified_records"])
+        verified_publishers = sorted(v_df["பதிப்பகம்"].dropna().unique().tolist())
+        
+        selected_v_pub = st.selectbox(
+            "🔎 சரிபார்க்கப்பட்ட பதிப்பாளரைத் தேர்ந்தெடுக்கவும்:",
+            ["-- அனைத்து பதிப்பாளர்களும் (All Publishers) --"] + verified_publishers,
+            key="verified_pub_filter"
+        )
+        
+        if selected_v_pub.startswith("-- அனைத்து"):
+            filtered_v_df = v_df
+            report_title = "அனைத்து பதிப்பாளர்களும் - நூல்கள் சரிபார்ப்பு அறிக்கை"
+            file_prefix = "All_Verified_Publishers"
+        else:
+            filtered_v_df = v_df[v_df["பதிப்பகம்"] == selected_v_pub]
+            report_title = f"{selected_v_pub} - நூல்கள் சரிபார்ப்பு அறிக்கை"
+            file_prefix = safe_name(selected_v_pub) + "_Verified_Report"
+            
+        st.markdown(f"**தேர்ந்தெடுக்கப்பட்ட பதிப்பகத்தின் சரிபார்க்கப்பட்ட விவரங்கள் ({len(filtered_v_df)} தலைப்புகள்):**")
+        st.dataframe(filtered_v_df, use_container_width=True, hide_index=True)
+        
+        download_panel(filtered_v_df, file_prefix, "Verified Books Report", report_title)
