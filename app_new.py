@@ -265,46 +265,6 @@ def get_col(df, possible_names):
                 return col
     return possible_names[0]
 
-PDF_FONT_REGULAR = PDF_FONT_BOLD = None
-PDF_FONT_ERROR = None
-FONT_URL = "https://github.com/notofonts/tamil/raw/main/fonts/ttf/NotoSansTamil/NotoSansTamil-Regular.ttf"
-
-def find_tamil_font():
-    root = os.path.dirname(os.path.abspath(__file__))
-    paths = [
-        os.path.join(root, "fonts", "NotoSansTamil-Regular.ttf"),
-        os.path.join(root, "fonts", "NotoSansTamil.ttf"),
-        os.path.join(os.getcwd(), "fonts", "NotoSansTamil-Regular.ttf"),
-        os.path.join(os.getcwd(), "fonts", "NotoSansTamil.ttf"),
-    ]
-    found = next((path for path in paths if os.path.isfile(path)), None)
-    if found:
-        return found
-    target = paths[0]
-    try:
-        os.makedirs(os.path.dirname(target), exist_ok=True)
-        request = Request(FONT_URL, headers={"User-Agent": "Mozilla/5.0"})
-        with urlopen(request, timeout=20) as response, open(target, "wb") as output:
-            output.read()
-        return target if os.path.isfile(target) and os.path.getsize(target) > 10000 else None
-    except Exception:
-        return None
-
-def load_pdf_font():
-    global PDF_FONT_REGULAR, PDF_FONT_BOLD
-    path = find_tamil_font()
-    if not path:
-        raise FileNotFoundError("fonts/NotoSansTamil-Regular.ttf கிடைக்கவில்லை.")
-    if "TamilUI" not in pdfmetrics.getRegisteredFontNames():
-        pdfmetrics.registerFont(TTFont("TamilUI", path))
-        pdfmetrics.registerFontFamily("TamilUI", normal="TamilUI", bold="TamilUI", italic="TamilUI", boldItalic="TamilUI")
-    PDF_FONT_REGULAR = PDF_FONT_BOLD = "TamilUI"
-
-try:
-    load_pdf_font()
-except Exception as error:
-    PDF_FONT_ERROR = error
-
 def safe_name(value):
     return re.sub(r"[^\w\u0B80-\u0BFF -]", "", str(value)).strip()[:80] or "Report"
 
@@ -317,50 +277,14 @@ def excel_bytes(frame, sheet_name):
 def csv_bytes(frame):
     return frame.to_csv(index=False).encode("utf-8-sig")
 
-def pdf_bytes(frame, title):
-    if PDF_FONT_ERROR:
-        raise RuntimeError(f"Tamil PDF font could not be loaded: {PDF_FONT_ERROR}")
-    output = io.BytesIO()
-    document = SimpleDocTemplate(output, pagesize=landscape(A4), rightMargin=7 * mm, leftMargin=7 * mm, topMargin=7 * mm, bottomMargin=7 * mm)
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle("TamilTitle", parent=styles["Title"], fontName=PDF_FONT_REGULAR, fontSize=14, leading=18, alignment=TA_CENTER, textColor=colors.HexColor("#064e3b"))
-    body_style = ParagraphStyle("TamilBody", parent=styles["BodyText"], fontName=PDF_FONT_REGULAR, fontSize=8, leading=10)
-    columns = list(frame.columns)
-    data = [[Paragraph(xml_escape(str(column)), body_style) for column in columns]]
-    for row in frame.fillna("").astype(str).itertuples(index=False, name=None):
-        data.append([Paragraph(xml_escape(str(value)[:150]), body_style) for value in row])
-    widths = []
-    for column in columns:
-        sample = [str(column)] + [str(value) for value in frame[column].head(25)]
-        widths.append(max(20 * mm, min(58 * mm, (max(map(len, sample)) + 2) * 1.15 * mm)))
-    available = landscape(A4)[0] - 14 * mm
-    if sum(widths) > available:
-        scale = available / sum(widths)
-        widths = [width * scale for width in widths]
-    table = Table(data, colWidths=widths, repeatRows=1)
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#064e3b")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#a7f3d0")),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#ecfdf5")]),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-    ]))
-    document.build([Paragraph(xml_escape(str(title)), title_style), Spacer(1, 4 * mm), table])
-    return output.getvalue()
-
-def download_panel(frame, prefix, sheet_name, pdf_title=None):
-    st.markdown("### 📥 பதிவிறக்க வசதிகள்")
-    col1, col2, col3 = st.columns(3)
+# தமிழ் எழுத்துகளில் சிக்கல் வராதவாறு Excel மற்றும் CSV பதிவிறக்க பொத்தான்கள் மட்டும் இடம்பெறும்
+def download_excel_csv_panel(frame, prefix, sheet_name):
+    st.markdown("### 📥 Excel / CSV அறிக்கை பதிவிறக்க வசதிகள்")
+    col1, col2 = st.columns(2)
     with col1:
         st.download_button("📊 Excel பதிவிறக்கம்", excel_bytes(frame, sheet_name), f"{prefix}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, key=f"xlsx_{prefix}")
     with col2:
-        st.download_button("📄 CSV பதிவிறக்கம்", csv_bytes(frame), f"{prefix}.csv", "text/csv", use_container_width=True, key=f"csv_{prefix}")
-    with col3:
-        try:
-            pdf = pdf_bytes(frame, pdf_title or sheet_name)
-            st.download_button("🧾 PDF பதிவிறக்கம்", pdf, f"{prefix}.pdf", "application/pdf", use_container_width=True, key=f"pdf_{prefix}")
-        except Exception as error:
-            st.error(f"❌ PDF உருவாக்க முடியவில்லை: {error}")
+        st.download_button("📄 CSV பதிவிறக்கம் (Tamil Support)", csv_bytes(frame), f"{prefix}.csv", "text/csv", use_container_width=True, key=f"csv_{prefix}")
 
 menu_items = [
     "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு", 
@@ -526,14 +450,13 @@ elif len(menu_items) > 1 and st.session_state["current_page"] == menu_items[1]:
         
         if selected_v_pub.startswith("-- அனைத்து"):
             filtered_v_df = v_df
-            report_title = "அனைத்து பதிப்பாளர்களும் - நூல்கள் சரிபார்ப்பு அறிக்கை"
             file_prefix = "All_Verified_Publishers"
         else:
             filtered_v_df = v_df[v_df["பதிப்பகம்"] == selected_v_pub]
-            report_title = f"{selected_v_pub} - நூல்கள் சரிபார்ப்பு அறிக்கை"
             file_prefix = safe_name(selected_v_pub) + "_Verified_Report"
             
         st.markdown(f"**தேர்ந்தெடுக்கப்பட்ட பதிப்பகத்தின் சரிபார்க்கப்பட்ட விவரங்கள் ({len(filtered_v_df)} தலைப்புகள்):**")
         st.dataframe(filtered_v_df, use_container_width=True, hide_index=True)
         
-        download_panel(filtered_v_df, file_prefix, "Verified Books Report", report_title)
+        # Excel மற்றும் CSV வடிவில் மட்டும் அறிக்கை பதிவிறக்கம் செய்ய வழிவகை செய்யப்பட்டுள்ளது
+        download_excel_csv_panel(filtered_v_df, file_prefix, "Verified Books Report")
