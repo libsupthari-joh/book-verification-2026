@@ -404,7 +404,6 @@ if st.session_state["current_page"] == menu_items[0]:
     if st.session_state["selected_vendor"]:
         vendor_name = st.session_state["selected_vendor"]
         
-        # Summary row
         sum_rows = df_summary[df_summary["Publication Name / Vendor Name"].apply(clean_text) == clean_text(vendor_name)]
         if not sum_rows.empty:
             s_row = sum_rows.iloc[0]
@@ -414,7 +413,6 @@ if st.session_state["current_page"] == menu_items[0]:
             eng_qty = int(s_row.get("No. of Engilsh Books", 0))
             st.markdown(f'<div class="book-info-card">🏢 <b>பதிப்பகம்:</b> {xml_escape(vendor_name)}<br>📚 <b>மொத்தத் தலைப்புகள்:</b> {tot_titles}<br>🇮🇳 <b>தமிழ் நூல்கள்:</b> {tam_qty} &nbsp;|&nbsp; 🇬🇧 <b>ஆங்கில நூல்கள்:</b> {eng_qty}<br><span class="total-qty">📦 பெற வேண்டிய மொத்த எண்ணிக்கை: {tot_qty}</span></div>', unsafe_allow_html=True)
         
-        # Books / Titles breakdown
         books_filtered = df_books[df_books["Publication Name"].apply(clean_text) == clean_text(vendor_name)]
         if books_filtered.empty:
             books_filtered = df_books[df_books["Vendor Name"].apply(clean_text) == clean_text(vendor_name)]
@@ -431,7 +429,7 @@ if st.session_state["current_page"] == menu_items[0]:
                 orig_qty = int(book_row.get("Quantity", 1))
                 
                 with st.expander(f"📖 {title} ({lang}) - நூலகம்: {lib_name} [கோரப்பட்ட எண்ணிக்கை: {orig_qty}]"):
-                    st.write(লেখক: `{author}` | பதிப்பகம்: `{vendor_name}`)")
+                    st.write(f"✍️ ஆசிரியர்: `{author}` | 🏢 பதிப்பகம்: `{vendor_name}`")
                     rec_val = st.number_input(
                         f"பெறப்பட்ட எண்ணிக்கை ({title[:30]})", 
                         min_value=0, max_value=orig_qty, value=orig_qty, step=1, 
