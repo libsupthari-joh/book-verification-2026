@@ -255,6 +255,18 @@ def clean_text(value):
     value = re.sub(r"^\s*\d+[\.\s\-_]*", "", str(value).strip())
     return re.sub(r"[^a-zA-Z0-9\u0B80-\u0BFF\s]", "", value).casefold().strip()
 
+# Helper to find correct column names dynamically
+def get_col(df, possible_names):
+    for col in df.columns:
+        if str(col).strip() in possible_names:
+            return col
+    # Fallback to partial match
+    for col in df.columns:
+        for name in possible_names:
+            if name.lower() in str(col).lower():
+                return col
+    return possible_names[0]
+
 PDF_FONT_REGULAR = PDF_FONT_BOLD = None
 PDF_FONT_ERROR = None
 FONT_URL = "https://github.com/notofonts/tamil/raw/main/fonts/ttf/NotoSansTamil/NotoSansTamil-Regular.ttf"
@@ -400,9 +412,17 @@ if st.session_state["current_page"] == menu_items[0]:
         st.error("❌ தரவுகள் கிடைக்கவில்லை!")
         st.stop()
         
+    # Dynamically find column names for books dataframe
+    c_pub = get_col(df_books, ["Publication Name", "Publisher", "Vendor Name", "Publication Name / Vendor Name"])
+    c_title = get_col(df_books, ["Title", "Book Title", "Book Name", "Name"])
+    c_author = get_col(df_books, ["Author Name", "Author"])
+    c_lang = get_col(df_books, ["Language"])
+    c_price = get_col(df_books, ["Price", "Amount"])
+    c_qty = get_col(df_books, ["Quantity", "Qty", "Count"])
+
     # 1. பதிப்பாளரைத் தேர்ந்தெடுக்கும் பகுதி
-    if "Publication Name" in df_books.columns:
-        publishers = sorted(df_books["Publication Name"].dropna().unique().tolist())
+    if c_pub in df_books.columns:
+        publishers = sorted(df_books[c_pub].dropna().unique().tolist())
         selected_publisher = st.selectbox(
             "1. பதிப்பாளரைத் தேர்ந்தெடுக்கவும் (Select Publisher):",
             ["-- அனைத்து பதிப்பாளர்களும் (All Publishers) --"] + publishers,
@@ -410,7 +430,7 @@ if st.session_state["current_page"] == menu_items[0]:
         )
         
         if not selected_publisher.startswith("-- அனைத்து"):
-            pub_filtered_books = df_books[df_books["Publication Name"] == selected_publisher]
+            pub_filtered_books = df_books[df_books[c_pub] == selected_publisher]
         else:
             pub_filtered_books = df_books
     else:
@@ -419,14 +439,14 @@ if st.session_state["current_page"] == menu_items[0]:
     # 2. தலைப்பு மூலம் தேடும் பகுதி
     search_query = st.text_input("2. புத்தகத் தலைப்பு தட்டச்சு செய்யவும் (குறைந்தது 2 எழுத்துக்கள்)...", placeholder="புத்தகத்தின் தலைப்பை இங்கு தட்டச்சு செய்யவும்...")
     
-    # Group books by Title
-    grouped_df = pub_filtered_books.groupby("Title", as_index=False).agg({
-        "Publication Name": "first",
-        "Author Name": "first",
-        "Language": "first",
-        "Price": "first",
-        "Quantity": "sum"
-    }).rename(columns={"Publication Name": "பதிப்பகம்", "Title": "தலைப்பு", "Price": "விலை", "Quantity": "எண்ணிக்கை"})
+    # Group books by Title using dynamic columns
+    grouped_df = pub_filtered_books.groupby(c_title, as_index=False).agg({
+        c_pub: "first",
+        c_author: "first",
+        c_lang: "first",
+        c_price: "first",
+        c_qty: "sum"
+    }).rename(columns={c_pub: "பதிப்பகம்", c_title: "தலைப்பு", c_price: "விலை", c_qty: "எண்ணிக்கை"})
     
     if search_query and len(search_query.strip()) >= 2:
         q_clean = clean_text(search_query)
@@ -456,8 +476,8 @@ if st.session_state["current_page"] == menu_items[0]:
                     st.session_state["verified_records"].append({
                         "தலைப்பு": b_row["தலைப்பு"],
                         "பதிப்பகம்": b_row["பதிப்பகம்"],
-                        "ஆசிரியர்": b_row["Author Name"],
-                        "மொழி": b_row["Language"],
+                        "ஆசிரியர்": b_row[c_author],
+                        "மொழி": b_row[c_lang],
                         "விலை": b_row["விலை"],
                         "கோரப்பட்ட எண்ணிக்கை": orig_qty,
                         "பெறப்பட்ட எண்ணிக்கை": rec_qty,
@@ -489,7 +509,8 @@ elif len(menu_items) > 1 and st.session_state["current_page"] == menu_items[1]:
     if df_summary is None or df_summary.empty:
         st.error("❌ தரவு கிடைக்கவில்லை!")
         st.stop()
-    vendors = sorted(df_summary["Publication Name / Vendor Name"].dropna().unique().tolist())
+    c_summary_pub = get_col(df_summary, ["Publication Name / Vendor Name", "Publication Name", "Vendor Name", "Publisher"])
+    vendors = sorted(df_summary[c_summary_pub].dropna().unique().tolist())
     selected = st.selectbox(
         "🔎 பதிப்பாளர் தேடல்",
         ["-- அனைத்து பதிப்பாளர்களும் (All Publishers) --"] + vendors,
@@ -499,7 +520,7 @@ elif len(menu_items) > 1 and st.session_state["current_page"] == menu_items[1]:
     if selected.startswith("-- அனைத்து"):
         result = df_summary
     else:
-        result = df_summary[df_summary["Publication Name / Vendor Name"].apply(clean_text) == clean_text(selected)]
+        result = df_summary[df_summary[c_summary_pub].apply(clean_text) == clean_text(selected)]
     st.dataframe(result, use_container_width=True, hide_index=True)
     if not result.empty:
         download_panel(result, safe_name(selected) + "_Vendor_Details", "Vendor Details")
