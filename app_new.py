@@ -22,8 +22,13 @@ html, body, [class*="css"] {
     font-family: 'Noto Sans Tamil', sans-serif !important;
 }
 
+/* Login Page Background */
 .stApp {
     background: #f8fafc;
+}
+
+.login-bg-app {
+    background: linear-gradient(135deg, #064e3b, #022c22) !important;
 }
 
 [data-testid="stHeader"] { background: transparent; }
@@ -55,24 +60,15 @@ html, body, [class*="css"] {
     font-weight: 600;
 }
 
-/* Menu Bar Styling */
-.menu-bar-container {
-    background: #ffffff;
-    padding: 12px 10px;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-    border: 1.5px solid #e2e8f0;
-    margin-bottom: 20px;
-}
-
+/* Login Card Styling */
 .login-card-wrapper {
     background: #ffffff;
     border-radius: 16px;
     padding: 30px 25px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
     border: 1.5px solid #a7f3d0;
     max-width: 400px;
-    margin: 60px auto;
+    margin: 40px auto;
 }
 
 .login-header-box {
@@ -90,12 +86,36 @@ html, body, [class*="css"] {
     font-weight: 800;
 }
 
-.stButton > button {
-    border-radius: 8px !important;
+/* 3D Colorful Menu Buttons Styling */
+div.stButton > button {
+    border-radius: 10px !important;
     font-weight: 700 !important;
-    font-size: 14px !important;
-    min-height: 45px !important;
+    font-size: 13px !important;
+    min-height: 52px !important;
+    color: white !important;
+    border: none !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), inset 0 2px 4px rgba(255, 255, 255, 0.3) !important;
+    transition: all 0.2s ease-in-out;
 }
+
+div.stButton > button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15), inset 0 2px 4px rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Individual 3D Button Colors */
+.btn-0 > button { background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important; }
+.btn-1 > button { background: linear-gradient(135deg, #10b981, #047857) !important; }
+.btn-2 > button { background: linear-gradient(135deg, #8b5cf6, #6d28d9) !important; }
+.btn-3 > button { background: linear-gradient(135deg, #f59e0b, #b45309) !important; }
+.btn-4 > button { background: linear-gradient(135deg, #06b6d4, #0e7490) !important; }
+.btn-5 > button { background: linear-gradient(135deg, #ec4899, #be185d) !important; }
+.btn-6 > button { background: linear-gradient(135deg, #ef4444, #b91c1c) !important; }
+.btn-7 > button { background: linear-gradient(135deg, #14b8a6, #0f766e) !important; }
+.btn-8 > button { background: linear-gradient(135deg, #6366f1, #4338ca) !important; }
+.btn-9 > button { background: linear-gradient(135deg, #84cc16, #4d7c0f) !important; }
+.btn-10 > button { background: linear-gradient(135deg, #f97316, #c2410c) !important; }
+.btn-11 > button { background: linear-gradient(135deg, #eab308, #a16207) !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -123,7 +143,6 @@ def make_session_token(role):
 def verify_session_token(role, token):
     return bool(role and token) and hmac.compare_digest(make_session_token(role), str(token))
 
-# பயனர்களின் விவரங்கள்
 USERS_DATABASE = {
     "Admin": {"password_hash": hash_password("Hari@@1979"), "name": "முதன்மை நிர்வாகி (Admin)"},
     "DCL Staff": {"password_hash": hash_password("123456"), "name": "DCL Staff"},
@@ -153,6 +172,9 @@ if not st.session_state["logged_in"]:
 
 def show_login_page():
     st.markdown("""
+    <style>
+    .stApp { background: linear-gradient(135deg, #064e3b, #022c22) !important; }
+    </style>
     <div class="login-card-wrapper">
         <div class="login-header-box">
             <div style="font-size: 32px; margin-bottom: 5px;">📚</div>
@@ -200,15 +222,14 @@ st.markdown("""
 </div>
 """.format(st.session_state["user_name"], st.session_state["user_role"]), unsafe_allow_html=True)
 
-# Logout Button Row
-col_logout = st.columns([8, 1])
+col_logout = st.columns([11, 1])
 with col_logout[1]:
     if st.button("🚪 வெளியேறு", use_container_width=True):
         st.query_params.clear()
         st.session_state.clear()
         st.rerun()
 
-# --- Menu Items List ---
+# --- Menu Items List with 3D Colors ---
 menu_options = [
     ("🔀", "பிரிக்க"),
     ("📤", "அனுப்ப"),
@@ -224,19 +245,18 @@ menu_options = [
     ("🏷️", "பகுப்பு எண் புதுப்பி")
 ]
 
-# Render Menu Buttons in columns
 cols = st.columns(len(menu_options))
 for i, (icon, label) in enumerate(menu_options):
     with cols[i]:
-        is_active = st.session_state["current_menu"] == label
-        btn_type = "primary" if is_active else "secondary"
-        if st.button(f"{icon}\n{label}", key=f"menu_item_{i}", use_container_width=True, type=btn_type):
+        st.markdown(f'<div class="btn-{i}">', unsafe_allow_html=True)
+        if st.button(f"{icon}\n{label}", key=f"menu_item_{i}", use_container_width=True):
             st.session_state["current_menu"] = label
             st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown("---")
 
-# Sub-menu for 'பகுப்பு எண் புதுப்பி' (மாநில / மாவட்ட / கிளை)
+# Sub-menu for 'பகுப்பு எண் புதுப்பி'
 if st.session_state["current_menu"] == "🏷️ பகுப்பு எண் புதுப்பி":
     st.markdown("### 🏷️ பகுப்பு எண் புதுப்பித்தல் துணை மெனு")
     sub_cols = st.columns(3)
@@ -250,10 +270,10 @@ if st.session_state["current_menu"] == "🏷️ பகுப்பு எண் 
     st.markdown(f"**தற்போது தேர்ந்தெடுக்கப்பட்டது:** {st.session_state['sub_menu']} பகுப்பு எண் புதுப்பித்தல் பிரிவு.")
     st.markdown("---")
 
-# Content area based on selected menu
+# Content Display
 current = st.session_state["current_menu"]
 
-if current == "🔀 பகுக்க":
+if current == "🔀 பிரிக்க":
     st.subheader("🔀 நூல்களைப் பிரிக்கும் பகுதி (Distribution / Splitting)")
     st.info("இங்கு நூல்களை உரிய வழிமுறைகளின்படி பிரிக்கலாம்.")
 
