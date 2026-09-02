@@ -88,36 +88,38 @@ html, body, [class*="css"] {
     font-weight: 800;
 }
 
-/* Perfect 3D Menu Buttons Container using Native Streamlit Buttons with Forced Styling */
+/* Custom Green Menu Buttons with Full Text Wrap & No White Background Issues */
 div.stButton > button {
     border-radius: 10px !important;
-    font-weight: 800 !important;
-    font-size: 12px !important;
-    min-height: 55px !important;
+    font-weight: 700 !important;
+    font-size: 11px !important;
+    min-height: 65px !important;
     width: 100% !important;
-    background: #ffffff !important;
-    color: #0f172a !important;
-    border: 2px solid #cbd5e1 !important;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08) !important;
+    background: linear-gradient(135deg, #065f46, #047857) !important;
+    color: #ffffff !important;
+    border: 1px solid #047857 !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+    line-height: 1.3 !important;
     transition: all 0.2s ease-in-out;
 }
 
 div.stButton > button:hover {
+    background: linear-gradient(135deg, #047857, #065f46) !important;
     transform: translateY(-2px);
-    border-color: #064e3b !important;
-    color: #064e3b !important;
-    box-shadow: 0 6px 12px rgba(6, 78, 59, 0.2) !important;
+    box-shadow: 0 6px 12px rgba(4, 120, 87, 0.3) !important;
+    color: #ffffff !important;
 }
 
-/* Logout Button Special Styling */
+/* Logout Button Special Unique Color (Red/Maroon Gradient) */
 .logout-btn div.stButton > button {
-    background: #fee2e2 !important;
-    color: #991b1b !important;
-    border: 2px solid #fca5a5 !important;
+    background: linear-gradient(135deg, #991b1b, #7f1d1d) !important;
+    border: 1px solid #7f1d1d !important;
+    color: #ffffff !important;
 }
 .logout-btn div.stButton > button:hover {
-    background: #fecaca !important;
-    color: #7f1d1d !important;
+    background: linear-gradient(135deg, #b91c1c, #991b1b) !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -235,29 +237,30 @@ with col_logout[1]:
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- Menu Items List in Single Straight Line with Clear Visible Text ---
+# --- Menu Items List in Single Straight Line with Green Background & Wrapped Text ---
 menu_options = [
     ("🔀", "பிரிக்க"),
     ("📤", "அனுப்ப"),
     ("📊", "அறிக்கைகள்"),
     ("⚠️", "கவனிக்க"),
-    ("🔢", "பதிவெண் மாற்ற"),
-    ("🗂️", "Master Data"),
-    ("❌", "தவறான பதிவு நீக்கம்"),
-    ("🔑", "கடவுச்சொல் மாற்ற"),
-    ("📥", "Excel பதிவிறக்கம்"),
-    ("👥", "நூலகர் பார்வை ஆண்டு"),
-    ("📂", "Excel அப்லோடு"),
-    ("🏷️", "பகுப்பு எண் புதுப்பி")
+    ("🔢", "பதிவெண்\nமாற்ற"),
+    ("🗂️", "Master\nData"),
+    ("❌", "தவறான\nபதிவு நீக்கம்"),
+    ("🔑", "கடவுச்சொல்\nமாற்ற"),
+    ("📥", "Excel\nபதிவிறக்கம்"),
+    ("👥", "நூலகர்\nபார்வை ஆண்டு"),
+    ("📂", "Excel\nஅப்லோடு"),
+    ("🏷️", "பகுப்பு எண்\nபுதுப்பி")
 ]
 
 cols = st.columns(len(menu_options))
 for i, (icon, label) in enumerate(menu_options):
     with cols[i]:
-        is_active = st.session_state["current_menu"] == label
-        btn_label = f"{icon} {label}"
-        if st.button(btn_label, key=f"menu_item_{i}", use_container_width=True, type="primary" if is_active else "secondary"):
-            st.session_state["current_menu"] = label
+        clean_label = label.replace("\n", " ")
+        is_active = st.session_state["current_menu"] == clean_label
+        btn_text = f"{icon}\n{label}"
+        if st.button(btn_text, key=f"menu_item_{i}", use_container_width=True, type="primary" if is_active else "secondary"):
+            st.session_state["current_menu"] = clean_label
             st.rerun()
 
 st.markdown("---")
