@@ -183,11 +183,9 @@ elif current == "பிரிக்க":
             
         author_col = next((c for c in neon_df.columns if 'author' in c), None)
         price_col = next((c for c in neon_df.columns if c == 'price'), None)
-        
-        # 💡 ஏற்றுக்கொள்ளப்பட்ட விலைக்கான நிரல் பெயர் கண்டறிதல் (Accepted Price)
         accepted_price_col = next((c for c in neon_df.columns if 'accept' in c or 'accepted' in c or 'rate' in c or 'offer' in c), None)
-        
         isbn_col = next((c for c in neon_df.columns if 'isbn' in c), None)
+        lang_col = next((c for c in neon_df.columns if 'lang' in c or 'language' in c or 'moli' in c or 'mozhi' in c), None)
 
         all_publishers = sorted(neon_df[pub_col].dropna().unique().tolist()) if pub_col else []
 
@@ -203,7 +201,34 @@ elif current == "பிரிக்க":
 
             pub_filtered_df = neon_df[neon_df[pub_col] == selected_publisher].copy()
             
+            # 💡 பதிப்பகத்திற்கான புள்ளிவிவரங்கள் கணக்கிடுதல்
             total_pub_titles_count = len(pub_filtered_df[title_col].dropna().unique())
+            total_pub_books_count = len(pub_filtered_df)
+            
+            tamil_count = 0
+            english_count = 0
+            if lang_col:
+                tamil_count = len(pub_filtered_df[pub_filtered_df[lang_col].astype(str).str.contains('தமிழ்|tamil', case=False, na=False)][title_col].dropna().unique())
+                english_count = len(pub_filtered_df[pub_filtered_df[lang_col].astype(str).str.contains('ஆங்கிலம்|english', case=False, na=False)][title_col].dropna().unique())
+            else:
+                # அனுமானமாக அல்லது இல்லாத பட்சத்தில் தலைப்பு எண்ணிக்கையைக் காட்டுதல்
+                tamil_count = total_pub_titles_count
+
+            # 💡 பதிப்பாளர் கீழேயே ஒட்டுமொத்த விவரங்களைக் காட்டுதல்
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1.5px solid #34d399; padding: 14px 18px; border-radius: 10px; margin: 10px 0 15px 0;">
+                <div style="font-size: 15px; font-weight: 800; color: #064e3b; margin-bottom: 8px;">
+                    🏢 பதிப்பகம்: {selected_publisher} — சுருக்க விவரம்
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 20px; font-size: 14px; color: #065f46; font-weight: 600;">
+                    <div>📚 மொத்த தலைப்புகள்: <b>{total_pub_titles_count}</b></div>
+                    <div>📦 மொத்த நூல்கள் (ஒதுக்கீடுகள்): <b>{total_pub_books_count}</b></div>
+                    <div>🇮🇳 தமிழ் நூல்கள்/தலைப்புகள்: <b>{tamil_count}</b></div>
+                    <div>🇬🇧 ஆங்கில நூல்கள்/தலைப்புகள்: <b>{english_count}</b></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
             submitted_titles = [item["Title"] for item in st.session_state["submitted_reports"] if item["Publisher"] == selected_publisher]
             
             pub_filtered_df = pub_filtered_df[~pub_filtered_df[title_col].isin(submitted_titles)]
@@ -212,8 +237,6 @@ elif current == "பிரிக்க":
             if not all_titles:
                 st.success(f"🎉 '{selected_publisher}' பதிப்பகத்தில் உள்ள அனைத்து நூல்களும் ({total_pub_titles_count} தலைப்புகள்) ஏற்கனவே முழுமையாகச் சரிபார்க்கப்பட்டு சமர்ப்பிக்கப்பட்டுவிட்டன!")
             else:
-                st.markdown(f"### 🏢 பதிப்பகம்: {selected_publisher} (மீதமுள்ள தலைப்புகள்: {len(all_titles)} / மொத்தம்: {total_pub_titles_count})")
-
                 selected_title = st.selectbox(
                     "📖 2. தலைப்பைத் தேர்ந்தெடுக்கவும் (Select Book Title):",
                     ["-- தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + all_titles,
@@ -228,12 +251,10 @@ elif current == "பிரிக்க":
                         author_name = str(title_row[author_col]) if author_col and author_col in title_row and pd.notna(title_row[author_col]) else "-"
                         book_price = str(title_row[price_col]) if price_col and price_col in title_row and pd.notna(title_row[price_col]) else "0"
                         
-                        # 💡 ஏற்றுக்கொள்ளப்பட்ட விலை எடுக்கும் முறை
                         accepted_price = "0"
                         if accepted_price_col and accepted_price_col in title_row and pd.notna(title_row[accepted_price_col]):
                             accepted_price = str(title_row[accepted_price_col])
                         else:
-                            # ஒருவேளை வேறு பெயர்களில் இருந்தால் தேடுதல்
                             for col in title_row_df.columns:
                                 if 'accept' in col or 'rate' in col or 'price' in col:
                                     val = title_row[col]
@@ -242,8 +263,6 @@ elif current == "பிரிக்க":
                                         break
 
                         isbn_val = str(title_row[isbn_col]) if isbn_col and isbn_col in title_row and pd.notna(title_row[isbn_col]) else "-"
-                        
-                        # 💡 தலைப்புக்குரிய நூலகங்களின் சரியான ஒதுக்கீட்டு எண்ணிக்கை (Required Quantity)
                         required_qty = len(title_row_df)
 
                         st.markdown(f"""
