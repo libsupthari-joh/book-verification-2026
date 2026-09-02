@@ -5,7 +5,6 @@ import secrets as py_secrets
 from datetime import datetime
 import pandas as pd
 import streamlit as st
-import psycopg2
 
 st.set_page_config(
     page_title="மாவட்ட மைய நூலகம், கிருஷ்ணகிரி",
@@ -160,37 +159,20 @@ elif current == "பிரிக்க":
     @st.cache_data
     def load_neon_database():
         try:
-            # உங்கள் Neon Database URL-ஐ இங்கே நேரடியாக கொடுக்கவும் அல்லது secrets மூலம் பெறவும்
-            conn_url = ""
-            try:
-                conn_url = st.secrets.get("connections", {}).get("postgresql", {}).get("url", "")
-            except Exception:
-                pass
-            
-            if not conn_url:
-                conn_url = os.getenv("NEON_DATABASE_URL", "")
-
-            # உங்கள் Neon Console ஸ்கிரீன்ஷாட்டில் உள்ளபடி சரியான டேபிள் பெயர் 'books'
-            if conn_url:
-                df = pd.read_sql("SELECT * FROM books", con=conn_url)
-                if not df.empty:
-                    return df
-            
-            # ஒருவேளை st.secrets-ல் கொடுக்கப்பட்டிருந்தால் நேரடியாக இணைக்க:
-            if "postgresql" in st.secrets:
-                db_url = st.secrets["postgresql"]["url"]
-                df = pd.read_sql("SELECT * FROM books", con=db_url)
+            # Streamlit-ன் உள்ளமைக்கப்பட்ட st.connection முறையைப் பயன்படுத்துதல்
+            conn = st.connection("postgresql", type="sql")
+            df = conn.query("SELECT * FROM books;", ttl=0)
+            if not df.empty:
                 return df
-
         except Exception as e:
-            st.error(f"❌ Neon Database இணைப்புப் பிழை: {e}")
+            st.warning(f"⚠️ டேட்டாபேஸ் இணைப்பில் சிறு சிக்கல்: {e}")
         
         return pd.DataFrame()
 
     neon_df = load_neon_database()
 
     if neon_df.empty or "publisher" not in neon_df.columns:
-        st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை. தயவுசெய்து Streamlit Secrets-ல் Neon DB URL சரியாக உள்ளதா எனச் சரிபார்க்கவும்.")
+        st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை. Streamlit Secrets-ல் [connections.postgresql] சரியாக உள்ளதா எனச் சரிபார்க்கவும்.")
     else:
         all_publishers = sorted(neon_df["publisher"].dropna().unique().tolist())
 
