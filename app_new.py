@@ -10,17 +10,9 @@ from urllib.request import Request, urlopen
 from xml.sax.saxutils import escape as xml_escape
 import pandas as pd
 import streamlit as st
-from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER
-from reportlab.lib.pagesizes import A4, landscape
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import mm
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 st.set_page_config(
-    page_title="2026ஆம் ஆண்டு வெளிப்படைத் தன்மை நூல்கள் கொள்முதல்",
+    page_title="மாவட்ட நூலக ஆணைக்குழு, கிருஷ்ணகிரி",
     page_icon="📚",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -35,7 +27,7 @@ html, body, [class*="css"] {
 }
 
 .stApp {
-    background: linear-gradient(135deg, #f0fdf4, #e6f4ea);
+    background: #064e3b;
 }
 
 [data-testid="stHeader"] { background: transparent; }
@@ -89,32 +81,25 @@ p, span, label, div {
     background: #ffffff;
     border-radius: 20px;
     padding: 40px 35px;
-    box-shadow: 0 12px 30px rgba(6, 78, 59, 0.12);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
     border: 2px solid #a7f3d0;
-    max-width: 500px;
-    margin: 40px auto;
+    max-width: 450px;
+    margin: 60px auto;
 }
 
 .login-header-icon {
-    font-size: 45px;
+    font-size: 40px;
     text-align: center;
-    margin-bottom: 10px;
+    margin-bottom: 5px;
 }
 
 .login-title {
     text-align: center;
     color: #064e3b;
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 800;
-    margin-bottom: 8px;
-}
-
-.login-subtitle {
-    text-align: center;
-    color: #047857;
-    font-size: 15px;
-    font-weight: 600;
-    margin-bottom: 30px;
+    line-height: 1.4;
+    margin-bottom: 25px;
 }
 
 .stButton > button, .stDownloadButton > button {
@@ -171,66 +156,66 @@ def app_secret():
     _RUNTIME_SESSION_SECRET = value or py_secrets.token_hex(32)
     return _RUNTIME_SESSION_SECRET
 
-def make_session_token(phone):
-    return hmac.new(app_secret().encode(), phone.encode(), hashlib.sha256).hexdigest()
+def make_session_token(role):
+    return hmac.new(app_secret().encode(), role.encode(), hashlib.sha256).hexdigest()
 
-def verify_session_token(phone, token):
-    return bool(phone and token) and hmac.compare_digest(make_session_token(phone), str(token))
+def verify_session_token(role, token):
+    return bool(role and token) and hmac.compare_digest(make_session_token(role), str(token))
 
+# பயனர்களின் விவரங்கள் மற்றும் கடவுச்சொற்கள்
 USERS_DATABASE = {
-    "9842759306": {"password_hash": hash_password("Hari@@1979"), "role": "Admin", "name": "முதன்மை நிர்வாகி (Admin)"},
-    "9787555290": {"password_hash": hash_password("123456"), "role": "சரிபார்ப்பு பயனர் 1", "name": "சரிபார்ப்பு பயனர் 1 (User)"},
-    "9751687939": {"password_hash": hash_password("123456"), "role": "சரிபார்ப்பு பயனர் 2", "name": "சரிபார்ப்பு பயனர் 2 (User)"},
+    "Admin": {"password_hash": hash_password("Hari@@1979"), "name": "முதன்மை நிர்வாகி (Admin)"},
+    "DCL Staff": {"password_hash": hash_password("123456"), "name": "DCL Staff"},
+    "Librarian": {"password_hash": hash_password("123456789"), "name": "Librarian"},
 }
 
-def authenticate_user(phone, password):
-    user = USERS_DATABASE.get(str(phone).strip())
+def authenticate_user(role_key, password):
+    user = USERS_DATABASE.get(role_key)
     if user and hmac.compare_digest(hash_password(password), user["password_hash"]):
         return user
     return None
 
 for key, default in {
-    "logged_in": False, "user_role": None, "user_name": "", "user_phone": None,
+    "logged_in": False, "user_role": None, "user_name": "",
     "current_page": "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு", "verified_records": [],
 }.items():
     st.session_state.setdefault(key, default)
 
 if not st.session_state["logged_in"]:
-    query_phone = st.query_params.get("phone")
+    query_role = st.query_params.get("role")
     query_token = st.query_params.get("token")
-    if query_phone in USERS_DATABASE and verify_session_token(query_phone, query_token):
-        user = USERS_DATABASE[query_phone]
+    if query_role in USERS_DATABASE and verify_session_token(query_role, query_token):
+        user = USERS_DATABASE[query_role]
         st.session_state.update(
-            logged_in=True, user_role=user["role"], user_name=user["name"], user_phone=query_phone
+            logged_in=True, user_role=query_role, user_name=user["name"]
         )
 
 def show_login_page():
-    _, col, _ = st.columns([1, 1.3, 1])
-    with col:
-        st.markdown("""
-        <div class="login-main-container">
-            <div class="login-header-icon">📚</div>
-            <div class="login-title">2026ஆம் ஆண்டு புதிய நூல்கள் கொள்முதல்</div>
-            <div class="login-subtitle">பதிப்பாளர்களின் புதிய நூல்கள் விநியோகம் & சரிபார்ப்பு தளம்</div>
-        """, unsafe_allow_html=True)
+    st.markdown("""
+    <div class="login-main-container">
+        <div class="login-header-icon">📚</div>
+        <div class="login-title">மாவட்ட நூலக ஆணைக்குழு,<br>கிருஷ்ணகிரி</div>
+    """, unsafe_allow_html=True)
+    
+    with st.form("secure_login_form"):
+        selected_role = st.selectbox("பயனர் வகை (User)", ["-- தேர்ந்தெடுக்கவும் --", "Admin", "DCL Staff", "Librarian"])
+        password = st.text_input("🔑 கடவுச்சொல்", type="password", placeholder="கடவுச்சொல்லை உள்ளிடவும்")
+        submitted = st.form_submit_button("உள்ளுழை", use_container_width=True)
         
-        with st.form("secure_login_form"):
-            phone = st.text_input("📱 அலைபேசி எண்", max_chars=10, placeholder="10 இலக்க எண்")
-            password = st.text_input("🔑 கடவுச்சொல்", type="password", placeholder="கடவுச்சொல்லை உள்ளிடவும்")
-            submitted = st.form_submit_button("🔓 உள்நுழைக", use_container_width=True)
-            
-        st.markdown("</div>", unsafe_allow_html=True)
-        
-        if submitted:
-            user = authenticate_user(phone, password)
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    if submitted:
+        if selected_role == "-- தேர்ந்தெடுக்கவும் --":
+            st.warning("⚠️ தயவுசெய்து பயனர் வகையைத் தேர்ந்தெடுக்கவும்!")
+        else:
+            user = authenticate_user(selected_role, password)
             if not user:
-                st.error("❌ தவறான அலைபேசி எண் அல்லது கடவுச்சொல்!")
+                st.error("❌ தவறான கடவுச்சொல்!")
             else:
-                clean_phone = phone.strip()
                 st.session_state.update(
-                    logged_in=True, user_role=user["role"], user_name=user["name"], user_phone=clean_phone
+                    logged_in=True, user_role=selected_role, user_name=user["name"]
                 )
-                st.query_params.update(phone=clean_phone, token=make_session_token(clean_phone))
+                st.query_params.update(role=selected_role, token=make_session_token(selected_role))
                 st.rerun()
 
 if not st.session_state["logged_in"]:
@@ -248,12 +233,6 @@ def load_all_data():
     return pd.DataFrame(), pd.DataFrame()
 
 df_summary, df_books = load_all_data()
-
-def clean_text(value):
-    if value is None or pd.isna(value):
-        return ""
-    value = re.sub(r"^\s*\d+[\.\s\-_]*", "", str(value).strip())
-    return re.sub(r"[^a-zA-Z0-9\u0B80-\u0BFF\s]", "", value).casefold().strip()
 
 def get_col(df, possible_names):
     for col in df.columns:
@@ -277,7 +256,6 @@ def excel_bytes(frame, sheet_name):
 def csv_bytes(frame):
     return frame.to_csv(index=False).encode("utf-8-sig")
 
-# தமிழ் எழுத்துகளில் சிக்கல் வராதவாறு Excel மற்றும் CSV பதிவிறக்க பொத்தான்கள் மட்டும் இடம்பெறும்
 def download_excel_csv_panel(frame, prefix, sheet_name):
     st.markdown("### 📥 Excel / CSV அறிக்கை பதிவிறக்க வசதிகள்")
     col1, col2 = st.columns(2)
@@ -298,8 +276,7 @@ st.title("📚 2026ஆம் ஆண்டு வெளிப்படைத் �
 
 info, logout = st.columns([3.2, 0.8])
 with info:
-    role = "👑 Admin" if st.session_state["user_role"] == "Admin" else "👤 User"
-    st.markdown(f'<div class="profile-card">👤 <b>பயனர்:</b> {st.session_state["user_name"]} &nbsp;|&nbsp; <b>அதிகாரம்:</b> {role}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="profile-card">👤 <b>பயனர்:</b> {st.session_state["user_name"]} &nbsp;|&nbsp; <b>வகை:</b> {st.session_state["user_role"]}</div>', unsafe_allow_html=True)
 with logout:
     if st.button("🚪 வெளியேறு", use_container_width=True):
         st.query_params.clear()
@@ -326,7 +303,7 @@ for i, item in enumerate(menu_items):
             st.session_state["current_page"] = item
             st.rerun()
 
-st.markdown("---python" if False else "")
+st.markdown("---")
 
 if st.session_state["current_page"] == menu_items[0]:
     st.subheader("🔎 பதிப்பாளர் வாரியான நூல்கள் சரிபார்ப்பு")
@@ -458,5 +435,4 @@ elif len(menu_items) > 1 and st.session_state["current_page"] == menu_items[1]:
         st.markdown(f"**தேர்ந்தெடுக்கப்பட்ட பதிப்பகத்தின் சரிபார்க்கப்பட்ட விவரங்கள் ({len(filtered_v_df)} தலைப்புகள்):**")
         st.dataframe(filtered_v_df, use_container_width=True, hide_index=True)
         
-        # Excel மற்றும் CSV வடிவில் மட்டும் அறிக்கை பதிவிறக்கம் செய்ய வழிவகை செய்யப்பட்டுள்ளது
         download_excel_csv_panel(filtered_v_df, file_prefix, "Verified Books Report")
