@@ -1,7 +1,5 @@
 import hashlib
 import hmac
-import os
-import secrets as py_secrets
 from datetime import datetime
 import pandas as pd
 import streamlit as st
@@ -154,24 +152,16 @@ current = st.session_state["current_menu"]
 def load_neon_database():
     try:
         import psycopg2
-        db_url = "postgresql://neondb_owner:npg_gY5h1PjZtXvK@ep-super-pond-a50s70up.us-east-2.aws.neon.tech/neondb?sslmode=require"
+        db_url = "postgresql://neondb_owner:npg_NEqeOTXak5v7@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
         conn = psycopg2.connect(db_url)
         df = pd.read_sql("SELECT * FROM books;", con=conn)
         conn.close()
         if not df.empty:
-            df.columns = [str(c).strip() for c in df.columns]
+            # Column பெயர்களைச் சீரமைத்தல் (Lowercase & Strip)
+            df.columns = [str(c).strip().lower() for c in df.columns]
             return df
     except Exception as e:
-        # கடவுச்சொல் அல்லது இணைப்புப் பிழை ஏற்படும் பட்சத்தில், செயலி தடைபடாமல் இருக்க மாதிரித் தரவுகள் (Sample Data) கொடுக்கப்பட்டுள்ளது
-        st.info("ℹ️ குறிப்பு: டேட்டாபேஸ் இணைப்பில் சிக்கல் உள்ளதால், தற்காலிக மாதிரித் தரவுகள் (Sample Data) பயன்படுத்தப்படுகிறது.")
-        sample_data = {
-            "PUBLICATION NAME": ["பாரதி பதிப்பகம்", "பாரதி பதிப்பகம்", "தமிழி பதிப்பகம்", "தமிழி பதிப்பகம்", "வானதி பதிப்பகம்"],
-            "TITLE": ["தமிழ் இலக்கிய வரலாறு", "கெங்கா விலங்கு", "கணித மேதைகள்", "அறிவியல் ஆயிரம்", "சுதந்திரப் போராட்டம்"],
-            "AUTHOR": ["முனைவர் மது.சா.விமலானந்தன்", "ரா.கிருஷ்ணன்", "ம.இராஜேந்திரன்", "டாக்டர் க.அன்பழகன்", "சோமலெ"],
-            "PRICE": [350, 420, 250, 300, 500],
-            "Isbn": ["978-81-9200-1", "978-81-9200-2", "978-81-9300-1", "978-81-9300-2", "978-81-9400-1"]
-        }
-        return pd.DataFrame(sample_data)
+        st.error(f"❌ டேட்டாபேஸ் இணைப்பில் பிழை: {e}")
     return pd.DataFrame()
 
 if current is None:
@@ -183,24 +173,21 @@ elif current == "பிரிக்க":
     neon_df = load_neon_database()
 
     if neon_df.empty:
-        st.warning("⚠️ தரவுகள் கிடைக்கவில்லை.")
+        st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
     else:
+        # துல்லியமான Column பெயர்களைக் கண்டறிதல் (Neon DB-ல் உள்ளபடி சிறிய எழுத்துக்களில்)
         pub_col = None
         for col in neon_df.columns:
-            if col.upper() in ["PUBLICATION NAME", "PUBLISHER", "PUBLICATION_NAME"]:
+            if 'pub' in col:
                 pub_col = col
                 break
-        if pub_col is None:
-            for col in neon_df.columns:
-                if 'pub' in col.lower():
-                    pub_col = col
-                    break
 
-        title_col = "TITLE" if "TITLE" in neon_df.columns else [c for c in neon_df.columns if 'title' in c.lower()][0]
-        author_col = "AUTHOR" if "AUTHOR" in neon_df.columns else [c for c in neon_df.columns if 'author' in c.lower()][0]
-        price_col = "PRICE" if "PRICE" in neon_df.columns else [c for c in neon_df.columns if 'price' in c.lower()][0]
+        title_col = next((c for c in neon_df.columns if 'title' in c), neon_df.columns[2])
+        author_col = next((c for c in neon_df.columns if 'author' in c), neon_df.columns[3])
+        price_col = next((c for c in neon_df.columns if 'price' in c), neon_df.columns[4] if len(neon_df.columns) > 4 else neon_df.columns[0])
+        isbn_col = next((c for c in neon_df.columns if 'isbn' in c), None)
 
-        all_publishers = sorted(neon_df[pub_col].dropna().unique().tolist())
+        all_publishers = sorted(neon_df[pub_col].dropna().unique().tolist()) if pub_col else []
 
         selected_publisher = st.selectbox(
             "🔍 1. பதிப்பாளர் பெயரைத் தேர்ந்தெடுக்கவும்:",
@@ -225,7 +212,7 @@ elif current == "பிரிக்க":
                 
                 author_name = title_row[author_col] if author_col in title_row else "-"
                 book_price = title_row[price_col] if price_col in title_row else "0"
-                isbn_val = title_row["Isbn"] if "Isbn" in title_row else (title_row["ISBN"] if "ISBN" in title_row else "-")
+                isbn_val = title_row[isbn_col] if isbn_col and isbn_col in title_row else "-"
                 required_qty = 112
 
                 st.markdown(f"""
