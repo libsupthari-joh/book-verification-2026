@@ -154,6 +154,7 @@ current = st.session_state["current_menu"]
 def load_neon_database():
     try:
         import psycopg2
+        # சரியான Neon Database URL
         db_url = "postgresql://neondb_owner:npg_gY5h1PjZtXvK@ep-super-pond-a50s70up.us-east-2.aws.neon.tech/neondb?sslmode=require"
         conn = psycopg2.connect(db_url)
         df = pd.read_sql("SELECT * FROM books;", con=conn)
@@ -193,7 +194,6 @@ elif current == "பிரிக்க":
 
         all_publishers = sorted(neon_df[pub_col].dropna().unique().tolist())
 
-        # 1. பதிப்பகத்தைத் தேர்ந்தெடுத்தல் (Publisher Dropdown)
         selected_publisher = st.selectbox(
             "🔍 1. பதிப்பாளர் பெயரைத் தேர்ந்தெடுக்கவும்:",
             ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + all_publishers,
@@ -206,7 +206,6 @@ elif current == "பிரிக்க":
 
             st.markdown(f"### 🏢 பதிப்பகம்: {selected_publisher} (மொத்த தலைப்புகள்: {len(all_titles)})")
 
-            # 2. குறிப்பிட்ட பதிப்பகத்தின் தலைப்புகளைத் தேர்ந்தெடுத்தல் (Title Dropdown)
             selected_title = st.selectbox(
                 "📖 2. தலைப்பைத் தேர்ந்தெடுக்கவும் (Select Book Title):",
                 ["-- தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + all_titles,
@@ -219,9 +218,8 @@ elif current == "பிரிக்க":
                 author_name = title_row[author_col] if author_col in title_row else "-"
                 book_price = title_row[price_col] if price_col in title_row else "0"
                 isbn_val = title_row["Isbn"] if "Isbn" in title_row else (title_row["ISBN"] if "ISBN" in title_row else "-")
-                required_qty = 112 # கிருஷ்ணகிரி மாவட்ட நூலகங்களின் எண்ணிக்கை அல்லது தேவைப்படும் எண்ணிக்கை
+                required_qty = 112
 
-                # 3. தேர்ந்தெடுக்கப்பட்ட தலைப்பின் முழு விவரம் மற்றும் எண்ணிக்கை உள்ளீடு
                 st.markdown(f"""
                 <div style="background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border: 1.5px solid #34d399; padding: 18px; border-radius: 12px; margin: 15px 0;">
                     <div style="font-size: 16px; font-weight: 800; color: #064e3b; margin-bottom: 12px;">
@@ -257,7 +255,6 @@ elif current == "பிரிக்க":
                         st.session_state["temp_distributed_list"].append(entry_data)
                         st.success(f"✅ '{selected_title}' தற்காலிக பட்டியலில் வெற்றிகரமாகச் சேர்க்கப்பட்டது!")
 
-                # 4. தற்காலிக பட்டியலைக் காட்டுதல் (Temporary List Preview)
                 if st.session_state["temp_distributed_list"]:
                     st.markdown("---")
                     st.markdown("#### 📋 தற்காலிகமாகச் சேமிக்கப்பட்ட தலைப்புகளின் பட்டியல் (Temporary List)")
