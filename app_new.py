@@ -32,8 +32,8 @@ html, body, [class*="css"] {
 /* Top Header Bar */
 .top-header-container {
     background: linear-gradient(135deg, #064e3b, #022c22);
-    padding: 18px 24px;
-    border-radius: 14px;
+    padding: 16px 22px;
+    border-radius: 12px;
     color: white;
     display: flex;
     justify-content: space-between;
@@ -43,9 +43,9 @@ html, body, [class*="css"] {
 }
 
 .header-title {
-    font-size: 22px;
+    font-size: 20px;
     font-weight: 800;
-    line-height: 1.4;
+    line-height: 1.3;
     color: #ffffff;
 }
 
@@ -60,7 +60,7 @@ html, body, [class*="css"] {
     display: flex;
     justify-content: center;
     align-items: flex-start;
-    padding-top: 40px;
+    padding-top: 30px;
 }
 
 .login-card-wrapper {
@@ -88,47 +88,58 @@ html, body, [class*="css"] {
     font-weight: 800;
 }
 
-/* Perfect 3D Colorful Menu Buttons Alignment */
-.menu-row {
+/* 3D Colorful Custom Menu Cards (High Contrast & Visible Text) */
+.menu-card {
     display: flex;
-    gap: 8px;
-    width: 100%;
-    overflow-x: auto;
-    margin-bottom: 20px;
-    padding-bottom: 5px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 4px;
+    border-radius: 10px;
+    color: #ffffff !important;
+    font-weight: 800;
+    font-size: 12px;
+    text-align: center;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2), inset 0 2px 3px rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    min-height: 60px;
+    line-height: 1.3;
+    word-break: break-word;
 }
 
+.menu-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3), inset 0 2px 3px rgba(255, 255, 255, 0.6);
+}
+
+/* Streamlit Native Button Override to Force Text Visibility */
 div.stButton > button {
-    border-radius: 8px !important;
-    font-weight: 700 !important;
+    border-radius: 10px !important;
+    font-weight: 800 !important;
     font-size: 11px !important;
-    min-height: 48px !important;
-    width: 100% !important;
+    min-height: 55px !important;
     color: #ffffff !important;
     border: none !important;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15), inset 0 2px 3px rgba(255, 255, 255, 0.4) !important;
-    transition: all 0.2s ease-in-out;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.6) !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2), inset 0 2px 3px rgba(255, 255, 255, 0.4) !important;
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
 }
 
-div.stButton > button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.2), inset 0 2px 3px rgba(255, 255, 255, 0.6) !important;
-}
-
-/* Distinct 3D Colors for each Menu Button */
-.btn-0 > button { background: linear-gradient(135deg, #2563eb, #1d4ed8) !important; }
-.btn-1 > button { background: linear-gradient(135deg, #059669, #047857) !important; }
-.btn-2 > button { background: linear-gradient(135deg, #7c3aed, #6d28d9) !important; }
-.btn-3 > button { background: linear-gradient(135deg, #d97706, #b45309) !important; }
-.btn-4 > button { background: linear-gradient(135deg, #0891b2, #0e7490) !important; }
-.btn-5 > button { background: linear-gradient(135deg, #db2777, #be185d) !important; }
-.btn-6 > button { background: linear-gradient(135deg, #dc2626, #b91c1c) !important; }
-.btn-7 > button { background: linear-gradient(135deg, #0d9488, #0f766e) !important; }
-.btn-8 > button { background: linear-gradient(135deg, #4f46e5, #4338ca) !important; }
-.btn-9 > button { background: linear-gradient(135deg, #65a30d, #4d7c0f) !important; }
-.btn-10 > button { background: linear-gradient(135deg, #ea580c, #c2410c) !important; }
-.btn-11 > button { background: linear-gradient(135deg, #ca8a04, #a16207) !important; }
+/* High Contrast Vibrant Gradient Colors for Each Button */
+.btn-0 > button { background: linear-gradient(135deg, #1e40af, #1d4ed8) !important; }
+.btn-1 > button { background: linear-gradient(135deg, #065f46, #047857) !important; }
+.btn-2 > button { background: linear-gradient(135deg, #5b21b6, #6d28d9) !important; }
+.btn-3 > button { background: linear-gradient(135deg, #9a3412, #c2410c) !important; }
+.btn-4 > button { background: linear-gradient(135deg, #0e7490, #0284c7) !important; }
+.btn-5 > button { background: linear-gradient(135deg, #9d174d, #be185d) !important; }
+.btn-6 > button { background: linear-gradient(135deg, #991b1b, #b91c1c) !important; }
+.btn-7 > button { background: linear-gradient(135deg, #115e59, #0f766e) !important; }
+.btn-8 > button { background: linear-gradient(135deg, #3730a3, #4338ca) !important; }
+.btn-9 > button { background: linear-gradient(135deg, #3f6212, #4d7c0f) !important; }
+.btn-10 > button { background: linear-gradient(135deg, #854d0e, #a16207) !important; }
+.btn-11 > button { background: linear-gradient(135deg, #4c1d95, #5b21b6) !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -229,7 +240,7 @@ st.markdown("""
         <div class="header-subtitle">கிருஷ்ணகிரி — புதிய நூல்கள் பகிர்மானம் 2026-27</div>
     </div>
     <div style="text-align: right;">
-        <span style="background: rgba(255,255,255,0.15); padding: 6px 12px; border-radius: 8px; font-size: 14px;">
+        <span style="background: rgba(255,255,255,0.15); padding: 6px 12px; border-radius: 8px; font-size: 13px;">
             👤 {} ({})
         </span>
     </div>
@@ -243,7 +254,7 @@ with col_logout[1]:
         st.session_state.clear()
         st.rerun()
 
-# --- Menu Items List in Single Straight Line ---
+# --- Menu Items List in Single Straight Line with Clear Visible Colors ---
 menu_options = [
     ("🔀", "பிரிக்க"),
     ("📤", "அனுப்ப"),
