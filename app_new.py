@@ -154,7 +154,7 @@ current = st.session_state["current_menu"]
 def load_neon_database():
     try:
         import psycopg2
-        db_url = "postgresql://neondb_owner:npg_NEqeOTXak5v7@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+        db_url = "postgresql://neondb_owner:npg_gY5h1PjZtXvK@ep-super-pond-a50s70up.us-east-2.aws.neon.tech/neondb?sslmode=require"
         conn = psycopg2.connect(db_url)
         df = pd.read_sql("SELECT * FROM books;", con=conn)
         conn.close()
@@ -183,9 +183,11 @@ elif current == "பிரிக்க":
             
         author_col = next((c for c in neon_df.columns if 'author' in c), None)
         price_col = next((c for c in neon_df.columns if c == 'price'), None)
-        accepted_price_col = next((c for c in neon_df.columns if c == 'accepted' and 'price' in c), None)
+        
+        # 💡 ஏற்றுக்கொள்ளப்பட்ட விலைக்கான நிரல் பெயர் கண்டறிதல் (Accepted Price)
+        accepted_price_col = next((c for c in neon_df.columns if 'accept' in c or 'accepted' in c or 'rate' in c or 'offer' in c), None)
+        
         isbn_col = next((c for c in neon_df.columns if 'isbn' in c), None)
-        qty_col = next((c for c in neon_df.columns if c in ['qty', 'quantity', 'count', 'copies']), None)
 
         all_publishers = sorted(neon_df[pub_col].dropna().unique().tolist()) if pub_col else []
 
@@ -225,10 +227,23 @@ elif current == "பிரிக்க":
                         
                         author_name = str(title_row[author_col]) if author_col and author_col in title_row and pd.notna(title_row[author_col]) else "-"
                         book_price = str(title_row[price_col]) if price_col and price_col in title_row and pd.notna(title_row[price_col]) else "0"
-                        accepted_price = str(title_row[accepted_price_col]) if accepted_price_col and accepted_price_col in title_row and pd.notna(title_row[accepted_price_col]) else "0"
+                        
+                        # 💡 ஏற்றுக்கொள்ளப்பட்ட விலை எடுக்கும் முறை
+                        accepted_price = "0"
+                        if accepted_price_col and accepted_price_col in title_row and pd.notna(title_row[accepted_price_col]):
+                            accepted_price = str(title_row[accepted_price_col])
+                        else:
+                            # ஒருவேளை வேறு பெயர்களில் இருந்தால் தேடுதல்
+                            for col in title_row_df.columns:
+                                if 'accept' in col or 'rate' in col or 'price' in col:
+                                    val = title_row[col]
+                                    if pd.notna(val) and str(val) != book_price and str(val) != "0":
+                                        accepted_price = str(val)
+                                        break
+
                         isbn_val = str(title_row[isbn_col]) if isbn_col and isbn_col in title_row and pd.notna(title_row[isbn_col]) else "-"
                         
-                        # 💡 தலைப்புக்குரிய நூலகங்களின் எண்ணிக்கையைச் சரியாகக் கணக்கிடுதல் (Required Quantity)
+                        # 💡 தலைப்புக்குரிய நூலகங்களின் சரியான ஒதுக்கீட்டு எண்ணிக்கை (Required Quantity)
                         required_qty = len(title_row_df)
 
                         st.markdown(f"""
