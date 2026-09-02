@@ -176,15 +176,17 @@ elif current == "பிரிக்க":
     if neon_df.empty:
         st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
     else:
-        pub_col = next((c for c in neon_df.columns if 'publication' in c or 'pub' in c), neon_df.columns[1])
-        title_col = next((c for c in neon_df.columns if 'title' in c or 'book' in c), neon_df.columns[2])
-        author_col = next((c for c in neon_df.columns if 'author' in c), neon_df.columns[3])
-        
-        # சரியான விலை மற்றும் எண்ணிக்கை நெடுவரிசைகளைக் கண்டறிதல்
+        # துல்லியமான நிரல் பெயர்களை உறுதிசெய்தல் (Title மற்றும் Publication)
+        pub_col = next((c for c in neon_df.columns if c in ['publication name', 'publication_name', 'publisher_name'] or 'publication' in c), None)
+        title_col = next((c for c in neon_df.columns if c == 'title' or (('title' in c) and ('book' not in c))), None)
+        if not title_col:
+            title_col = next((c for c in neon_df.columns if 'title' in c), neon_df.columns[2])
+            
+        author_col = next((c for c in neon_df.columns if 'author' in c), None)
         price_col = next((c for c in neon_df.columns if c == 'price'), None)
-        accepted_price_col = next((c for c in neon_df.columns if 'accepted' in c), None)
+        accepted_price_col = next((c for c in neon_df.columns if 'accepted' in c and 'price' in c), None)
         isbn_col = next((c for c in neon_df.columns if 'isbn' in c), None)
-        qty_col = next((c for c in neon_df.columns if 'qty' in c or 'count' in c or 'copies' in c or 'எண்ணிக்கை' in c), None)
+        qty_col = next((c for c in neon_df.columns if c in ['qty', 'quantity', 'count', 'copies']), None)
 
         all_publishers = sorted(neon_df[pub_col].dropna().unique().tolist()) if pub_col else []
 
@@ -222,12 +224,11 @@ elif current == "பிரிக்க":
                     if not title_row_df.empty:
                         title_row = title_row_df.iloc[0]
                         
-                        author_name = str(title_row[author_col]) if author_col in title_row and pd.notna(title_row[author_col]) else "-"
+                        author_name = str(title_row[author_col]) if author_col and author_col in title_row and pd.notna(title_row[author_col]) else "-"
                         book_price = str(title_row[price_col]) if price_col and price_col in title_row and pd.notna(title_row[price_col]) else "0"
                         accepted_price = str(title_row[accepted_price_col]) if accepted_price_col and accepted_price_col in title_row and pd.notna(title_row[accepted_price_col]) else "0"
                         isbn_val = str(title_row[isbn_col]) if isbn_col and isbn_col in title_row and pd.notna(title_row[isbn_col]) else "-"
                         
-                        # எண்ணிக்கையை எக்செல் தரவிலிருந்து எடுத்தல், இல்லையெனில் 112
                         db_qty = title_row[qty_col] if qty_col and qty_col in title_row and pd.notna(title_row[qty_col]) else 112
                         try:
                             required_qty = int(float(db_qty))
@@ -343,7 +344,7 @@ elif current == "அறிக்கைகள்":
 
 elif current == "கவனிக்க":
     st.subheader("⚠️ கவனிக்க — ஒரே தலைப்பில் வேறு விலைகள் உள்ளவை")
-    st.info("ஒரே தலைப்பில் வேறுபட்ட விலைகள் உள்ள நூல்களின் பட்டியல்.")
+    st.info("ஒரே தலைப்பில் வேறுபட்ட விலைகள் உள்ள நூலக நூல்களின் பட்டியல்.")
 
 elif current == "பதிவெண் மாற்ற":
     st.subheader("🔢 பதிவெண் மாற்றும் பகுதி")
