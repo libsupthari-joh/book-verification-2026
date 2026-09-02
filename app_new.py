@@ -58,7 +58,7 @@ def authenticate_user(role_key, password):
 
 for key, default in {
     "logged_in": False, "user_role": None, "user_name": "",
-    "current_menu": None, "sub_menu": "மாநில", "temp_distributed_list": []
+    "current_menu": None, "temp_distributed_list": [], "submitted_reports": []
 }.items():
     st.session_state.setdefault(key, default)
 
@@ -132,16 +132,18 @@ for i, (icon, label) in enumerate(menu_options):
 
 st.markdown("---")
 
+total_submitted_count = sum([item.get("Received Qty", 0) for item in st.session_state['submitted_reports']])
 today_str = datetime.now().strftime("%d/%m/%Y")
+
 st.markdown(f"""
 <div class="ticker-container">
     <div class="ticker-badge">🔴 Live News</div>
     <div class="ticker-text">
         📚 பெறப்பட்ட நூல்கள் : <b>45,305</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-        ✅ பிரிக்கப்பட்டது : <b>{len(st.session_state['temp_distributed_list'])}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-        ⏳ மீதம் பிரிக்க வேண்டியது : <b>{45305 - len(st.session_state['temp_distributed_list'])}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+        ✅ பிரிக்கப்பட்டது : <b>{total_submitted_count}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+        ⏳ மீதம் பிரிக்க வேண்டியது : <b>{45305 - total_submitted_count}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
         📤 அனுப்பப்பட்டது : <b>0</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-        🗓️ இன்று ({today_str}) பிரிக்கப்பட்டது : <b>0</b>
+        🗓️ இன்று ({today_str}) பிரிக்கப்பட்டது : <b>{total_submitted_count}</b>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -152,12 +154,11 @@ current = st.session_state["current_menu"]
 def load_neon_database():
     try:
         import psycopg2
-        db_url = "postgresql://neondb_owner:npg_NEqeOTXak5v7@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+        db_url = "postgresql://neondb_owner:npg_gY5h1PjZtXvK@ep-super-pond-a50s70up.us-east-2.aws.neon.tech/neondb?sslmode=require"
         conn = psycopg2.connect(db_url)
         df = pd.read_sql("SELECT * FROM books;", con=conn)
         conn.close()
         if not df.empty:
-            # Column பெயர்களைச் சீரமைத்தல் (Lowercase & Strip)
             df.columns = [str(c).strip().lower() for c in df.columns]
             return df
     except Exception as e:
@@ -165,7 +166,7 @@ def load_neon_database():
     return pd.DataFrame()
 
 if current is None:
-    st.info("👆 மேல் உள்ள மெனு பட்டன்களில் ஏதேனும் ஒன்றை (உதாரணமாக **'🔀 பிரிக்க'**) தேர்வு செய்யவும்.")
+    st.info("👆 மேல் உள்ள மெனு பட்டன்களில் ஏதேனும் ஒன்றை (உதாரணமாக **'🔀 பிரிக்க'** அல்லது **'📊 அறிக்கைகள்'**) தேர்வு செய்யவும்.")
 
 elif current == "பிரிக்க":
     st.subheader("🔀 நூல்களைப் பிரிக்கும் பகுதி (Publisher-wise Book Distribution)")
@@ -175,13 +176,7 @@ elif current == "பிரிக்க":
     if neon_df.empty:
         st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
     else:
-        # துல்லியமான Column பெயர்களைக் கண்டறிதல் (Neon DB-ல் உள்ளபடி சிறிய எழுத்துக்களில்)
-        pub_col = None
-        for col in neon_df.columns:
-            if 'pub' in col:
-                pub_col = col
-                break
-
+        pub_col = next((c for c in neon_df.columns if 'pub' in c), neon_df.columns[1])
         title_col = next((c for c in neon_df.columns if 'title' in c), neon_df.columns[2])
         author_col = next((c for c in neon_df.columns if 'author' in c), neon_df.columns[3])
         price_col = next((c for c in neon_df.columns if 'price' in c), neon_df.columns[4] if len(neon_df.columns) > 4 else neon_df.columns[0])
@@ -245,7 +240,8 @@ elif current == "பிரிக்க":
                             "Author": author_name,
                             "Price": book_price,
                             "Required Qty": required_qty,
-                            "Received Qty": entered_qty
+                            "Received Qty": entered_qty,
+                            "Date": datetime.now().strftime("%Y-%m-%d %H:%M")
                         }
                         st.session_state["temp_distributed_list"].append(entry_data)
                         st.success(f"✅ '{selected_title}' தற்காலிக பட்டியலில் வெற்றிகரமாகச் சேர்க்கப்பட்டது!")
@@ -257,8 +253,10 @@ elif current == "பிரிக்க":
                     st.dataframe(temp_df, use_container_width=True)
                     
                     if st.button("💾 இறுதியாகச் சேமி & சமர்ப்பించు", type="primary"):
-                        st.success("🎉 அனைத்துத் தரவுகளும் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
+                        # நிரந்தர அறிக்கைப் பட்டியலுக்கு மாற்றுதல்
+                        st.session_state["submitted_reports"].extend(st.session_state["temp_distributed_list"])
                         st.session_state["temp_distributed_list"] = []
+                        st.success("🎉 தரவுகள் வெற்றிகரமாகச் சேமிக்கப்பட்டன! இதனை 'அறிக்கைகள்' பகுதியில் பார்வையிடலாம்.")
                         st.rerun()
 
 elif current == "அனுப்ப":
@@ -266,8 +264,24 @@ elif current == "அனுப்ப":
     st.info("நூலகங்களுக்கு நூல்களை அனுப்பும் விவரங்களை இங்கே பதிவிடலாம்.")
 
 elif current == "அறிக்கைகள்":
-    st.subheader("📊 அறிக்கைகள் (Reports)")
-    st.info("தேவையான அனைத்து அறிக்கைகளையும் இங்கு பார்வையிடலாம்.")
+    st.subheader("📊 அறிக்கைகள் & பதிவுக் சரிபார்ப்பு (Publishers & Title & Books Verification Report)")
+    
+    if not st.session_state["submitted_reports"]:
+        st.info("ℹ️ இதுவரை சமர்ப்பிக்கப்பட்ட தரவுகள் எதுவும் இல்லை. 'பிரிக்க' மெனுவில் தரவுகளைச் சேமிக்கவும்.")
+    else:
+        report_df = pd.DataFrame(st.session_state["submitted_reports"])
+        st.markdown(f"**மொத்தப் பதிவு செய்யப்பட்ட தலைப்புகள்:** {len(report_df)}")
+        st.dataframe(report_df, use_container_width=True)
+        
+        # அறிக்கைப் பகுதியில் நேரடியாக எக்செல் பதிவிறக்கம் செய்ய பொத்தான்
+        csv_data = report_df.to_csv(index=False).encode('utf-8-sig')
+        st.download_button(
+            label="📥 இந்த அறிக்கையை CSV/Excel வடிவில் பதிவிறக்குக",
+            data=csv_data,
+            file_name=f"Books_Verification_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+            mime="text/csv",
+            type="primary"
+        )
 
 elif current == "கவனிக்க":
     st.subheader("⚠️ கவனிக்க — ஒரே தலைப்பில் வேறு விலைகள் உள்ளவை")
@@ -291,7 +305,18 @@ elif current == "கடவுச்சொல் மாற்ற":
 
 elif current == "Excel பதிவிறக்கம்":
     st.subheader("📥 Excel அறிக்கை பதிவிறக்கம்")
-    st.info("தரவுகளை Excel வடிவில் பதிவிறக்கம் செய்ய.")
+    if not st.session_state["submitted_reports"]:
+        st.info("ℹ️ பதிவிறக்கம் செய்யத் தரவுகள் எதுவும் இல்லை.")
+    else:
+        report_df = pd.DataFrame(st.session_state["submitted_reports"])
+        csv_data = report_df.to_csv(index=False).encode('utf-8-sig')
+        st.download_button(
+            label="📥 முழுமையான தரவுகளை Excel கோப்பாகப் பதிவிறக்குக",
+            data=csv_data,
+            file_name=f"Master_Verification_Data_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv",
+            type="primary"
+        )
 
 elif current == "நூலகர் பார்வை ஆண்டு":
     st.subheader("👥 நூலகர் பார்வை ஆண்டு விவரங்கள்")
