@@ -60,7 +60,7 @@ def authenticate_user(role_key, password):
 
 for key, default in {
     "logged_in": False, "user_role": None, "user_name": "",
-    "current_menu": None, "sub_menu": "மாநில",
+    "current_menu": None, "sub_menu": "மாநில", "temp_distributed_list": []
 }.items():
     st.session_state.setdefault(key, default)
 
@@ -140,8 +140,8 @@ st.markdown(f"""
     <div class="ticker-badge">🔴 Live News</div>
     <div class="ticker-text">
         📚 பெறப்பட்ட நூல்கள் : <b>45,305</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-        ✅ பிரிக்கப்பட்டது : <b>2</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-        ⏳ மீதம் பிரிக்க வேண்டியது : <b>45,303</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+        ✅ பிரிக்கப்பட்டது : <b>{len(st.session_state['temp_distributed_list'])}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+        ⏳ மீதம் பிரிக்க வேண்டியது : <b>{45305 - len(st.session_state['temp_distributed_list'])}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
         📤 அனுப்பப்பட்டது : <b>0</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
         🗓️ இன்று ({today_str}) பிரிக்கப்பட்டது : <b>0</b>
     </div>
@@ -154,13 +154,11 @@ current = st.session_state["current_menu"]
 def load_neon_database():
     try:
         import psycopg2
-        db_url = "postgresql://neondb_owner:npg_NEqeOTXak5v7@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+        db_url = "postgresql://neondb_owner:npg_gY5h1PjZtXvK@ep-super-pond-a50s70up.us-east-2.aws.neon.tech/neondb?sslmode=require"
         conn = psycopg2.connect(db_url)
         df = pd.read_sql("SELECT * FROM books;", con=conn)
         conn.close()
-        
         if not df.empty:
-            # காலம்களின் பெயர்களைச் சீரமைத்தல் (பின்னணிக்காக)
             df.columns = [str(c).strip() for c in df.columns]
             return df
     except Exception as e:
@@ -169,6 +167,7 @@ def load_neon_database():
 
 if current is None:
     st.info("👆 மேல் உள்ள மெனு பட்டன்களில் ஏதேனும் ஒன்றை (உதாரணமாக **'🔀 பிரிக்க'**) தேர்வு செய்யவும்.")
+
 elif current == "பிரிக்க":
     st.subheader("🔀 நூல்களைப் பிரிக்கும் பகுதி (Publisher-wise Book Distribution)")
     
@@ -182,76 +181,93 @@ elif current == "பிரிக்க":
             if col.upper() in ["PUBLICATION NAME", "PUBLISHER", "PUBLICATION_NAME"]:
                 pub_col = col
                 break
-        
         if pub_col is None:
             for col in neon_df.columns:
                 if 'pub' in col.lower():
                     pub_col = col
                     break
 
-        if pub_col is None:
-            st.error("❌ டேட்டாபேஸில் பதிப்பாளர் (Publication Name) குறித்த தூண் (Column) கிடைக்கவில்லை.")
-        else:
-            all_publishers = sorted(neon_df[pub_col].dropna().unique().tolist())
+        title_col = "TITLE" if "TITLE" in neon_df.columns else [c for c in neon_df.columns if 'title' in c.lower()][0]
+        author_col = "AUTHOR" if "AUTHOR" in neon_df.columns else [c for c in neon_df.columns if 'author' in c.lower()][0]
+        price_col = "PRICE" if "PRICE" in neon_df.columns else [c for c in neon_df.columns if 'price' in c.lower()][0]
 
-            selected_publisher = st.selectbox(
-                "🔍 பதிப்பாளர் பெயரைத் தேர்ந்தெடுக்கவும் (பதிப்பகத்தின் முதல் எழுத்துக்களை உள்ளிடவும் / தேடவும்):",
-                ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + all_publishers,
-                key="publisher_dropdown"
+        all_publishers = sorted(neon_df[pub_col].dropna().unique().tolist())
+
+        # 1. பதிப்பகத்தைத் தேர்ந்தெடுத்தல் (Publisher Dropdown)
+        selected_publisher = st.selectbox(
+            "🔍 1. பதிப்பாளர் பெயரைத் தேர்ந்தெடுக்கவும்:",
+            ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + all_publishers,
+            key="publisher_dropdown"
+        )
+
+        if selected_publisher != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+            pub_filtered_df = neon_df[neon_df[pub_col] == selected_publisher].copy()
+            all_titles = sorted(pub_filtered_df[title_col].dropna().unique().tolist())
+
+            st.markdown(f"### 🏢 பதிப்பகம்: {selected_publisher} (மொத்த தலைப்புகள்: {len(all_titles)})")
+
+            # 2. குறிப்பிட்ட பதிப்பகத்தின் தலைப்புகளைத் தேர்ந்தெடுத்தல் (Title Dropdown)
+            selected_title = st.selectbox(
+                "📖 2. தலைப்பைத் தேர்ந்தெடுக்கவும் (Select Book Title):",
+                ["-- தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + all_titles,
+                key="title_dropdown"
             )
 
-            if selected_publisher != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
-                pub_filtered_df = neon_df[neon_df[pub_col] == selected_publisher].copy()
+            if selected_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
+                title_row = pub_filtered_df[pub_filtered_df[title_col] == selected_title].iloc[0]
                 
-                # தலைப்புகள் வாரியாக தனித்தனியாக தொகுத்தல் (Group by Title)
-                if "TITLE" in pub_filtered_df.columns:
-                    title_col = "TITLE"
-                else:
-                    title_col = [c for c in pub_filtered_df.columns if 'title' in c.lower()][0]
+                author_name = title_row[author_col] if author_col in title_row else "-"
+                book_price = title_row[price_col] if price_col in title_row else "0"
+                isbn_val = title_row["Isbn"] if "Isbn" in title_row else (title_row["ISBN"] if "ISBN" in title_row else "-")
+                required_qty = 112 # கிருஷ்ணகிரி மாவட்ட நூலகங்களின் எண்ணிக்கை அல்லது தேவைப்படும் எண்ணிக்கை
 
-                # தனித்த தலைப்புகளின் பட்டியல் (Unique Titles DataFrame)
-                unique_titles_df = pub_filtered_df.drop_duplicates(subset=[title_col]).copy()
-                
-                total_books = len(pub_filtered_df)
-                total_titles = len(unique_titles_df)
-                
-                author_col = "AUTHOR" if "AUTHOR" in pub_filtered_df.columns else [c for c in pub_filtered_df.columns if 'author' in c.lower()][0]
-                authors_list = ", ".join(pub_filtered_df[author_col].dropna().unique().tolist()) if author_col else "-"
-                
-                price_col = "PRICE" if "PRICE" in pub_filtered_df.columns else [c for c in pub_filtered_df.columns if 'price' in c.lower()][0]
-                if price_col:
-                    min_price = pd.to_numeric(pub_filtered_df[price_col], errors='coerce').min()
-                    max_price = pd.to_numeric(pub_filtered_df[price_col], errors='coerce').max()
-                    price_range = f"₹{min_price} - ₹{max_price}" if min_price != max_price else f"₹{min_price}"
-                else:
-                    price_range = "₹0"
-                    
-                lib_count = 112
-
+                # 3. தேர்ந்தெடுக்கப்பட்ட தலைப்பின் முழு விவரம் மற்றும் எண்ணிக்கை உள்ளீடு
                 st.markdown(f"""
-                <div style="background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border: 1.5px solid #34d399; padding: 16px; border-radius: 12px; margin: 15px 0; box-shadow: 0 4px 10px rgba(5,150,105,0.1);">
-                    <div style="font-size: 15px; font-weight: 800; color: #064e3b; margin-bottom: 10px; border-bottom: 1px solid #6ee7b7; padding-bottom: 6px;">
-                        🏢 தேர்ந்தெடுக்கப்பட்ட பதிப்பகம்: <span style="color: #047857;">{selected_publisher}</span>
+                <div style="background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border: 1.5px solid #34d399; padding: 18px; border-radius: 12px; margin: 15px 0;">
+                    <div style="font-size: 16px; font-weight: 800; color: #064e3b; margin-bottom: 12px;">
+                        📘 தேர்ந்தெடுக்கப்பட்ட நூல் விவரம்
                     </div>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; font-size: 13px; color: #065f46;">
-                        <div>📚 <b>மொத்த நூல்கள்:</b> {total_books}</div>
-                        <div>📑 <b>தலைப்புகள்:</b> {total_titles}</div>
-                        <div>✍️ <b>ஆசிரியர்(கள்):</b> {authors_list}</div>
-                        <div>💰 <b>விலை:</b> {price_range}</div>
-                        <div>🏛️ <b>நூலகத்தின் எண்ணிக்கை:</b> {lib_count}</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; font-size: 14px; color: #065f46;">
+                        <div>📚 <b>தலைப்பு:</b> {selected_title}</div>
+                        <div>✍️ <b>ஆசிரியர்:</b> {author_name}</div>
+                        <div>💰 <b>விலை:</b> ₹{book_price}</div>
+                        <div>🏷️ <b>ISBN:</b> {isbn_val}</div>
+                        <div>🏛️ <b>பெறப்பட வேண்டிய எண்ணிக்கை:</b> {required_qty}</div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-                
-                st.markdown("#### 📋 அனுமதிக்கப்பட்டுள்ள தலைப்புகள் தேர்வு விவரம் (Allowed Titles Selection)")
-                
-                if "தேர்வு" not in unique_titles_df.columns:
-                    unique_titles_df.insert(0, "தேர்வு", True)
+
+                with st.form("distribution_entry_form"):
+                    entered_qty = st.number_input(
+                        "📥 பெறப்பட்ட எண்ணிக்கையை உள்ளீடு செய்யவும் (Enter Received Quantity):", 
+                        min_value=0, max_value=500, value=int(required_qty), step=1
+                    )
                     
-                edited_titles = st.data_editor(unique_titles_df, hide_index=True, use_container_width=True)
-                
-                if st.button("💾 சேமி & பிரிக்க", type="primary"):
-                    st.success("✅ தேர்ந்தெடுக்கப்பட்ட தலைப்புகள் வெற்றிகரமாகப் பிரிக்கப்பட்டு சேமிக்கப்பட்டன!")
+                    submitted_temp = st.form_submit_button("➕ தற்காலிக பட்டியலில் சேமி", type="primary")
+                    
+                    if submitted_temp:
+                        entry_data = {
+                            "Publisher": selected_publisher,
+                            "Title": selected_title,
+                            "Author": author_name,
+                            "Price": book_price,
+                            "Required Qty": required_qty,
+                            "Received Qty": entered_qty
+                        }
+                        st.session_state["temp_distributed_list"].append(entry_data)
+                        st.success(f"✅ '{selected_title}' தற்காலிக பட்டியலில் வெற்றிகரமாகச் சேர்க்கப்பட்டது!")
+
+                # 4. தற்காலிக பட்டியலைக் காட்டுதல் (Temporary List Preview)
+                if st.session_state["temp_distributed_list"]:
+                    st.markdown("---")
+                    st.markdown("#### 📋 தற்காலிகமாகச் சேமிக்கப்பட்ட தலைப்புகளின் பட்டியல் (Temporary List)")
+                    temp_df = pd.DataFrame(st.session_state["temp_distributed_list"])
+                    st.dataframe(temp_df, use_container_width=True)
+                    
+                    if st.button("💾 இறுதியாகச் சேமி & சமர்ப்பించు", type="primary"):
+                        st.success("🎉 அனைத்துத் தரவுகளும் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
+                        st.session_state["temp_distributed_list"] = []
+                        st.rerun()
 
 elif current == "அனுப்ப":
     st.subheader("📤 நூல்களை அனுப்பும் பகுதி (Dispatch)")
