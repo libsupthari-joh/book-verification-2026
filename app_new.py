@@ -88,38 +88,64 @@ html, body, [class*="css"] {
     font-weight: 800;
 }
 
-/* Custom Green Menu Buttons with Full Text Wrap & No White Background Issues */
-div.stButton > button {
-    border-radius: 10px !important;
-    font-weight: 700 !important;
-    font-size: 11px !important;
-    min-height: 65px !important;
-    width: 100% !important;
-    background: linear-gradient(135deg, #065f46, #047857) !important;
-    color: #ffffff !important;
-    border: 1px solid #047857 !important;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
-    white-space: pre-wrap !important;
-    word-wrap: break-word !important;
-    line-height: 1.3 !important;
+/* Custom HTML Menu Buttons Styling (Full Text Visibility Guaranteed) */
+.custom-menu-btn {
+    display: block;
+    width: 100%;
+    background: linear-gradient(135deg, #065f46, #047857);
+    color: white !important;
+    padding: 10px 4px;
+    border-radius: 10px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 11px;
+    text-decoration: none;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     transition: all 0.2s ease-in-out;
+    min-height: 52px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    line-height: 1.3;
+    border: 1px solid #047857;
 }
 
-div.stButton > button:hover {
-    background: linear-gradient(135deg, #047857, #065f46) !important;
+.custom-menu-btn:hover {
+    background: linear-gradient(135deg, #047857, #065f46);
     transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(4, 120, 87, 0.3) !important;
-    color: #ffffff !important;
+    box-shadow: 0 6px 12px rgba(4, 120, 87, 0.3);
+    color: white !important;
+}
+
+.custom-menu-btn.active {
+    background: linear-gradient(135deg, #1e3a8a, #1e40af) !important;
+    border: 2px solid #93c5fd !important;
+    box-shadow: 0 0 12px rgba(30, 64, 175, 0.5);
 }
 
 /* Logout Button Special Unique Color (Red/Maroon Gradient) */
-.logout-btn div.stButton > button {
-    background: linear-gradient(135deg, #991b1b, #7f1d1d) !important;
-    border: 1px solid #7f1d1d !important;
-    color: #ffffff !important;
+.logout-custom-btn {
+    display: block;
+    width: 100%;
+    background: linear-gradient(135deg, #991b1b, #7f1d1d);
+    color: white !important;
+    padding: 8px 14px;
+    border-radius: 10px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 12px;
+    text-decoration: none;
+    box-shadow: 0 4px 6px rgba(153, 27, 27, 0.2);
+    transition: all 0.2s ease-in-out;
+    border: 1px solid #7f1d1d;
 }
-.logout-btn div.stButton > button:hover {
-    background: linear-gradient(135deg, #b91c1c, #991b1b) !important;
+
+.logout-custom-btn:hover {
+    background: linear-gradient(135deg, #b91c1c, #991b1b);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(185, 28, 28, 0.4);
+    color: white !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -175,6 +201,17 @@ if not st.session_state["logged_in"]:
             logged_in=True, user_role=query_role, user_name=user["name"]
         )
 
+# Handle Query Param Menu Navigation
+query_menu = st.query_params.get("menu")
+if query_menu:
+    st.session_state["current_menu"] = query_menu
+
+query_logout = st.query_params.get("logout")
+if query_logout == "true":
+    st.query_params.clear()
+    st.session_state.clear()
+    st.rerun()
+
 def show_login_page():
     st.markdown("""
     <style>
@@ -228,40 +265,46 @@ st.markdown("""
 </div>
 """.format(st.session_state["user_name"], st.session_state["user_role"]), unsafe_allow_html=True)
 
+# Logout Button Column
 col_logout = st.columns([11, 1])
 with col_logout[1]:
-    st.markdown('<div class="logout-btn">', unsafe_allow_html=True)
-    if st.button("🚪 வெளியேறு", use_container_width=True):
-        st.query_params.clear()
-        st.session_state.clear()
-        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
+    current_role = st.session_state.get("user_role", "Admin")
+    current_token = make_session_token(current_role)
+    st.markdown(f'<a href="?role={current_role}&token={current_token}&logout=true" target="_self" class="logout-custom-btn">🚪 வெளியேறு</a>', unsafe_allow_html=True)
 
-# --- Menu Items List in Single Straight Line with Green Background & Wrapped Text ---
+# --- Menu Items List in Single Straight Line with Full Text Wrapping & Green Color ---
 menu_options = [
     ("🔀", "பிரிக்க"),
     ("📤", "அனுப்ப"),
     ("📊", "அறிக்கைகள்"),
     ("⚠️", "கவனிக்க"),
-    ("🔢", "பதிவெண்\nமாற்ற"),
-    ("🗂️", "Master\nData"),
-    ("❌", "தவறான\nபதிவு நீக்கம்"),
-    ("🔑", "கடவுச்சொல்\nமாற்ற"),
-    ("📥", "Excel\nபதிவிறக்கம்"),
-    ("👥", "நூலகர்\nபார்வை ஆண்டு"),
-    ("📂", "Excel\nஅப்லோடு"),
-    ("🏷️", "பகுப்பு எண்\nபுதுப்பி")
+    ("🔢", "பதிவெண்<br>மாற்ற"),
+    ("🗂️", "Master<br>Data"),
+    ("❌", "தவறான<br>பதிவு நீக்கம்"),
+    ("🔑", "கடவுச்சொல்<br>மாற்ற"),
+    ("📥", "Excel<br>பதிவிறக்கம்"),
+    ("👥", "நூலகர்<br>பார்வை ஆண்டு"),
+    ("📂", "Excel<br>அப்லோடு"),
+    ("🏷️", "பகுப்பு எண்<br>புதுப்பி")
 ]
 
 cols = st.columns(len(menu_options))
-for i, (icon, label) in enumerate(menu_options):
+for i, (icon, label_html) in enumerate(menu_options):
+    raw_label = label_html.replace("<br>", " ")
+    is_active = st.session_state["current_menu"] == raw_label
+    active_class = " active" if is_active else ""
+    
+    current_role = st.session_state.get("user_role", "Admin")
+    current_token = make_session_token(current_role)
+    
     with cols[i]:
-        clean_label = label.replace("\n", " ")
-        is_active = st.session_state["current_menu"] == clean_label
-        btn_text = f"{icon}\n{label}"
-        if st.button(btn_text, key=f"menu_item_{i}", use_container_width=True, type="primary" if is_active else "secondary"):
-            st.session_state["current_menu"] = clean_label
-            st.rerun()
+        st.markdown(
+            f'<a href="?role={current_role}&token={current_token}&menu={raw_label}" target="_self" class="custom-menu-btn{active_class}">'
+            f'<span style="font-size: 14px; margin-bottom: 2px;">{icon}</span>'
+            f'<span>{label_html}</span>'
+            f'</a>',
+            unsafe_allow_html=True
+        )
 
 st.markdown("---")
 
