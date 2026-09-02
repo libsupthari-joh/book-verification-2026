@@ -169,7 +169,6 @@ def load_neon_database():
 
 if current is None:
     st.info("👆 மேல் உள்ள மெனு பட்டன்களில் ஏதேனும் ஒன்றை (உதாரணமாக **'🔀 பிரிக்க'**) தேர்வு செய்யவும்.")
-
 elif current == "பிரிக்க":
     st.subheader("🔀 நூல்களைப் பிரிக்கும் பகுதி (Publisher-wise Book Distribution)")
     
@@ -178,7 +177,6 @@ elif current == "பிரிக்க":
     if neon_df.empty:
         st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை அல்லது 'books' டேபிள் காலியாக உள்ளது.")
     else:
-        # பதிப்பாளர் காலமைத் துல்லியமாகக் கண்டறிதல்
         pub_col = None
         for col in neon_df.columns:
             if col.upper() in ["PUBLICATION NAME", "PUBLISHER", "PUBLICATION_NAME"]:
@@ -186,7 +184,6 @@ elif current == "பிரிக்க":
                 break
         
         if pub_col is None:
-            # கிடைக்கவில்லை எனில் உகந்த காலமைத் தேர்ந்தெடுப்பது
             for col in neon_df.columns:
                 if 'pub' in col.lower():
                     pub_col = col
@@ -206,18 +203,30 @@ elif current == "பிரிக்க":
             if selected_publisher != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
                 pub_filtered_df = neon_df[neon_df[pub_col] == selected_publisher].copy()
                 
-                total_books = len(pub_filtered_df)
-                total_titles = pub_filtered_df["TITLE"].nunique() if "TITLE" in pub_filtered_df.columns else 0
-                authors_list = ", ".join(pub_filtered_df["AUTHOR"].dropna().unique().tolist()) if "AUTHOR" in pub_filtered_df.columns else "-"
+                # தலைப்புகள் வாரியாக தனித்தனியாக தொகுத்தல் (Group by Title)
+                if "TITLE" in pub_filtered_df.columns:
+                    title_col = "TITLE"
+                else:
+                    title_col = [c for c in pub_filtered_df.columns if 'title' in c.lower()][0]
+
+                # தனித்த தலைப்புகளின் பட்டியல் (Unique Titles DataFrame)
+                unique_titles_df = pub_filtered_df.drop_duplicates(subset=[title_col]).copy()
                 
-                if "PRICE" in pub_filtered_df.columns:
-                    min_price = pd.to_numeric(pub_filtered_df["PRICE"], errors='coerce').min()
-                    max_price = pd.to_numeric(pub_filtered_df["PRICE"], errors='coerce').max()
+                total_books = len(pub_filtered_df)
+                total_titles = len(unique_titles_df)
+                
+                author_col = "AUTHOR" if "AUTHOR" in pub_filtered_df.columns else [c for c in pub_filtered_df.columns if 'author' in c.lower()][0]
+                authors_list = ", ".join(pub_filtered_df[author_col].dropna().unique().tolist()) if author_col else "-"
+                
+                price_col = "PRICE" if "PRICE" in pub_filtered_df.columns else [c for c in pub_filtered_df.columns if 'price' in c.lower()][0]
+                if price_col:
+                    min_price = pd.to_numeric(pub_filtered_df[price_col], errors='coerce').min()
+                    max_price = pd.to_numeric(pub_filtered_df[price_col], errors='coerce').max()
                     price_range = f"₹{min_price} - ₹{max_price}" if min_price != max_price else f"₹{min_price}"
                 else:
                     price_range = "₹0"
                     
-                lib_count = 112 # கிருஷ்ணகிரி மாவட்ட நூலகங்களின் பொதுவான எண்ணிக்கை
+                lib_count = 112
 
                 st.markdown(f"""
                 <div style="background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border: 1.5px solid #34d399; padding: 16px; border-radius: 12px; margin: 15px 0; box-shadow: 0 4px 10px rgba(5,150,105,0.1);">
@@ -236,13 +245,13 @@ elif current == "பிரிக்க":
                 
                 st.markdown("#### 📋 அனுமதிக்கப்பட்டுள்ள தலைப்புகள் தேர்வு விவரம் (Allowed Titles Selection)")
                 
-                if "தேர்வு" not in pub_filtered_df.columns:
-                    pub_filtered_df.insert(0, "தேர்வு", True)
+                if "தேர்வு" not in unique_titles_df.columns:
+                    unique_titles_df.insert(0, "தேர்வு", True)
                     
-                edited_titles = st.data_editor(pub_filtered_df, hide_index=True, use_container_width=True)
+                edited_titles = st.data_editor(unique_titles_df, hide_index=True, use_container_width=True)
                 
                 if st.button("💾 சேமி & பிரிக்க", type="primary"):
-                    st.success("✅ தேர்ந்தெடுக்கப்பட்ட நூல்கள் வெற்றிகரமாகப் பிரிக்கப்பட்டு சேமிக்கப்பட்டன!")
+                    st.success("✅ தேர்ந்தெடுக்கப்பட்ட தலைப்புகள் வெற்றிகரமாகப் பிரிக்கப்பட்டு சேமிக்கப்பட்டன!")
 
 elif current == "அனுப்ப":
     st.subheader("📤 நூல்களை அனுப்பும் பகுதி (Dispatch)")
