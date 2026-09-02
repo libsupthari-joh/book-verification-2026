@@ -179,8 +179,10 @@ elif current == "பிரிக்க":
         pub_col = next((c for c in neon_df.columns if 'pub' in c), neon_df.columns[1])
         title_col = next((c for c in neon_df.columns if 'title' in c), neon_df.columns[2])
         author_col = next((c for c in neon_df.columns if 'author' in c), neon_df.columns[3])
-        price_col = next((c for c in neon_df.columns if 'price' in c), neon_df.columns[4] if len(neon_df.columns) > 4 else neon_df.columns[0])
-        isbn_col = next((c for c in neon_df.columns if 'isbn' in c), None)
+        
+        # விலை மற்றும் எண்ணிக்கை தூண்களைச் சரியாகக் கண்டறிதல்
+        price_col = next((c for c in neon_df.columns if 'price' in c or 'விலை' in c or 'amount' in c), None)
+        qty_col = next((c for c in neon_df.columns if 'qty' in c or 'count' in c or 'copies' in c or 'எண்ணிக்கை' in c), None)
 
         all_publishers = sorted(neon_df[pub_col].dropna().unique().tolist()) if pub_col else []
 
@@ -214,15 +216,19 @@ elif current == "பிரிக்க":
                 )
 
                 if selected_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
-                    # குறிப்பிட்ட தலைப்பிற்கான சரியான வரியை filtred dataframe-ல் இருந்து சரியாக எடுக்கிறோம்
                     title_row_df = pub_filtered_df[pub_filtered_df[title_col] == selected_title]
                     if not title_row_df.empty:
                         title_row = title_row_df.iloc[0]
                         
                         author_name = str(title_row[author_col]) if author_col in title_row and pd.notna(title_row[author_col]) else "-"
-                        book_price = str(title_row[price_col]) if price_col in title_row and pd.notna(title_row[price_col]) else "0"
-                        isbn_val = str(title_row[isbn_col]) if isbn_col and isbn_col in title_row and pd.notna(title_row[isbn_col]) else "-"
-                        required_qty = 112
+                        book_price = str(title_row[price_col]) if price_col and price_col in title_row and pd.notna(title_row[price_col]) else "0"
+                        
+                        # டேட்டாபேஸில் உள்ள எண்ணிக்கையை எடுத்தல், இல்லையெனில் இயல்புநிலையாக 112 அமைத்தல்
+                        db_qty = title_row[qty_col] if qty_col and qty_col in title_row and pd.notna(title_row[qty_col]) else 112
+                        try:
+                            required_qty = int(float(db_qty))
+                        except:
+                            required_qty = 112
 
                         st.markdown(f"""
                         <div style="background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border: 1.5px solid #34d399; padding: 18px; border-radius: 12px; margin: 15px 0;">
@@ -233,13 +239,12 @@ elif current == "பிரிக்க":
                                 <div>📚 <b>தலைப்பு:</b> {selected_title}</div>
                                 <div>✍️ <b>ஆசிரியர்:</b> {author_name}</div>
                                 <div>💰 <b>விலை:</b> ₹{book_price}</div>
-                                <div>🏷️ <b>ISBN:</b> {isbn_val}</div>
                                 <div>🏛️ <b>பெறப்பட வேண்டிய எண்ணிக்கை:</b> {required_qty}</div>
                             </div>
                         </div>
                         """, unsafe_allow_html=True)
 
-                        with st.form(f"distribution_entry_form_{selected_title}"):
+                        with st.form(f"distribution_entry_form_{selected_publisher}_{selected_title}"):
                             entered_qty = st.number_input(
                                 "📥 பெறப்பட்ட எண்ணிக்கையை உள்ளீடு செய்யவும் (Enter Received Quantity):", 
                                 min_value=0, max_value=500, value=int(required_qty), step=1
