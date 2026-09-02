@@ -149,27 +149,49 @@ html, body, [class*="css"] {
     color: white !important;
 }
 
-/* Live Stats Bar Styling */
-.live-stats-container {
+/* Running Live News Ticker Bar Styling */
+.ticker-container {
     background: linear-gradient(135deg, #f0fdf4, #dcfce7);
     border: 1.5px solid #86efac;
-    padding: 12px 20px;
+    padding: 8px 12px;
     border-radius: 10px;
     color: #065f46;
     font-weight: 700;
     font-size: 13px;
     display: flex;
-    flex-wrap: wrap;
-    justify-content: space-around;
     align-items: center;
-    gap: 12px;
     box-shadow: 0 2px 8px rgba(6, 95, 70, 0.08);
     margin-bottom: 20px;
+    overflow: hidden;
+    white-space: nowrap;
 }
-.live-stats-item {
+
+.ticker-badge {
+    background: #065f46;
+    color: white;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    margin-right: 15px;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.ticker-text {
+    display: inline-block;
+    animation: marquee 25s linear infinite;
+}
+
+.ticker-text:hover {
+    animation-play-state: paused;
+}
+
+@keyframes marquee {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(-100%); }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -333,20 +355,18 @@ for i, (icon, label_html) in enumerate(menu_options):
 # --- Horizontal Divider Line ---
 st.markdown("---")
 
-# --- Live Statistics Bar ---
+# --- Running Live Ticker Statistics Bar ---
 today_str = datetime.now().strftime("%d/%m/%Y")
 st.markdown(f"""
-<div class="live-stats-container">
-    <div class="live-stats-item">🔴 <b>Live</b></div>
-    <div class="live-stats-item">📚 பெறப்பட்ட நூல்கள் : <b>45,305</b></div>
-    <div class="live-stats-item">◆</div>
-    <div class="live-stats-item">✅ பிரிக்கப்பட்டது : <b>2</b></div>
-    <div class="live-stats-item">◆</div>
-    <div class="live-stats-item">⏳ மீதம் பிரிக்க வேண்டியது : <b>45,303</b></div>
-    <div class="live-stats-item">◆</div>
-    <div class="live-stats-item">📤 அனுப்பப்பட்டது : <b>0</b></div>
-    <div class="live-stats-item">◆</div>
-    <div class="live-stats-item">🗓️ இன்று ({today_str}) பிரிக்கப்பட்டது : <b>0</b></div>
+<div class="ticker-container">
+    <div class="ticker-badge">🔴 Live</div>
+    <div class="ticker-text">
+        📚 பெறப்பட்ட நூல்கள் : <b>45,305</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+        ✅ பிரிக்கப்பட்டது : <b>2</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+        ⏳ மீதம் பிரிக்க வேண்டியது : <b>45,303</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+        📤 அனுப்பப்பட்டது : <b>0</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+        🗓️ இன்று ({today_str}) பிரிக்கப்பட்டது : <b>0</b>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
