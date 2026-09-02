@@ -159,9 +159,14 @@ elif current == "பிரிக்க":
     @st.cache_data
     def load_neon_database():
         try:
-            # Streamlit-ன் உள்ளமைக்கப்பட்ட st.connection முறையைப் பயன்படுத்துதல்
-            conn = st.connection("postgresql", type="sql")
-            df = conn.query("SELECT * FROM books;", ttl=0)
+            import psycopg2
+            # உங்கள் Neon Database-ன் நேரடி Connection URL-ஐ இங்கே ஒட்டவும்
+            db_url = "postgresql://neondb_owner:npg_NEqeOTXak5v7@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+            
+            conn = psycopg2.connect(db_url)
+            df = pd.read_sql("SELECT * FROM books;", con=conn)
+            conn.close()
+            
             if not df.empty:
                 return df
         except Exception as e:
