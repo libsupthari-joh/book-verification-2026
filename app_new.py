@@ -138,7 +138,7 @@ today_str = datetime.now().strftime("%d/%m/%Y")
 st.markdown(f"""
 <div class="ticker-container">
     <div class="ticker-badge">🔴 Live News</div>
-    <div class="ticker-text">
+    <div class="ticker-text" style="overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
         📚 பெறப்பட்ட நூல்கள் : <b>45,305</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
         ✅ பிரிக்கப்பட்டது : <b>{total_submitted_count}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
         ⏳ மீதம் பிரிக்க வேண்டியது : <b>{45305 - total_submitted_count}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
@@ -191,7 +191,6 @@ elif current == "பிரிக்க":
         )
 
         if selected_publisher != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
-            # பதிப்பகம் மாறியவுடன் தற்காலிகப் பட்டியலைச் சரிபார்த்து வேறு பதிப்பகமாக இருந்தால் சுத்தப்படுத்தல்
             if st.session_state["temp_distributed_list"] and st.session_state["temp_distributed_list"][0]["Publisher"] != selected_publisher:
                 st.session_state["temp_distributed_list"] = []
 
@@ -215,51 +214,53 @@ elif current == "பிரிக்க":
                 )
 
                 if selected_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
-                    title_row = pub_filtered_df[pub_filtered_df[title_col] == selected_title].iloc[0]
-                    
-                    author_name = title_row[author_col] if author_col in title_row else "-"
-                    book_price = title_row[price_col] if price_col in title_row else "0"
-                    isbn_val = title_row[isbn_col] if isbn_col and isbn_col in title_row else "-"
-                    required_qty = 112
-
-                    st.markdown(f"""
-                    <div style="background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border: 1.5px solid #34d399; padding: 18px; border-radius: 12px; margin: 15px 0;">
-                        <div style="font-size: 16px; font-weight: 800; color: #064e3b; margin-bottom: 12px;">
-                            📘 தேர்ந்தெடுக்கப்பட்ட நூல் விவரம்
-                        </div>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; font-size: 14px; color: #065f46;">
-                            <div>📚 <b>தலைப்பு:</b> {selected_title}</div>
-                            <div>✍️ <b>ஆசிரியர்:</b> {author_name}</div>
-                            <div>💰 <b>விலை:</b> ₹{book_price}</div>
-                            <div>🏷️ <b>ISBN:</b> {isbn_val}</div>
-                            <div>🏛️ <b>பெறப்பட வேண்டிய எண்ணிக்கை:</b> {required_qty}</div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    with st.form("distribution_entry_form"):
-                        entered_qty = st.number_input(
-                            "📥 பெறப்பட்ட எண்ணிக்கையை உள்ளீடு செய்யவும் (Enter Received Quantity):", 
-                            min_value=0, max_value=500, value=int(required_qty), step=1
-                        )
+                    # குறிப்பிட்ட தலைப்பிற்கான சரியான வரியை filtred dataframe-ல் இருந்து சரியாக எடுக்கிறோம்
+                    title_row_df = pub_filtered_df[pub_filtered_df[title_col] == selected_title]
+                    if not title_row_df.empty:
+                        title_row = title_row_df.iloc[0]
                         
-                        submitted_temp = st.form_submit_button("➕ தற்காலிக பட்டியலில் சேமி", type="primary")
-                        
-                        if submitted_temp:
-                            entry_data = {
-                                "Publisher": selected_publisher,
-                                "Title": selected_title,
-                                "Author": author_name,
-                                "Price": book_price,
-                                "Required Qty": required_qty,
-                                "Received Qty": entered_qty,
-                                "Date": datetime.now().strftime("%Y-%m-%d %H:%M")
-                            }
-                            # ஏற்கனவே தற்காலிகப் பட்டியலில் இல்லையென்றால் மட்டும் சேர்க்கவும்
-                            if not any(item["Title"] == selected_title for item in st.session_state["temp_distributed_list"]):
-                                st.session_state["temp_distributed_list"].append(entry_data)
-                            st.success(f"✅ '{selected_title}' தற்காலிக பட்டியலில் வெற்றிகரமாகச் சேர்க்கப்பட்டது!")
-                            st.rerun()
+                        author_name = str(title_row[author_col]) if author_col in title_row and pd.notna(title_row[author_col]) else "-"
+                        book_price = str(title_row[price_col]) if price_col in title_row and pd.notna(title_row[price_col]) else "0"
+                        isbn_val = str(title_row[isbn_col]) if isbn_col and isbn_col in title_row and pd.notna(title_row[isbn_col]) else "-"
+                        required_qty = 112
+
+                        st.markdown(f"""
+                        <div style="background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border: 1.5px solid #34d399; padding: 18px; border-radius: 12px; margin: 15px 0;">
+                            <div style="font-size: 16px; font-weight: 800; color: #064e3b; margin-bottom: 12px;">
+                                📘 தேர்ந்தெடுக்கப்பட்ட நூல் விவரம்
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; font-size: 14px; color: #065f46;">
+                                <div>📚 <b>தலைப்பு:</b> {selected_title}</div>
+                                <div>✍️ <b>ஆசிரியர்:</b> {author_name}</div>
+                                <div>💰 <b>விலை:</b> ₹{book_price}</div>
+                                <div>🏷️ <b>ISBN:</b> {isbn_val}</div>
+                                <div>🏛️ <b>பெறப்பட வேண்டிய எண்ணிக்கை:</b> {required_qty}</div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                        with st.form(f"distribution_entry_form_{selected_title}"):
+                            entered_qty = st.number_input(
+                                "📥 பெறப்பட்ட எண்ணிக்கையை உள்ளீடு செய்யவும் (Enter Received Quantity):", 
+                                min_value=0, max_value=500, value=int(required_qty), step=1
+                            )
+                            
+                            submitted_temp = st.form_submit_button("➕ தற்காலிக பட்டியலில் சேமி", type="primary")
+                            
+                            if submitted_temp:
+                                entry_data = {
+                                    "Publisher": selected_publisher,
+                                    "Title": selected_title,
+                                    "Author": author_name,
+                                    "Price": book_price,
+                                    "Required Qty": required_qty,
+                                    "Received Qty": entered_qty,
+                                    "Date": datetime.now().strftime("%Y-%m-%d %H:%M")
+                                }
+                                if not any(item["Title"] == selected_title for item in st.session_state["temp_distributed_list"]):
+                                    st.session_state["temp_distributed_list"].append(entry_data)
+                                st.success(f"✅ '{selected_title}' தற்காலிக பட்டியலில் வெற்றிகரமாகச் சேர்க்கப்பட்டது!")
+                                st.rerun()
 
                 if st.session_state["temp_distributed_list"]:
                     st.markdown("---")
@@ -267,7 +268,6 @@ elif current == "பிரிக்க":
                     temp_df = pd.DataFrame(st.session_state["temp_distributed_list"])
                     st.dataframe(temp_df, use_container_width=True)
                     
-                    # இந்த பதிப்பகத்தின் அனைத்துத் தலைப்புகளும் தற்காலிகப் பட்டியலில் வந்துவிட்டதா எனச் சரிபார்த்தல்
                     temp_titles_count = len(temp_df)
                     remaining_check = total_pub_titles_count - temp_titles_count
 
