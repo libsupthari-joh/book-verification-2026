@@ -4,17 +4,13 @@ import io
 import os
 import re
 import secrets as py_secrets
-import sqlite3
-from datetime import datetime
-from urllib.request import Request, urlopen
-from xml.sax.saxutils import escape as xml_escape
 import pandas as pd
 import streamlit as st
 
 st.set_page_config(
-    page_title="மாவட்ட நூலக ஆணைக்குழு, கிருஷ்ணகிரி",
+    page_title="மாவட்ட மைய நூலகம், கிருஷ்ணகிரி",
     page_icon="📚",
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="collapsed",
 )
 
@@ -27,64 +23,56 @@ html, body, [class*="css"] {
 }
 
 .stApp {
-    background: linear-gradient(135deg, #064e3b, #022c22);
+    background: #f8fafc;
 }
 
 [data-testid="stHeader"] { background: transparent; }
 [data-testid="stToolbar"] { visibility: hidden; }
 
-h1 {
-    font-size: 24px !important;
-    font-weight: 800 !important;
-    padding: 14px 18px !important;
+/* Top Header Bar */
+.top-header-container {
+    background: linear-gradient(135deg, #064e3b, #022c22);
+    padding: 18px 24px;
+    border-radius: 14px;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 15px rgba(6,78,59,0.2);
+    margin-bottom: 20px;
+}
+
+.header-title {
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.4;
+    color: #ffffff;
+}
+
+.header-subtitle {
+    font-size: 13px;
+    color: #a7f3d0;
+    font-weight: 600;
+}
+
+/* Menu Bar Styling */
+.menu-bar-container {
+    background: #ffffff;
+    padding: 12px 10px;
     border-radius: 12px;
-    color: #fff !important;
-    background: linear-gradient(135deg, #059669, #047857) !important;
-    box-shadow: 0 4px 12px rgba(6,78,59,0.3);
-    text-align: center;
-    margin-bottom: 15px !important;
-}
-
-h2, h3 {
-    color: #064e3b !important;
-    font-weight: 700 !important;
-}
-
-p, span, label, div {
-    font-size: 15px !important;
-    color: #111827;
-}
-
-.profile-card, .book-info-card {
-    background: #ffffff;
-    border: 1.5px solid #a7f3d0;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.06);
-}
-
-.profile-card {
-    padding: 12px 16px;
-    border-radius: 10px;
-    color: #064e3b;
-    background: #ecfdf5;
-}
-
-.book-info-card {
-    border-left: 6px solid #047857;
-    border-radius: 10px;
-    padding: 14px 16px;
-    line-height: 2.0;
-    margin: 12px 0 16px;
-    background: #ffffff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    border: 1.5px solid #e2e8f0;
+    margin-bottom: 20px;
 }
 
 .login-card-wrapper {
     background: #ffffff;
     border-radius: 16px;
     padding: 30px 25px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
     border: 1.5px solid #a7f3d0;
-    max-width: 420px;
-    margin: 40px auto;
+    max-width: 400px;
+    margin: 60px auto;
 }
 
 .login-header-box {
@@ -96,50 +84,17 @@ p, span, label, div {
     margin-bottom: 20px;
 }
 
-.login-header-icon {
-    font-size: 32px;
-    margin-bottom: 4px;
-}
-
 .login-title {
     color: #064e3b;
     font-size: 18px;
     font-weight: 800;
-    line-height: 1.4;
 }
 
-.stButton > button, .stDownloadButton > button {
-    min-height: 44px !important;
+.stButton > button {
     border-radius: 8px !important;
-    font-size: 15px !important;
     font-weight: 700 !important;
-    color: #ffffff !important;
-    background: linear-gradient(135deg, #059669, #047857) !important;
-    box-shadow: 0 3px 8px rgba(0,0,0,0.12) !important;
-    border: none !important;
-    width: 100% !important;
-}
-
-.stButton > button:hover, .stDownloadButton > button:hover {
-    background: linear-gradient(135deg, #047857, #064e3b) !important;
-    color: #fff !important;
-}
-
-button[kind="secondary"] {
-    background: linear-gradient(135deg, #ecfdf5, #d1fae5) !important;
-    color: #064e3b !important;
-    box-shadow: 0 2px 6px rgba(6,78,59,0.1) !important;
-    font-weight: 700 !important;
-    border: 1.2px solid #a7f3d0 !important;
-}
-button[kind="secondary"]:hover {
-    background: linear-gradient(135deg, #d1fae5, #a7f3d0) !important;
-    color: #064e3b !important;
-}
-button[kind="primary"] {
-    background: linear-gradient(135deg, #064e3b, #047857) !important;
-    box-shadow: 0 3px 10px rgba(6,78,59,0.3) !important;
-    border: 1.2px solid #064e3b !important;
+    font-size: 14px !important;
+    min-height: 45px !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -168,6 +123,7 @@ def make_session_token(role):
 def verify_session_token(role, token):
     return bool(role and token) and hmac.compare_digest(make_session_token(role), str(token))
 
+# பயனர்களின் விவரங்கள்
 USERS_DATABASE = {
     "Admin": {"password_hash": hash_password("Hari@@1979"), "name": "முதன்மை நிர்வாகி (Admin)"},
     "DCL Staff": {"password_hash": hash_password("123456"), "name": "DCL Staff"},
@@ -182,7 +138,7 @@ def authenticate_user(role_key, password):
 
 for key, default in {
     "logged_in": False, "user_role": None, "user_name": "",
-    "current_page": "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு", "verified_records": [],
+    "current_menu": "பிரிக்க", "sub_menu": "மாநில", "verified_records": [],
 }.items():
     st.session_state.setdefault(key, default)
 
@@ -199,8 +155,8 @@ def show_login_page():
     st.markdown("""
     <div class="login-card-wrapper">
         <div class="login-header-box">
-            <div class="login-header-icon">📚</div>
-            <div class="login-title">மாவட்ட நூலக ஆணைக்குழு,<br>கிருஷ்ணகிரி</div>
+            <div style="font-size: 32px; margin-bottom: 5px;">📚</div>
+            <div class="login-title">மாவட்ட மைய நூலகம்<br>கிருஷ்ணகிரி</div>
         </div>
     """, unsafe_allow_html=True)
     
@@ -229,217 +185,123 @@ if not st.session_state["logged_in"]:
     show_login_page()
     st.stop()
 
-@st.cache_data(ttl=60)
-def load_all_data():
-    excel_path = "Book Supply-2026.xlsx"
-    if os.path.exists(excel_path):
-        xls = pd.ExcelFile(excel_path)
-        df_summary = pd.read_excel(xls, sheet_name="Vendor Name")
-        df_books = pd.read_excel(xls, sheet_name="Vendor Wise Book Data ")
-        return df_summary, df_books
-    return pd.DataFrame(), pd.DataFrame()
+# --- Main Dashboard Header ---
+st.markdown("""
+<div class="top-header-container">
+    <div>
+        <div class="header-title">📚 மாவட்ட மைய நூலகம்</div>
+        <div class="header-subtitle">கிருஷ்ணகிரி — புதிய நூல்கள் பகிர்மானம் 2026-27</div>
+    </div>
+    <div style="text-align: right;">
+        <span style="background: rgba(255,255,255,0.15); padding: 6px 12px; border-radius: 8px; font-size: 14px;">
+            👤 {} ({})
+        </span>
+    </div>
+</div>
+""".format(st.session_state["user_name"], st.session_state["user_role"]), unsafe_allow_html=True)
 
-df_summary, df_books = load_all_data()
-
-def get_col(df, possible_names):
-    for col in df.columns:
-        if str(col).strip() in possible_names:
-            return col
-    for col in df.columns:
-        for name in possible_names:
-            if name.lower() in str(col).lower():
-                return col
-    return possible_names[0]
-
-def safe_name(value):
-    return re.sub(r"[^\w\u0B80-\u0BFF -]", "", str(value)).strip()[:80] or "Report"
-
-def excel_bytes(frame, sheet_name):
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        frame.to_excel(writer, index=False, sheet_name=str(sheet_name)[:31])
-    return output.getvalue()
-
-def csv_bytes(frame):
-    return frame.to_csv(index=False).encode("utf-8-sig")
-
-def download_excel_csv_panel(frame, prefix, sheet_name):
-    st.markdown("### 📥 Excel / CSV அறிக்கை பதிவிறக்க வசதிகள்")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.download_button("📊 Excel பதிவிறக்கம்", excel_bytes(frame, sheet_name), f"{prefix}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, key=f"xlsx_{prefix}")
-    with col2:
-        st.download_button("📄 CSV பதிவிறக்கம் (Tamil Support)", csv_bytes(frame), f"{prefix}.csv", "text/csv", use_container_width=True, key=f"csv_{prefix}")
-
-menu_items = [
-    "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு", 
-    "🏢 2. சரிபார்க்கப்பட்ட பதிப்பாளர்"
-]
-
-if st.session_state["current_page"] not in menu_items:
-    st.session_state["current_page"] = menu_items[0]
-
-st.title("📚 2026ஆம் ஆண்டு வெளிப்படைத் தன்மை நூல்கள் கொள்முதல்")
-
-info, logout = st.columns([3.2, 0.8])
-with info:
-    st.markdown(f'<div class="profile-card">👤 <b>பயனர்:</b> {st.session_state["user_name"]} &nbsp;|&nbsp; <b>வகை:</b> {st.session_state["user_role"]}</div>', unsafe_allow_html=True)
-with logout:
+# Logout Button Row
+col_logout = st.columns([8, 1])
+with col_logout[1]:
     if st.button("🚪 வெளியேறு", use_container_width=True):
         st.query_params.clear()
         st.session_state.clear()
         st.rerun()
 
-st.markdown("---")
+# --- Menu Items List ---
+menu_options = [
+    ("🔀", "பிரிக்க"),
+    ("📤", "அனுப்ப"),
+    ("📊", "அறிக்கைகள்"),
+    ("⚠️", "கவனிக்க"),
+    ("🔢", "பதிவெண் மாற்ற"),
+    ("🗂️", "Master Data"),
+    ("❌", "தவறான பதிவு நீக்கம்"),
+    ("🔑", "கடவுச்சொல் மாற்ற"),
+    ("📥", "Excel பதிவிறக்கம்"),
+    ("👥", "நூலகர் பார்வை ஆண்டு"),
+    ("📂", "Excel அப்லோடு"),
+    ("🏷️", "பகுப்பு எண் புதுப்பி")
+]
 
-MENU_SHORT_LABELS = {
-    "📥 1. பெறப்பட்ட நூல்கள் சரிபார்ப்பு": "📥 சரிபார்ப்பு",
-    "🏢 2. சரிபார்க்கப்பட்ட பதிப்பாளர்": "🏢 சரிபார்க்கப்பட்ட பதிப்பாளர்",
-}
-
-cols = st.columns(len(menu_items))
-for i, item in enumerate(menu_items):
+# Render Menu Buttons in columns
+cols = st.columns(len(menu_options))
+for i, (icon, label) in enumerate(menu_options):
     with cols[i]:
-        is_active = item == st.session_state["current_page"]
-        if st.button(
-            MENU_SHORT_LABELS.get(item, item),
-            use_container_width=True,
-            type="primary" if is_active else "secondary",
-            key=f"menu_btn_{i}",
-        ) and not is_active:
-            st.session_state["current_page"] = item
+        is_active = st.session_state["current_menu"] == label
+        btn_type = "primary" if is_active else "secondary"
+        if st.button(f"{icon}\n{label}", key=f"menu_item_{i}", use_container_width=True, type=btn_type):
+            st.session_state["current_menu"] = label
             st.rerun()
 
 st.markdown("---")
 
-if st.session_state["current_page"] == menu_items[0]:
-    st.subheader("🔎 பதிப்பாளர் வாரியான நூல்கள் சரிபார்ப்பு")
-    if df_summary is None or df_summary.empty or df_books is None or df_books.empty:
-        st.error("❌ தரவுகள் கிடைக்கவில்லை!")
-        st.stop()
-        
-    c_pub = get_col(df_books, ["Publication Name", "Publisher", "Vendor Name", "Publication Name / Vendor Name"])
-    c_title = get_col(df_books, ["Title", "Book Title", "Book Name", "Name"])
-    c_author = get_col(df_books, ["Author Name", "Author"])
-    c_isbn = get_col(df_books, ["ISBN", "ISBN No", "ISBN Number"])
-    c_lang = get_col(df_books, ["Language"])
-    c_price = get_col(df_books, ["Price", "Amount"])
-    c_qty = get_col(df_books, ["Quantity", "Qty", "Count", "No of Libraries", "Libraries Count"])
+# Sub-menu for 'பகுப்பு எண் புதுப்பி' (மாநில / மாவட்ட / கிளை)
+if st.session_state["current_menu"] == "🏷️ பகுப்பு எண் புதுப்பி":
+    st.markdown("### 🏷️ பகுப்பு எண் புதுப்பித்தல் துணை மெனு")
+    sub_cols = st.columns(3)
+    sub_menus = ["மாநில", "மாவட்ட", "கிளை"]
+    for idx, sm in enumerate(sub_menus):
+        with sub_cols[idx]:
+            is_sub_active = st.session_state["sub_menu"] == sm
+            if st.button(f"📌 {sm} பகுப்பு", key=f"submenu_{idx}", use_container_width=True, type="primary" if is_sub_active else "secondary"):
+                st.session_state["sub_menu"] = sm
+                st.rerun()
+    st.markdown(f"**தற்போது தேர்ந்தெடுக்கப்பட்டது:** {st.session_state['sub_menu']} பகுப்பு எண் புதுப்பித்தல் பிரிவு.")
+    st.markdown("---")
 
-    if c_pub in df_books.columns:
-        publishers = sorted(df_books[c_pub].dropna().unique().tolist())
-        selected_publisher = st.selectbox(
-            "1. பதிப்பாளரைத் தேர்ந்தெடுக்கவும் (Select Publisher):",
-            ["-- தேர்ந்தெடுக்கவும் --"] + publishers,
-            key="pub_select_dropdown"
-        )
-        
-        if not selected_publisher.startswith("-- தேர்ந்தெடுக்கவும் --"):
-            pub_filtered_books = df_books[df_books[c_pub] == selected_publisher]
-        else:
-            pub_filtered_books = df_books
-    else:
-        pub_filtered_books = df_books
+# Content area based on selected menu
+current = st.session_state["current_menu"]
 
-    grouped_df = pub_filtered_books.groupby(c_title, as_index=False).agg({
-        c_pub: "first",
-        c_author: "first",
-        c_isbn: "first" if c_isbn in pub_filtered_books.columns else lambda x: "N/Class",
-        c_lang: "first",
-        c_price: "first",
-        c_qty: "sum"
-    }).rename(columns={
-        c_pub: "பதிப்பகம்", 
-        c_title: "தலைப்பு", 
-        c_author: "ஆசிரியர்",
-        c_isbn: "ISBN",
-        c_price: "விலை", 
-        c_qty: "அனுமதிக்கப்பட்ட எண்ணிக்கை"
-    })
+if current == "🔀 பகுக்க":
+    st.subheader("🔀 நூல்களைப் பிரிக்கும் பகுதி (Distribution / Splitting)")
+    st.info("இங்கு நூல்களை உரிய வழிமுறைகளின்படி பிரிக்கலாம்.")
 
-    st.markdown("2. புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும்:")
-    
-    if not grouped_df.empty:
-        book_titles = ["-- தேர்ந்தெடுக்கவும் --"] + grouped_df["தலைப்பு"].tolist()
-        selected_book_title = st.selectbox(
-            "புத்தகத் தலைப்பு தேர்வு:",
-            book_titles,
-            label_visibility="collapsed",
-            key="auto_book_title_select"
-        )
-        
-        if selected_book_title != "-- தேர்ந்தெடுக்கவும் --":
-            b_row = grouped_df[grouped_df["தலைப்பு"] == selected_book_title].iloc[0]
-            orig_qty = int(b_row["அனுமதிக்கப்பட்ட எண்ணிக்கை"])
-            author_val = b_row.get("ஆசிரியர்", "N/A")
-            isbn_val = b_row.get("ISBN", "N/A")
-            price_val = b_row.get("விலை", 0)
-            
-            st.markdown(f"""
-            <div class="book-info-card">
-                📖 <b>தலைப்பு:</b> {b_row['தலைப்பு']}<br>
-                🏢 <b>பதிப்பகம்:</b> {b_row['பதிப்பகம்']}<br>
-                ✍️ <b>ஆசிரியர்:</b> {author_val}<br>
-                🏷️ <b>ISBN:</b> {isbn_val}<br>
-                💰 <b>விலை/தொகை:</b> ₹{price_val}<br>
-                📚 <b>நூலகங்களின் எண்ணிக்கை (அனுமதிக்கப்பட்டது):</b> {orig_qty}
-            </div>
-            """, unsafe_allow_html=True)
-            
-            with st.form("verify_single_form"):
-                rec_qty = st.number_input("பெறப்பட்ட புத்தகங்களின் எண்ணிக்கை (Received Quantity)", min_value=0, max_value=orig_qty, value=orig_qty, step=1)
-                submitted_rec = st.form_submit_button("💾 இந்தத் தலைப்பைச் சரிபார்த்துச் சேமி", use_container_width=True)
-                
-                if submitted_rec:
-                    st.session_state["verified_records"].append({
-                        "தலைப்பு": b_row["தலைப்பு"],
-                        "பதிப்பகம்": b_row["பதிppகம்"] if "பதிppகம்" in b_row else b_row["பதிப்பகம்"],
-                        "ஆசிரியர்": author_val,
-                        "ISBN": isbn_val,
-                        "மொழி": b_row[c_lang],
-                        "விலை": price_val,
-                        "அனுமதிக்கப்பட்ட எண்ணிக்கை": orig_qty,
-                        "பெறப்பட்ட எண்ணிக்கை": rec_qty,
-                        "பெறப்படாத எண்ணிக்கை": orig_qty - rec_qty,
-                        "தேதி": datetime.now().strftime("%d-%m-%Y %H:%M:%S")
-                    })
-                    st.success(f"✅ '{b_row['தலைப்பு']}' வெற்றிகரமாகச் சேமிக்கப்பட்டது!")
-                    st.rerun()
-    else:
-        st.info("ℹ️ தேர்ந்தெடுக்கப்பட்ட பதிப்பகத்திற்குப் புத்தகங்கள் எதுவும் கிடைக்கவில்லை.")
-        
-    if st.session_state["verified_records"]:
-        st.markdown("---")
-        st.subheader("📋 இதுவரை சரிபார்க்கப்பட்ட நூல்களின் தற்காலிகப் பட்டியல்")
-        v_df = pd.DataFrame(st.session_state["verified_records"])
-        st.dataframe(v_df, use_container_width=True, hide_index=True)
-        
-        if st.button("🗑️ தற்காலிகப் பட்டியலை முழுமையாக அழிக்க", use_container_width=True):
-            st.session_state["verified_records"] = []
-            st.rerun()
+elif current == "📤 அனுப்ப":
+    st.subheader("📤 நூல்களை அனுப்பும் பகுதி (Dispatch)")
+    st.info("நூலகங்களுக்கு நூல்களை அனுப்பும் விவரங்களை இங்கே பதிவிடலாம்.")
 
-elif len(menu_items) > 1 and st.session_state["current_page"] == menu_items[1]:
-    st.subheader("🏢 சரிபார்க்கப்பட்ட பதிப்பாளர் வாரியான அறிக்கைகள்")
-    if not st.session_state["verified_records"]:
-        st.info("ℹ️ இதுவரை எந்தப் பதிப்பக நூல்களும் சரிபார்க்கப்பட்டுச் சேமிக்கப்படவில்லை. முதலாவது பக்கத்தில் சரிபார்க்கவும்.")
-    else:
-        v_df = pd.DataFrame(st.session_state["verified_records"])
-        verified_publishers = sorted(v_df["பதிப்பகம்"].dropna().unique().tolist())
-        
-        selected_v_pub = st.selectbox(
-            "🔎 சரிபார்க்கப்பட்ட பதிப்பாளரைத் தேர்ந்தெடுக்கவும்:",
-            ["-- தேர்ந்தெடுக்கவும் --"] + verified_publishers,
-            key="verified_pub_filter"
-        )
-        
-        if selected_v_pub.startswith("-- தேர்ந்தெடுக்கவும் --"):
-            filtered_v_df = v_df
-            file_prefix = "All_Verified_Publishers"
-        else:
-            filtered_v_df = v_df[v_df["பதிப்பகம்"] == selected_v_pub]
-            file_prefix = safe_name(selected_v_pub) + "_Verified_Report"
-            
-        st.markdown(f"**தேர்ந்தெடுக்கப்பட்ட பதிப்பகத்தின் சரிபார்க்கப்பட்ட விவரங்கள் ({len(filtered_v_df)} தலைப்புகள்):**")
-        st.dataframe(filtered_v_df, use_container_width=True, hide_index=True)
-        
-        download_excel_csv_panel(filtered_v_df, file_prefix, "Verified Books Report")
+elif current == "📊 அறிக்கைகள்":
+    st.subheader("📊 அறிக்கைகள் (Reports)")
+    st.info("தேவையான அனைத்து அறிக்கைகளையும் இங்கு பார்வையிடலாம் மற்றும் பதிவிறக்கலாம்.")
+
+elif current == "⚠️ கவனிக்க":
+    st.subheader("⚠️ கவனிக்க — ஒரே தலைப்பில் வேறு விலைகள் உள்ளவை (Dashboard)")
+    st.markdown("""
+    * **1001 அரேபிய இரவுகள் - தொகுதி 1** (₹380 | ₹510 | ₹530)
+    * **21-ம் நூற்றாண்டின் அறிவியல் அதிசயங்கள்** (₹100 | ₹280)
+    * **A JOURNEY TO THE CENTRE OF THE EARTH** (₹109 | ₹99)
+    * **A Modern Approach To Verbal & Non-Verbal Reasoning: Tamil Edition** (₹725 | ₹899)
+    """)
+
+elif current == "🔢 பதிவெண் மாற்ற":
+    st.subheader("🔢 பதிவெண் மாற்றும் பகுதி (Change Registration No)")
+    st.info("நூல்களின் பதிவெண்களைத் திருத்தம் செய்ய அல்லது மாற்ற.")
+
+elif current == "🗂️ Master Data":
+    st.subheader("🗂️ Master Data மேலாண்மை")
+    st.info("அடிப்படைத் தரவுகளைச் சேமிக்கவும் நிர்வகிக்கவும்.")
+
+elif current == "❌ தவறான பதிவு நீக்கம்":
+    st.subheader("❌ தவறான பதிவினை நீக்குதல் (Delete Invalid Records)")
+    st.info("தவறாகப் பதிவு செய்யப்பட்ட தரவுகளை நீக்க.")
+
+elif current == "🔑 கடவுச்சொல் மாற்ற":
+    st.subheader("🔑 கடவுச்சொல் மாற்றும் பகுதி (Change Password)")
+    st.info("பயனர் கடவுச்சொல்லைப் புதுப்பிக்க.")
+
+elif current == "📥 Excel பதிவிறக்கம்":
+    st.subheader("📥 Excel அறிக்கை பதிவிறக்கம்")
+    st.info("தேவையான தரவுகளை Excel வடிவில் பதிவிறக்கம் செய்ய.")
+
+elif current == "👥 நூலகர் பார்வை ஆண்டு":
+    st.subheader("👥 நூலகர் பார்வை ஆண்டு விவரங்கள்")
+    st.info("நூலகர்களின் பார்வைக் காலங்களை நிர்வகிக்க.")
+
+elif current == "📂 Excel அப்லோடு":
+    st.subheader("📂 புதிய Excel தரவு பதிவேற்றம் (Excel Upload)")
+    st.info("புதிய தரவுத் தொகுப்புகளை Excel மூலம் பதிவேற்றுக.")
+
+elif current == "🏷️ பகுப்பு எண் புதுப்பி":
+    st.subheader(f"🏷️ பகுப்பு எண் புதுப்பித்தல் — {st.session_state['sub_menu']}")
+    st.success(f"தங்கள் தேர்வு: {st.session_state['sub_menu']} பகுப்புக்கான விபரங்களை இங்கே உள்ளிடலாம்/புதுப்பிக்கலாம்.")
