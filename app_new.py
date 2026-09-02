@@ -156,12 +156,12 @@ if current is None:
 elif current == "பிரிக்க":
     st.subheader("🔀 நூல்களைப் பிரிக்கும் பகுதி (Publisher-wise Book Distribution)")
     
-    @st.cache_data
+   @st.cache_data
     def load_neon_database():
         try:
             import psycopg2
-            # உங்கள் Neon Database-ன் நேரடி Connection URL-ஐ இங்கே ஒட்டவும்
-            db_url = "postgresql://neondb_owner:npg_NEqeOTXak5v7@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+            # உங்கள் Neon Database-ன் நேரடி Connection URL-ஐ இங்கே கொடுக்கவும்
+            db_url = "postgresql://neondb_owner:npg_gY5h1PjZtXvK@ep-super-pond-a50s70up.us-east-2.aws.neon.tech/neondb?sslmode=require"
             
             conn = psycopg2.connect(db_url)
             df = pd.read_sql("SELECT * FROM books;", con=conn)
@@ -173,9 +173,6 @@ elif current == "பிரிக்க":
             st.warning(f"⚠️ டேட்டாபேஸ் இணைப்பில் சிறு சிக்கல்: {e}")
         
         return pd.DataFrame()
-
-    neon_df = load_neon_database()
-
     if neon_df.empty or "publisher" not in neon_df.columns:
         st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை. Streamlit Secrets-ல் [connections.postgresql] சரியாக உள்ளதா எனச் சரிபார்க்கவும்.")
     else:
