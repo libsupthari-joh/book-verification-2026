@@ -191,17 +191,22 @@ elif current == "பிரிக்க":
         )
 
         if selected_publisher != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+            # பதிப்பகம் மாறியவுடன் தற்காலிகப் பட்டியலைச் சரிபார்த்து வேறு பதிப்பகமாக இருந்தால் சுத்தப்படுத்தல்
+            if st.session_state["temp_distributed_list"] and st.session_state["temp_distributed_list"][0]["Publisher"] != selected_publisher:
+                st.session_state["temp_distributed_list"] = []
+
             pub_filtered_df = neon_df[neon_df[pub_col] == selected_publisher].copy()
             
+            total_pub_titles_count = len(pub_filtered_df[title_col].dropna().unique())
             submitted_titles = [item["Title"] for item in st.session_state["submitted_reports"] if item["Publisher"] == selected_publisher]
-            pub_filtered_df = pub_filtered_df[~pub_filtered_df[title_col].isin(submitted_titles)]
             
+            pub_filtered_df = pub_filtered_df[~pub_filtered_df[title_col].isin(submitted_titles)]
             all_titles = sorted(pub_filtered_df[title_col].dropna().unique().tolist())
 
             if not all_titles:
-                st.success(f"🎉 '{selected_publisher}' பதிப்பகத்தில் உள்ள அனைத்து நூல்களும் ஏற்கனவே வெற்றிகரமாகப் பிரிக்கப்பட்டுவிட்டன!")
+                st.success(f"🎉 '{selected_publisher}' பதிப்பகத்தில் உள்ள அனைத்து நூல்களும் ({total_pub_titles_count} தலைப்புகள்) ஏற்கனவே முழுமையாகச் சரிபார்க்கப்பட்டு சமர்ப்பிக்கப்பட்டுவிட்டன!")
             else:
-                st.markdown(f"### 🏢 பதிப்பகம்: {selected_publisher} (மீதமுள்ள தலைப்புகள்: {len(all_titles)})")
+                st.markdown(f"### 🏢 பதிப்பகம்: {selected_publisher} (மீதமுள்ள தலைப்புகள்: {len(all_titles)} / மொத்தம்: {total_pub_titles_count})")
 
                 selected_title = st.selectbox(
                     "📖 2. தலைப்பைத் தேர்ந்தெடுக்கவும் (Select Book Title):",
@@ -250,7 +255,9 @@ elif current == "பிரிக்க":
                                 "Received Qty": entered_qty,
                                 "Date": datetime.now().strftime("%Y-%m-%d %H:%M")
                             }
-                            st.session_state["temp_distributed_list"].append(entry_data)
+                            # ஏற்கனவே தற்காலிகப் பட்டியலில் இல்லையென்றால் மட்டும் சேர்க்கவும்
+                            if not any(item["Title"] == selected_title for item in st.session_state["temp_distributed_list"]):
+                                st.session_state["temp_distributed_list"].append(entry_data)
                             st.success(f"✅ '{selected_title}' தற்காலிக பட்டியலில் வெற்றிகரமாகச் சேர்க்கப்பட்டது!")
                             st.rerun()
 
@@ -260,12 +267,20 @@ elif current == "பிரிக்க":
                     temp_df = pd.DataFrame(st.session_state["temp_distributed_list"])
                     st.dataframe(temp_df, use_container_width=True)
                     
-                    if st.button("💾 இறுதியாகச் சேமி & சமர்ப்பించు", type="primary"):
-                        st.session_state["submitted_reports"].extend(st.session_state["temp_distributed_list"])
-                        st.session_state["temp_distributed_list"] = []
-                        st.session_state["current_menu"] = "அறிக்கைகள்"
-                        st.success("🎉 தரவுகள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
-                        st.rerun()
+                    # இந்த பதிப்பகத்தின் அனைத்துத் தலைப்புகளும் தற்காலிகப் பட்டியலில் வந்துவிட்டதா எனச் சரிபார்த்தல்
+                    temp_titles_count = len(temp_df)
+                    remaining_check = total_pub_titles_count - temp_titles_count
+
+                    if remaining_check > 0:
+                        st.warning(f"⚠️ இப்பதப்பகத்தில் இன்னும் **{remaining_check}** தலைப்புகள் சரிபார்க்கப்பட வேண்டியுள்ளது. அனைத்துத் தலைப்புகளையும் சரிபார்த்த பின்னரே இறுதிப் பட்டியல் சமர்ப்பிக்க இயலும்!")
+                    else:
+                        st.success("🎉 இந்தப் பதிப்பகத்தில் உள்ள அனைத்துத் தலைப்புகளும் சரிபார்க்கப்பட்டுவிட்டன! இப்போது இறுதியாகச் சமர்ப்பிக்கலாம்.")
+                        if st.button("💾 இறுதியாகச் சேமி & சமர்ப்பించు", type="primary"):
+                            st.session_state["submitted_reports"].extend(st.session_state["temp_distributed_list"])
+                            st.session_state["temp_distributed_list"] = []
+                            st.session_state["current_menu"] = "அறிக்கைகள்"
+                            st.success("🎉 தரவுகள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
+                            st.rerun()
 
 elif current == "அனுப்ப":
     st.subheader("📤 நூல்களை அனுப்பும் பகுதி (Dispatch)")
@@ -279,7 +294,6 @@ elif current == "அறிக்கைகள்":
     else:
         full_report_df = pd.DataFrame(st.session_state["submitted_reports"])
         
-        # பதிப்பக வாரியாக வடிகட்டும் வசதி (Filter by Publisher)
         unique_report_publishers = ["-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --"] + sorted(full_report_df["Publisher"].dropna().unique().tolist())
         selected_report_pub = st.selectbox("🔍 பதிப்பகம் வாரியாக வடிகட்டுக (Filter by Publisher):", unique_report_publishers)
         
@@ -292,7 +306,6 @@ elif current == "அறிக்கைகள்":
             
         st.dataframe(display_df, use_container_width=True)
         
-        # பதிவிறக்க பொத்தான்கள்
         col_dl1, col_dl2 = st.columns(2)
         with col_dl1:
             csv_all = full_report_df.to_csv(index=False).encode('utf-8-sig')
