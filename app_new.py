@@ -193,7 +193,6 @@ elif current == "பிரிக்க":
         if selected_publisher != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
             pub_filtered_df = neon_df[neon_df[pub_col] == selected_publisher].copy()
             
-            # ஏற்கனவே சமர்ப்பிக்கப்பட்ட தலைப்புகளை இந்த பதிப்பகத்திலிருந்து நீக்குதல்
             submitted_titles = [item["Title"] for item in st.session_state["submitted_reports"] if item["Publisher"] == selected_publisher]
             pub_filtered_df = pub_filtered_df[~pub_filtered_df[title_col].isin(submitted_titles)]
             
@@ -264,7 +263,6 @@ elif current == "பிரிக்க":
                     if st.button("💾 இறுதியாகச் சேமி & சமர்ப்பించు", type="primary"):
                         st.session_state["submitted_reports"].extend(st.session_state["temp_distributed_list"])
                         st.session_state["temp_distributed_list"] = []
-                        # நேரடியாக அறிக்கைகள் பக்கத்திற்குத் திருப்புதல்
                         st.session_state["current_menu"] = "அறிக்கைகள்"
                         st.success("🎉 தரவுகள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
                         st.rerun()
@@ -279,18 +277,43 @@ elif current == "அறிக்கைகள்":
     if not st.session_state["submitted_reports"]:
         st.info("ℹ️ இதுவரை சமர்ப்பிக்கப்பட்ட தரவுகள் எதுவும் இல்லை. 'பிரிக்க' மெனுவில் தரவுகளைச் சேமிக்கவும்.")
     else:
-        report_df = pd.DataFrame(st.session_state["submitted_reports"])
-        st.markdown(f"**மொத்தப் பதிவு செய்யப்பட்ட தலைப்புகள்:** {len(report_df)}")
-        st.dataframe(report_df, use_container_width=True)
+        full_report_df = pd.DataFrame(st.session_state["submitted_reports"])
         
-        csv_data = report_df.to_csv(index=False).encode('utf-8-sig')
-        st.download_button(
-            label="📥 இந்த அறிக்கையை CSV/Excel வடிவில் பதிவிறக்குக",
-            data=csv_data,
-            file_name=f"Books_Verification_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-            mime="text/csv",
-            type="primary"
-        )
+        # பதிப்பக வாரியாக வடிகட்டும் வசதி (Filter by Publisher)
+        unique_report_publishers = ["-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --"] + sorted(full_report_df["Publisher"].dropna().unique().tolist())
+        selected_report_pub = st.selectbox("🔍 பதிப்பகம் வாரியாக வடிகட்டுக (Filter by Publisher):", unique_report_publishers)
+        
+        if selected_report_pub != "-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --":
+            display_df = full_report_df[full_report_df["Publisher"] == selected_report_pub].reset_index(drop=True)
+            st.markdown(f"### 🏢 பதிப்பகம்: {selected_report_pub} (பதிவு செய்யப்பட்ட தலைப்புகள்: {len(display_df)})")
+        else:
+            display_df = full_report_df
+            st.markdown(f"**மொத்தப் பதிவு செய்யப்பட்ட தலைப்புகள்:** {len(display_df)}")
+            
+        st.dataframe(display_df, use_container_width=True)
+        
+        # பதிவிறக்க பொத்தான்கள்
+        col_dl1, col_dl2 = st.columns(2)
+        with col_dl1:
+            csv_all = full_report_df.to_csv(index=False).encode('utf-8-sig')
+            st.download_button(
+                label="📥 அனைத்துப் பதிப்பக அறிக்கையையும் பதிவிறக்குக",
+                data=csv_all,
+                file_name=f"All_Publishers_Verification_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                mime="text/csv",
+                type="primary",
+                use_container_width=True
+            )
+        with col_dl2:
+            if selected_report_pub != "-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --":
+                csv_single = display_df.to_csv(index=False).encode('utf-8-sig')
+                st.download_button(
+                    label=f"📥 '{selected_report_pub}' அறிக்கையைமட்டும் பதிவிறக்குக",
+                    data=csv_single,
+                    file_name=f"{selected_report_pub}_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
 
 elif current == "கவனிக்க":
     st.subheader("⚠️ கவனிக்க — ஒரே தலைப்பில் வேறு விலைகள் உள்ளவை")
@@ -298,7 +321,7 @@ elif current == "கவனிக்க":
 
 elif current == "பதிவெண் மாற்ற":
     st.subheader("🔢 பதிவெண் மாற்றும் பகுதி")
-    st.info("நூல்களின் பதிவெண்களைத் திருத்தம் செய்ய.")
+    st.info("நூலகர்களின் பதிவெண்களைத் திருத்தம் செய்ய.")
 
 elif current == "Master Data":
     st.subheader("🗂️ Master Data மேலாண்மை")
