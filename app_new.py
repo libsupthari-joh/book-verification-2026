@@ -88,58 +88,37 @@ html, body, [class*="css"] {
     font-weight: 800;
 }
 
-/* 3D Colorful Custom Menu Cards (High Contrast & Visible Text) */
-.menu-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 10px 4px;
-    border-radius: 10px;
-    color: #ffffff !important;
-    font-weight: 800;
-    font-size: 12px;
-    text-align: center;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2), inset 0 2px 3px rgba(255, 255, 255, 0.4);
-    cursor: pointer;
-    transition: all 0.2s ease-in-out;
-    min-height: 60px;
-    line-height: 1.3;
-    word-break: break-word;
-}
-
-.menu-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3), inset 0 2px 3px rgba(255, 255, 255, 0.6);
-}
-
-/* Streamlit Native Button Override to Force Text Visibility */
+/* Perfect 3D Menu Buttons Container using Native Streamlit Buttons with Forced Styling */
 div.stButton > button {
     border-radius: 10px !important;
     font-weight: 800 !important;
-    font-size: 11px !important;
+    font-size: 12px !important;
     min-height: 55px !important;
-    color: #ffffff !important;
-    border: none !important;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.6) !important;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2), inset 0 2px 3px rgba(255, 255, 255, 0.4) !important;
-    white-space: pre-wrap !important;
-    word-wrap: break-word !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 2px solid #cbd5e1 !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08) !important;
+    transition: all 0.2s ease-in-out;
 }
 
-/* High Contrast Vibrant Gradient Colors for Each Button */
-.btn-0 > button { background: linear-gradient(135deg, #1e40af, #1d4ed8) !important; }
-.btn-1 > button { background: linear-gradient(135deg, #065f46, #047857) !important; }
-.btn-2 > button { background: linear-gradient(135deg, #5b21b6, #6d28d9) !important; }
-.btn-3 > button { background: linear-gradient(135deg, #9a3412, #c2410c) !important; }
-.btn-4 > button { background: linear-gradient(135deg, #0e7490, #0284c7) !important; }
-.btn-5 > button { background: linear-gradient(135deg, #9d174d, #be185d) !important; }
-.btn-6 > button { background: linear-gradient(135deg, #991b1b, #b91c1c) !important; }
-.btn-7 > button { background: linear-gradient(135deg, #115e59, #0f766e) !important; }
-.btn-8 > button { background: linear-gradient(135deg, #3730a3, #4338ca) !important; }
-.btn-9 > button { background: linear-gradient(135deg, #3f6212, #4d7c0f) !important; }
-.btn-10 > button { background: linear-gradient(135deg, #854d0e, #a16207) !important; }
-.btn-11 > button { background: linear-gradient(135deg, #4c1d95, #5b21b6) !important; }
+div.stButton > button:hover {
+    transform: translateY(-2px);
+    border-color: #064e3b !important;
+    color: #064e3b !important;
+    box-shadow: 0 6px 12px rgba(6, 78, 59, 0.2) !important;
+}
+
+/* Logout Button Special Styling */
+.logout-btn div.stButton > button {
+    background: #fee2e2 !important;
+    color: #991b1b !important;
+    border: 2px solid #fca5a5 !important;
+}
+.logout-btn div.stButton > button:hover {
+    background: #fecaca !important;
+    color: #7f1d1d !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -249,12 +228,14 @@ st.markdown("""
 
 col_logout = st.columns([11, 1])
 with col_logout[1]:
+    st.markdown('<div class="logout-btn">', unsafe_allow_html=True)
     if st.button("🚪 வெளியேறு", use_container_width=True):
         st.query_params.clear()
         st.session_state.clear()
         st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# --- Menu Items List in Single Straight Line with Clear Visible Colors ---
+# --- Menu Items List in Single Straight Line with Clear Visible Text ---
 menu_options = [
     ("🔀", "பிரிக்க"),
     ("📤", "அனுப்ப"),
@@ -273,11 +254,11 @@ menu_options = [
 cols = st.columns(len(menu_options))
 for i, (icon, label) in enumerate(menu_options):
     with cols[i]:
-        st.markdown(f'<div class="btn-{i}">', unsafe_allow_html=True)
-        if st.button(f"{icon}\n{label}", key=f"menu_item_{i}", use_container_width=True):
+        is_active = st.session_state["current_menu"] == label
+        btn_label = f"{icon} {label}"
+        if st.button(btn_label, key=f"menu_item_{i}", use_container_width=True, type="primary" if is_active else "secondary"):
             st.session_state["current_menu"] = label
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown("---")
 
