@@ -55,15 +55,22 @@ html, body, [class*="css"] {
     font-weight: 600;
 }
 
-/* Compact Login Card Styling */
+/* Fixed Compact Login Card Container */
+.login-outer-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 80vh;
+}
+
 .login-card-wrapper {
     background: #ffffff;
     border-radius: 16px;
-    padding: 25px 20px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    padding: 25px 30px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
     border: 1.5px solid #a7f3d0;
-    max-width: 380px;
-    margin: 30px auto;
+    width: 100%;
+    max-width: 420px;
 }
 
 .login-header-box {
@@ -81,38 +88,37 @@ html, body, [class*="css"] {
     font-weight: 800;
 }
 
-/* 3D Colorful Menu Buttons with Clear Text Styling */
+/* 3D Colorful Menu Buttons with Dark Visible Text */
 div.stButton > button {
     border-radius: 10px !important;
     font-weight: 700 !important;
-    font-size: 13px !important;
+    font-size: 12px !important;
     min-height: 52px !important;
-    color: #ffffff !important;
+    color: #111827 !important;
     border: none !important;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.12), inset 0 2px 4px rgba(255, 255, 255, 0.3) !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), inset 0 2px 4px rgba(255, 255, 255, 0.6) !important;
     transition: all 0.2s ease-in-out;
 }
 
 div.stButton > button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2), inset 0 2px 4px rgba(255, 255, 255, 0.4) !important;
-    color: #ffffff !important;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15), inset 0 2px 4px rgba(255, 255, 255, 0.8) !important;
+    color: #000000 !important;
 }
 
-/* Vibrant 3D Button Colors */
-.btn-0 > button { background: linear-gradient(135deg, #2563eb, #1d4ed8) !important; }
-.btn-1 > button { background: linear-gradient(135deg, #059669, #047857) !important; }
-.btn-2 > button { background: linear-gradient(135deg, #7c3aed, #6d28d9) !important; }
-.btn-3 > button { background: linear-gradient(135deg, #d97706, #b45309) !important; }
-.btn-4 > button { background: linear-gradient(135deg, #0891b2, #0e7490) !important; }
-.btn-5 > button { background: linear-gradient(135deg, #db2777, #be185d) !important; }
-.btn-6 > button { background: linear-gradient(135deg, #dc2626, #b91c1c) !important; }
-.btn-7 > button { background: linear-gradient(135deg, #0d9488, #0f766e) !important; }
-.btn-8 > button { background: linear-gradient(135deg, #4f46e5, #4338ca) !important; }
-.btn-9 > button { background: linear-gradient(135deg, #65a30d, #4d7c0f) !important; }
-.btn-10 > button { background: linear-gradient(135deg, #ea580c, #c2410c) !important; }
-.btn-11 > button { background: linear-gradient(135deg, #ca8a04, #a16207) !important; }
+/* Beautiful Pastel 3D Button Colors with High Contrast */
+.btn-0 > button { background: linear-gradient(135deg, #93c5fd, #60a5fa) !important; }
+.btn-1 > button { background: linear-gradient(135deg, #86efac, #4ade80) !important; }
+.btn-2 > button { background: linear-gradient(135deg, #c4b5fd, #a78bfa) !important; }
+.btn-3 > button { background: linear-gradient(135deg, #fde047, #facc15) !important; }
+.btn-4 > button { background: linear-gradient(135deg, #67e8f9, #22d3ee) !important; }
+.btn-5 > button { background: linear-gradient(135deg, #f472b6, #ec4899) !important; }
+.btn-6 > button { background: linear-gradient(135deg, #fca5a5, #f87171) !important; }
+.btn-7 > button { background: linear-gradient(135deg, #5eead4, #2dd4bf) !important; }
+.btn-8 > button { background: linear-gradient(135deg, #818cf8, #6366f1) !important; }
+.btn-9 > button { background: linear-gradient(135deg, #bef264, #a3e635) !important; }
+.btn-10 > button { background: linear-gradient(135deg, #fdba74, #fb923c) !important; }
+.btn-11 > button { background: linear-gradient(135deg, #fde047, #eab308) !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -172,11 +178,12 @@ def show_login_page():
     <style>
     .stApp { background: linear-gradient(135deg, #064e3b, #022c22) !important; }
     </style>
-    <div class="login-card-wrapper">
-        <div class="login-header-box">
-            <div style="font-size: 26px; margin-bottom: 4px;">📚</div>
-            <div class="login-title">மாவட்ட மைய நூலகம்<br>கிருஷ்ணகிரி</div>
-        </div>
+    <div class="login-outer-container">
+        <div class="login-card-wrapper">
+            <div class="login-header-box">
+                <div style="font-size: 24px; margin-bottom: 2px;">📚</div>
+                <div class="login-title">மாவட்ட மைய நூலகம்<br>கிருஷ்ணகிரி</div>
+            </div>
     """, unsafe_allow_html=True)
     
     with st.form("secure_login_form"):
@@ -184,7 +191,7 @@ def show_login_page():
         password = st.text_input("🔑 கடவுச்சொல்", type="password", placeholder="கடவுச்சொல்லை உள்ளிடவும்")
         submitted = st.form_submit_button("உள்ளுழை", use_container_width=True)
         
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div></div>", unsafe_allow_html=True)
     
     if submitted:
         if selected_role == "-- தேர்ந்தெடுக்கவும் --":
