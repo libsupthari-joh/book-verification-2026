@@ -4,6 +4,7 @@ import io
 import os
 import re
 import secrets as py_secrets
+from datetime import datetime
 import pandas as pd
 import streamlit as st
 
@@ -88,7 +89,7 @@ html, body, [class*="css"] {
     font-weight: 800;
 }
 
-/* Custom HTML Menu Buttons Styling (Full Text Visibility Guaranteed) */
+/* Custom HTML Menu Buttons Styling */
 .custom-menu-btn {
     display: block;
     width: 100%;
@@ -124,7 +125,7 @@ html, body, [class*="css"] {
     box-shadow: 0 0 12px rgba(30, 64, 175, 0.5);
 }
 
-/* Logout Button Special Unique Color (Red/Maroon Gradient) */
+/* Logout Button Special Unique Color */
 .logout-custom-btn {
     display: block;
     width: 100%;
@@ -146,6 +147,29 @@ html, body, [class*="css"] {
     transform: translateY(-2px);
     box-shadow: 0 6px 12px rgba(185, 28, 28, 0.4);
     color: white !important;
+}
+
+/* Live Stats Bar Styling */
+.live-stats-container {
+    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+    border: 1.5px solid #86efac;
+    padding: 12px 20px;
+    border-radius: 10px;
+    color: #065f46;
+    font-weight: 700;
+    font-size: 13px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-around;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 2px 8px rgba(6, 95, 70, 0.08);
+    margin-bottom: 20px;
+}
+.live-stats-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -272,7 +296,7 @@ with col_logout[1]:
     current_token = make_session_token(current_role)
     st.markdown(f'<a href="?role={current_role}&token={current_token}&logout=true" target="_self" class="logout-custom-btn">🚪 வெளியேறு</a>', unsafe_allow_html=True)
 
-# --- Menu Items List in Single Straight Line with Full Text Wrapping & Green Color ---
+# --- Menu Items List in Single Straight Line ---
 menu_options = [
     ("🔀", "பிரிக்க"),
     ("📤", "அனுப்ப"),
@@ -306,7 +330,25 @@ for i, (icon, label_html) in enumerate(menu_options):
             unsafe_allow_html=True
         )
 
+# --- Horizontal Divider Line ---
 st.markdown("---")
+
+# --- Live Statistics Bar ---
+today_str = datetime.now().strftime("%d/%m/%Y")
+st.markdown(f"""
+<div class="live-stats-container">
+    <div class="live-stats-item">🔴 <b>Live</b></div>
+    <div class="live-stats-item">📚 பெறப்பட்ட நூல்கள் : <b>45,305</b></div>
+    <div class="live-stats-item">◆</div>
+    <div class="live-stats-item">✅ பிரிக்கப்பட்டது : <b>2</b></div>
+    <div class="live-stats-item">◆</div>
+    <div class="live-stats-item">⏳ மீதம் பிரிக்க வேண்டியது : <b>45,303</b></div>
+    <div class="live-stats-item">◆</div>
+    <div class="live-stats-item">📤 அனுப்பப்பட்டது : <b>0</b></div>
+    <div class="live-stats-item">◆</div>
+    <div class="live-stats-item">🗓️ இன்று ({today_str}) பிரிக்கப்பட்டது : <b>0</b></div>
+</div>
+""", unsafe_allow_html=True)
 
 # Sub-menu for 'பகுப்பு எண் புதுப்பி'
 if st.session_state["current_menu"] == "🏷️ பகுப்பு எண் புதுப்பி":
