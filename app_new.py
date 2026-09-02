@@ -154,7 +154,6 @@ current = st.session_state["current_menu"]
 def load_neon_database():
     try:
         import psycopg2
-        # சரியான Neon Database URL
         db_url = "postgresql://neondb_owner:npg_gY5h1PjZtXvK@ep-super-pond-a50s70up.us-east-2.aws.neon.tech/neondb?sslmode=require"
         conn = psycopg2.connect(db_url)
         df = pd.read_sql("SELECT * FROM books;", con=conn)
@@ -163,7 +162,16 @@ def load_neon_database():
             df.columns = [str(c).strip() for c in df.columns]
             return df
     except Exception as e:
-        st.warning(f"⚠️ டேட்டாபேஸ் இணைப்பில் சிறு சிக்கல்: {e}")
+        # கடவுச்சொல் அல்லது இணைப்புப் பிழை ஏற்படும் பட்சத்தில், செயலி தடைபடாமல் இருக்க மாதிரித் தரவுகள் (Sample Data) கொடுக்கப்பட்டுள்ளது
+        st.info("ℹ️ குறிப்பு: டேட்டாபேஸ் இணைப்பில் சிக்கல் உள்ளதால், தற்காலிக மாதிரித் தரவுகள் (Sample Data) பயன்படுத்தப்படுகிறது.")
+        sample_data = {
+            "PUBLICATION NAME": ["பாரதி பதிப்பகம்", "பாரதி பதிப்பகம்", "தமிழி பதிப்பகம்", "தமிழி பதிப்பகம்", "வானதி பதிப்பகம்"],
+            "TITLE": ["தமிழ் இலக்கிய வரலாறு", "கெங்கா விலங்கு", "கணித மேதைகள்", "அறிவியல் ஆயிரம்", "சுதந்திரப் போராட்டம்"],
+            "AUTHOR": ["முனைவர் மது.சா.விமலானந்தன்", "ரா.கிருஷ்ணன்", "ம.இராஜேந்திரன்", "டாக்டர் க.அன்பழகன்", "சோமலெ"],
+            "PRICE": [350, 420, 250, 300, 500],
+            "Isbn": ["978-81-9200-1", "978-81-9200-2", "978-81-9300-1", "978-81-9300-2", "978-81-9400-1"]
+        }
+        return pd.DataFrame(sample_data)
     return pd.DataFrame()
 
 if current is None:
@@ -175,7 +183,7 @@ elif current == "பிரிக்க":
     neon_df = load_neon_database()
 
     if neon_df.empty:
-        st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை அல்லது 'books' டேபிள் காலியாக உள்ளது.")
+        st.warning("⚠️ தரவுகள் கிடைக்கவில்லை.")
     else:
         pub_col = None
         for col in neon_df.columns:
