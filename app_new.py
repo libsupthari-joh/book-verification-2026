@@ -5,6 +5,7 @@ import secrets as py_secrets
 from datetime import datetime
 import pandas as pd
 import streamlit as st
+import psycopg2
 
 st.set_page_config(
     page_title="மாவட்ட மைய நூலகம், கிருஷ்ணகிரி",
@@ -16,19 +17,11 @@ st.set_page_config(
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@400;600;700;800&display=swap');
-
-html, body, [class*="css"] {
-    font-family: 'Noto Sans Tamil', sans-serif !important;
-}
-
-.stApp {
-    background: #f8fafc;
-}
-
+html, body, [class*="css"] { font-family: 'Noto Sans Tamil', sans-serif !important; }
+.stApp { background: #f8fafc; }
 [data-testid="stHeader"] { background: transparent; }
 [data-testid="stToolbar"] { visibility: hidden; }
 
-/* Top Header Bar */
 .top-header-container {
     background: linear-gradient(135deg, #064e3b, #022c22);
     padding: 16px 22px;
@@ -40,83 +33,14 @@ html, body, [class*="css"] {
     box-shadow: 0 4px 15px rgba(6,78,59,0.2);
     margin-bottom: 20px;
 }
-
-.header-title {
-    font-size: 20px;
-    font-weight: 800;
-    line-height: 1.3;
-    color: #ffffff;
-}
-
-.header-subtitle {
-    font-size: 13px;
-    color: #a7f3d0;
-    font-weight: 600;
-}
-
-/* Compact Top-Aligned Login Card */
-.login-top-container {
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    padding-top: 30px;
-}
-
-.login-card-wrapper {
-    background: #ffffff;
-    border-radius: 16px;
-    padding: 22px 25px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
-    border: 1.5px solid #a7f3d0;
-    width: 100%;
-    max-width: 380px;
-}
-
-.login-header-box {
-    text-align: center;
-    background: linear-gradient(135deg, #ecfdf5, #d1fae5);
-    border: 1.5px solid #a7f3d0;
-    border-radius: 10px;
-    padding: 10px;
-    margin-bottom: 12px;
-}
-
-.login-title {
-    color: #064e3b;
-    font-size: 15px;
-    font-weight: 800;
-}
-
-/* Running Live News Ticker Bar Styling */
-.ticker-container {
-    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
-    border: 1.5px solid #86efac;
-    padding: 8px 12px;
-    border-radius: 10px;
-    color: #065f46;
-    font-weight: 700;
-    font-size: 13px;
-    display: flex;
-    align-items: center;
-    box-shadow: 0 2px 8px rgba(6, 95, 70, 0.08);
-    margin-bottom: 20px;
-    overflow: hidden;
-    white-space: nowrap;
-}
-
-.ticker-badge {
-    background: #065f46;
-    color: white;
-    padding: 3px 10px;
-    border-radius: 6px;
-    font-size: 12px;
-    margin-right: 15px;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    flex-shrink: 0;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
+.header-title { font-size: 20px; font-weight: 800; color: #ffffff; }
+.header-subtitle { font-size: 13px; color: #a7f3d0; font-weight: 600; }
+.login-top-container { display: flex; justify-content: center; align-items: flex-start; padding-top: 30px; }
+.login-card-wrapper { background: #ffffff; border-radius: 16px; padding: 22px 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); border: 1.5px solid #a7f3d0; width: 100%; max-width: 380px; }
+.login-header-box { text-align: center; background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1.5px solid #a7f3d0; border-radius: 10px; padding: 10px; margin-bottom: 12px; }
+.login-title { color: #064e3b; font-size: 15px; font-weight: 800; }
+.ticker-container { background: linear-gradient(135deg, #f0fdf4, #dcfce7); border: 1.5px solid #86efac; padding: 8px 12px; border-radius: 10px; color: #065f46; font-weight: 700; font-size: 13px; display: flex; align-items: center; box-shadow: 0 2px 8px rgba(6, 95, 70, 0.08); margin-bottom: 20px; overflow: hidden; white-space: nowrap; }
+.ticker-badge { background: #065f46; color: white; padding: 3px 10px; border-radius: 6px; font-size: 12px; margin-right: 15px; display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -143,9 +67,7 @@ for key, default in {
 
 def show_login_page():
     st.markdown("""
-    <style>
-    .stApp { background: linear-gradient(135deg, #064e3b, #022c22) !important; }
-    </style>
+    <style>.stApp { background: linear-gradient(135deg, #064e3b, #022c22) !important; }</style>
     <div class="login-top-container">
         <div class="login-card-wrapper">
             <div class="login-header-box">
@@ -169,16 +91,13 @@ def show_login_page():
             if not user:
                 st.error("❌ தவறான கடவுச்சொல்!")
             else:
-                st.session_state.update(
-                    logged_in=True, user_role=selected_role, user_name=user["name"]
-                )
+                st.session_state.update(logged_in=True, user_role=selected_role, user_name=user["name"])
                 st.rerun()
 
 if not st.session_state["logged_in"]:
     show_login_page()
     st.stop()
 
-# --- Main Dashboard Header ---
 st.markdown("""
 <div class="top-header-container">
     <div>
@@ -193,27 +112,17 @@ st.markdown("""
 </div>
 """.format(st.session_state["user_name"], st.session_state["user_role"]), unsafe_allow_html=True)
 
-# Logout Button Column
 col_logout = st.columns([11, 1])
 with col_logout[1]:
     if st.button("🚪 வெளியேறு", use_container_width=True):
         st.session_state.clear()
         st.rerun()
 
-# --- Menu Buttons ---
 menu_options = [
-    ("🔀", "பிரிக்க"),
-    ("📤", "அனுப்ப"),
-    ("📊", "அறிக்கைகள்"),
-    ("⚠️", "கவனிக்க"),
-    ("🔢", "பதிவெண் மாற்ற"),
-    ("🗂️", "Master Data"),
-    ("❌", "தவறான பதிவு நீக்கம்"),
-    ("🔑", "கடவுச்சொல் மாற்ற"),
-    ("📥", "Excel பதிவிறக்கம்"),
-    ("👥", "நூலகர் பார்வை ஆண்டு"),
-    ("📂", "Excel அப்லோடு"),
-    ("🏷️", "பகுப்பு எண் புதுப்பி")
+    ("🔀", "பிரிக்க"), ("📤", "அனுப்ப"), ("📊", "அறிக்கைகள்"), ("⚠️", "கவனிக்க"),
+    ("🔢", "பதிவெண் மாற்ற"), ("🗂️", "Master Data"), ("❌", "தவறான பதிவு நீக்கம்"),
+    ("🔑", "கடவுச்சொல் மாற்ற"), ("📥", "Excel பதிவிறக்கம்"), ("👥", "நூலகர் பார்வை ஆண்டு"),
+    ("📂", "Excel அப்லோடு"), ("🏷️", "பகுப்பு எண் புதுப்பி")
 ]
 
 cols = st.columns(len(menu_options))
@@ -226,7 +135,6 @@ for i, (icon, label) in enumerate(menu_options):
 
 st.markdown("---")
 
-# --- Running Live News Ticker Bar ---
 today_str = datetime.now().strftime("%d/%m/%Y")
 st.markdown(f"""
 <div class="ticker-container">
@@ -252,7 +160,7 @@ elif current == "பிரிக்க":
     @st.cache_data
     def load_neon_database():
         try:
-            # உங்களுடைய Secrets அல்லது Environment variable-ல் உள்ள Neon DB இணைப்பைப் பெறுகிறோம்
+            # உங்கள் Neon Database URL-ஐ இங்கே நேரடியாக கொடுக்கவும் அல்லது secrets மூலம் பெறவும்
             conn_url = ""
             try:
                 conn_url = st.secrets.get("connections", {}).get("postgresql", {}).get("url", "")
@@ -262,37 +170,27 @@ elif current == "பிரிக்க":
             if not conn_url:
                 conn_url = os.getenv("NEON_DATABASE_URL", "")
 
+            # உங்கள் Neon Console ஸ்கிரீன்ஷாட்டில் உள்ளபடி சரியான டேபிள் பெயர் 'books'
             if conn_url:
                 df = pd.read_sql("SELECT * FROM books", con=conn_url)
                 if not df.empty:
                     return df
             
-            # இணைப்பில் தரவு கிடைக்கவில்லை எனில், சோதனைக் க்காக உங்கள் Neon Console-ல் உள்ளவாறான மாதிரித் தரவு (Fallback Mock Data)
-            return pd.DataFrame({
-                "publisher": ["ARIZONA", "ARIZONA", "ARIZONA", "TAMIL PUTHAKALAYAM", "TAMIL PUTHAKALAYAM"],
-                "title": ["ஒளவையாரின் நீதி நூல்கள்...", "ஒளவையாரின் நீதி நூல்கள்...", "ஒளவையாரின் நீதி நூல்கள்...", "தமிழ் இலக்கிய வரலாறு", "நவீன அறிவியல்"],
-                "author": ["செல்லூர் கண்ணன்", "செல்லூர் கண்ணன்", "செல்லூர் கண்ணன்", "மு. வரதராசனார்", "அப்துல் கலாம்"],
-                "isbn": ["9789390989263", "9789390989263", "9789390989263", "978194920229", "9789390989264"],
-                "price": [350, 380, 450, 300, 500],
-                "library_count": [112, 112, 112, 112, 112],
-                "category": ["இலக்கியம்", "இலக்கியம்", "இலக்கியம்", "இலக்கியம்", "அறிவியல்"]
-            })
+            # ஒருவேளை st.secrets-ல் கொடுக்கப்பட்டிருந்தால் நேரடியாக இணைக்க:
+            if "postgresql" in st.secrets:
+                db_url = st.secrets["postgresql"]["url"]
+                df = pd.read_sql("SELECT * FROM books", con=db_url)
+                return df
+
         except Exception as e:
-            st.warning(f"⚠️ டேட்டாபேஸ் இணைப்பில் சிறு சிக்கல்: {e}. மாதிரித் தரவுகள் காட்டப்படுகின்றன.")
-            return pd.DataFrame({
-                "publisher": ["ARIZONA", "TAMIL PUTHAKALAYAM"],
-                "title": ["ஒளவையாரின் நீதி நூல்கள்", "தமிழ் இலக்கிய வரலாறு"],
-                "author": ["செல்லூர் கண்ணன்", "மு. வரதராசனார்"],
-                "isbn": ["9789390989263", "978194920229"],
-                "price": [350, 300],
-                "library_count": [112, 112],
-                "category": ["இலக்கியம்", "இலக்கியம்"]
-            })
+            st.error(f"❌ Neon Database இணைப்புப் பிழை: {e}")
+        
+        return pd.DataFrame()
 
     neon_df = load_neon_database()
 
     if neon_df.empty or "publisher" not in neon_df.columns:
-        st.warning("⚠️ டேபிளில் இருந்து தரவுகள் கிடைக்கவில்லை.")
+        st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை. தயவுசெய்து Streamlit Secrets-ல் Neon DB URL சரியாக உள்ளதா எனச் சரிபார்க்கவும்.")
     else:
         all_publishers = sorted(neon_df["publisher"].dropna().unique().tolist())
 
@@ -318,7 +216,6 @@ elif current == "பிரிக்க":
                 
             lib_count = pub_filtered_df["library_count"].iloc[0] if "library_count" in pub_filtered_df.columns else 112
 
-            # --- Publisher Details Summary Box ---
             st.markdown(f"""
             <div style="background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border: 1.5px solid #34d399; padding: 16px; border-radius: 12px; margin: 15px 0; box-shadow: 0 4px 10px rgba(5,150,105,0.1);">
                 <div style="font-size: 15px; font-weight: 800; color: #064e3b; margin-bottom: 10px; border-bottom: 1px solid #6ee7b7; padding-bottom: 6px;">
