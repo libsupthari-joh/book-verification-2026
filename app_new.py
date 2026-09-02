@@ -371,7 +371,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Sub-menu for 'பகுப்பு எண் புதுப்பி'
-if st.session_state["current_menu"] == "🏷️ பகுப்பு எண் புதுப்பி":
+if st.session_state["current_menu"] == "பகுப்பு எண் புதுப்பி":
     st.markdown("### 🏷️ பகுப்பு எண் புதுப்பித்தல் துணை மெனு")
     sub_cols = st.columns(3)
     sub_menus = ["மாநில", "மாவட்ட", "கிளை"]
@@ -387,7 +387,7 @@ if st.session_state["current_menu"] == "🏷️ பகுப்பு எண் 
 # Content Display
 current = st.session_state["current_menu"]
 
-if current == "🔀 பிரிக்க":
+if current == "பிரிக்க":
     st.subheader("🔀 நூல்களைப் பிரிக்கும் பகுதி (Publisher-wise Book Distribution)")
     
     # Nano Table / Publisher Database Mock
@@ -401,7 +401,7 @@ if current == "🔀 பிரிக்க":
     
     pub_names = list(publishers_db.keys())
     
-    # Searchable Dropdown (Type to filter)
+    # Searchable Dropdown (Type to filter publisher names)
     selected_publisher = st.selectbox(
         "🔍 பதிப்பாளர் பெயரைத் தேர்ந்தெடுக்கவும் (பதிப்பகத்தின் முதல் எழுத்துக்களை உள்ளிடவும்):",
         ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + pub_names
@@ -451,15 +451,15 @@ if current == "🔀 பிரிக்க":
             if st.button("💾 சேமி & பிரிக்க", type="primary", use_container_width=True):
                 st.success("✅ தேர்ந்தெடுக்கப்பட்ட நூல்கள் வெற்றிகரமாகப் பிரிக்கப்பட்டு சேமிக்கப்பட்டன!")
 
-elif current == "📤 அனுப்ப":
+elif current == "அனுப்ப":
     st.subheader("📤 நூல்களை அனுப்பும் பகுதி (Dispatch)")
     st.info("நூலகங்களுக்கு நூல்களை அனுப்பும் விவரங்களை இங்கே பதிவிடலாம்.")
 
-elif current == "📊 அறிக்கைகள்":
+elif current == "அறிக்கைகள்":
     st.subheader("📊 அறிக்கைகள் (Reports)")
     st.info("தேவையான அனைத்து அறிக்கைகளையும் இங்கு பார்வையிடலாம் மற்றும் பதிவிறக்கலாம்.")
 
-elif current == "⚠️ கவனிக்க":
+elif current == "கவனிக்க":
     st.subheader("⚠️ கவனிக்க — ஒரே தலைப்பில் வேறு விலைகள் உள்ளவை (Dashboard)")
     st.markdown("""
     * **1001 அரேபிய இரவுகள் - தொகுதி 1** (₹380 | ₹510 | ₹530)
@@ -468,34 +468,34 @@ elif current == "⚠️ கவனிக்க":
     * **A Modern Approach To Verbal & Non-Verbal Reasoning: Tamil Edition** (₹725 | ₹899)
     """)
 
-elif current == "🔢 பதிவெண் மாற்ற":
+elif current == "பதிவெண் மாற்ற":
     st.subheader("🔢 பதிவெண் மாற்றும் பகுதி (Change Registration No)")
     st.info("நூல்களின் பதிவெண்களைத் திருத்தம் செய்ய அல்லது மாற்ற.")
 
-elif current == "🗂️ Master Data":
+elif current == "Master Data":
     st.subheader("🗂️ Master Data மேலாண்மை")
     st.info("அடிப்படைத் தரவுகளைச் சேமிக்கவும் நிர்வகிக்கவும்.")
 
-elif current == "❌ தவறான பதிவு நீக்கம்":
+elif current == "தவறான பதிவு நீக்கம்":
     st.subheader("❌ தவறான பதிவினை நீக்குதல் (Delete Invalid Records)")
     st.info("தவறாகப் பதிவு செய்யப்பட்ட தரவுகளை நீக்க.")
 
-elif current == "🔑 கடவுச்சொல் மாற்ற":
+elif current == "கடவுச்சொல் மாற்ற":
     st.subheader("🔑 கடவுச்சொல் மாற்றும் பகுதி (Change Password)")
     st.info("பயனர் கடவுச்சொல்லைப் புதுப்பிக்க.")
 
-elif current == "📥 Excel பதிவிறக்கம்":
+elif current == "Excel பதிவிறக்கம்":
     st.subheader("📥 Excel அறிக்கை பதிவிறக்கம்")
     st.info("தேவையான தரவுகளை Excel வடிவில் பதிவிறக்கம் செய்ய.")
 
-elif current == "👥 நூலகர் பார்வை ஆண்டு":
+elif current == "நூலகர் பார்வை ஆண்டு":
     st.subheader("👥 நூலகர் பார்வை ஆண்டு விவரங்கள்")
     st.info("நூலகர்களின் பார்வைக் காலங்களை நிர்வகிக்க.")
 
-elif current == "📂 Excel அப்லோடு":
+elif current == "Excel அப்லோடு":
     st.subheader("📂 புதிய Excel தரவு பதிவேற்றம் (Excel Upload)")
     st.info("புதிய தரவுத் தொகுப்புகளை Excel மூலம் பதிவேற்றுக.")
 
-elif current == "🏷️ பகுப்பு எண் புதுப்பி":
+elif current == "பகுப்பு எண் புதுப்பி":
     st.subheader(f"🏷️ பகுப்பு எண் புதுப்பித்தல் — {st.session_state['sub_menu']}")
     st.success(f"தங்கள் தேர்வு: {st.session_state['sub_menu']} பகுப்புக்கான விபரங்களை இங்கே உள்ளிடலாம்/புதுப்பிக்கலாம்.")
