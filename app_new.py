@@ -176,7 +176,6 @@ elif current == "பிரிக்க":
     if neon_df.empty:
         st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
     else:
-        # துல்லியமான நிரல் பெயர்களை உறுதிசெய்தல் (Title மற்றும் Publication)
         pub_col = next((c for c in neon_df.columns if c in ['publication name', 'publication_name', 'publisher_name'] or 'publication' in c), None)
         title_col = next((c for c in neon_df.columns if c == 'title' or (('title' in c) and ('book' not in c))), None)
         if not title_col:
@@ -184,7 +183,7 @@ elif current == "பிரிக்க":
             
         author_col = next((c for c in neon_df.columns if 'author' in c), None)
         price_col = next((c for c in neon_df.columns if c == 'price'), None)
-        accepted_price_col = next((c for c in neon_df.columns if 'accepted' in c and 'price' in c), None)
+        accepted_price_col = next((c for c in neon_df.columns if c == 'accepted' and 'price' in c), None)
         isbn_col = next((c for c in neon_df.columns if 'isbn' in c), None)
         qty_col = next((c for c in neon_df.columns if c in ['qty', 'quantity', 'count', 'copies']), None)
 
@@ -220,18 +219,18 @@ elif current == "பிரிக்க":
                 )
 
                 if selected_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
-                    # தலைப்பு வாரியாக எத்தனை நூலகங்களுக்கு ஒதுக்கீடு செய்யப்பட்டுள்ளது என்பதை எக்செல் தரவிலிருந்து கணக்கிடுதல் (Required Quantity)
                     title_row_df = pub_filtered_df[pub_filtered_df[title_col] == selected_title]
-                if not title_row_df.empty:
-                    title_row = title_row_df.iloc[0]
-    
-                    author_name = str(title_row[author_col]) if author_col and author_col in title_row and pd.notna(title_row[author_col]) else "-"
-                    book_price = str(title_row[price_col]) if price_col and price_col in title_row and pd.notna(title_row[price_col]) else "0"
-                    accepted_price = str(title_row[accepted_price_col]) if accepted_price_col and accepted_price_col in title_row and pd.notna(title_row[accepted_price_col]) else "0"
-                    isbn_val = str(title_row[isbn_col]) if isbn_col and isbn_col in title_row and pd.notna(title_row[isbn_col]) else "-"
-    
-                # 💡 மிக முக்கிய மாற்றம்: இந்தத் தலைப்பு எத்தனை நூலகங்களுக்கு ஒதுக்கப்பட்டுள்ளதோ, அந்த எண்ணிக்கையே பெறப்பட வேண்டிய எண்ணிக்கையாக (Required Qty) கணக்கிடப்படும்.
-                    required_qty = len(title_row_df)
+                    if not title_row_df.empty:
+                        title_row = title_row_df.iloc[0]
+                        
+                        author_name = str(title_row[author_col]) if author_col and author_col in title_row and pd.notna(title_row[author_col]) else "-"
+                        book_price = str(title_row[price_col]) if price_col and price_col in title_row and pd.notna(title_row[price_col]) else "0"
+                        accepted_price = str(title_row[accepted_price_col]) if accepted_price_col and accepted_price_col in title_row and pd.notna(title_row[accepted_price_col]) else "0"
+                        isbn_val = str(title_row[isbn_col]) if isbn_col and isbn_col in title_row and pd.notna(title_row[isbn_col]) else "-"
+                        
+                        # 💡 தலைப்புக்குரிய நூலகங்களின் எண்ணிக்கையைச் சரியாகக் கணக்கிடுதல் (Required Quantity)
+                        required_qty = len(title_row_df)
+
                         st.markdown(f"""
                         <div style="background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border: 1.5px solid #34d399; padding: 18px; border-radius: 12px; margin: 15px 0;">
                             <div style="font-size: 16px; font-weight: 800; color: #064e3b; margin-bottom: 12px;">
