@@ -220,21 +220,18 @@ elif current == "பிரிக்க":
                 )
 
                 if selected_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
+                    # தலைப்பு வாரியாக எத்தனை நூலகங்களுக்கு ஒதுக்கீடு செய்யப்பட்டுள்ளது என்பதை எக்செல் தரவிலிருந்து கணக்கிடுதல் (Required Quantity)
                     title_row_df = pub_filtered_df[pub_filtered_df[title_col] == selected_title]
-                    if not title_row_df.empty:
-                        title_row = title_row_df.iloc[0]
-                        
-                        author_name = str(title_row[author_col]) if author_col and author_col in title_row and pd.notna(title_row[author_col]) else "-"
-                        book_price = str(title_row[price_col]) if price_col and price_col in title_row and pd.notna(title_row[price_col]) else "0"
-                        accepted_price = str(title_row[accepted_price_col]) if accepted_price_col and accepted_price_col in title_row and pd.notna(title_row[accepted_price_col]) else "0"
-                        isbn_val = str(title_row[isbn_col]) if isbn_col and isbn_col in title_row and pd.notna(title_row[isbn_col]) else "-"
-                        
-                        db_qty = title_row[qty_col] if qty_col and qty_col in title_row and pd.notna(title_row[qty_col]) else 112
-                        try:
-                            required_qty = int(float(db_qty))
-                        except:
-                            required_qty = 112
-
+                if not title_row_df.empty:
+                    title_row = title_row_df.iloc[0]
+    
+                    author_name = str(title_row[author_col]) if author_col and author_col in title_row and pd.notna(title_row[author_col]) else "-"
+                    book_price = str(title_row[price_col]) if price_col and price_col in title_row and pd.notna(title_row[price_col]) else "0"
+                    accepted_price = str(title_row[accepted_price_col]) if accepted_price_col and accepted_price_col in title_row and pd.notna(title_row[accepted_price_col]) else "0"
+                    isbn_val = str(title_row[isbn_col]) if isbn_col and isbn_col in title_row and pd.notna(title_row[isbn_col]) else "-"
+    
+                # 💡 மிக முக்கிய மாற்றம்: இந்தத் தலைப்பு எத்தனை நூலகங்களுக்கு ஒதுக்கப்பட்டுள்ளதோ, அந்த எண்ணிக்கையே பெறப்பட வேண்டிய எண்ணிக்கையாக (Required Qty) கணக்கிடப்படும்.
+                    required_qty = len(title_row_df)
                         st.markdown(f"""
                         <div style="background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border: 1.5px solid #34d399; padding: 18px; border-radius: 12px; margin: 15px 0;">
                             <div style="font-size: 16px; font-weight: 800; color: #064e3b; margin-bottom: 12px;">
