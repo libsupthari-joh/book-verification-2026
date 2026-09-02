@@ -263,7 +263,7 @@ elif current == "பிரிக்க":
                 # சோதனைக்காக உங்கள் ஸ்கிரீன்ஷாட்டில் உள்ளபடி டேபிள் கட்டமைப்பு
                 return pd.DataFrame(columns=["publisher", "title", "author", "isbn", "price", "library_count", "category"])
         except Exception as e:
-            st.error(fोत தவறு: {e}")
+            st.error(f"தவறு: {e}")
             return pd.DataFrame(columns=["publisher", "title", "author", "isbn", "price", "library_count", "category"])
 
     neon_df = load_neon_database()
