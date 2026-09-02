@@ -192,59 +192,68 @@ elif current == "பிரிக்க":
 
         if selected_publisher != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
             pub_filtered_df = neon_df[neon_df[pub_col] == selected_publisher].copy()
+            
+            # ஏற்கனவே சமர்ப்பிக்கப்பட்ட தலைப்புகளை இந்த பதிப்பகத்திலிருந்து நீக்குதல்
+            submitted_titles = [item["Title"] for item in st.session_state["submitted_reports"] if item["Publisher"] == selected_publisher]
+            pub_filtered_df = pub_filtered_df[~pub_filtered_df[title_col].isin(submitted_titles)]
+            
             all_titles = sorted(pub_filtered_df[title_col].dropna().unique().tolist())
 
-            st.markdown(f"### 🏢 பதிப்பகம்: {selected_publisher} (மொத்த தலைப்புகள்: {len(all_titles)})")
+            if not all_titles:
+                st.success(f"🎉 '{selected_publisher}' பதிப்பகத்தில் உள்ள அனைத்து நூல்களும் ஏற்கனவே வெற்றிகரமாகப் பிரிக்கப்பட்டுவிட்டன!")
+            else:
+                st.markdown(f"### 🏢 பதிப்பகம்: {selected_publisher} (மீதமுள்ள தலைப்புகள்: {len(all_titles)})")
 
-            selected_title = st.selectbox(
-                "📖 2. தலைப்பைத் தேர்ந்தெடுக்கவும் (Select Book Title):",
-                ["-- தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + all_titles,
-                key="title_dropdown"
-            )
+                selected_title = st.selectbox(
+                    "📖 2. தலைப்பைத் தேர்ந்தெடுக்கவும் (Select Book Title):",
+                    ["-- தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + all_titles,
+                    key="title_dropdown"
+                )
 
-            if selected_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
-                title_row = pub_filtered_df[pub_filtered_df[title_col] == selected_title].iloc[0]
-                
-                author_name = title_row[author_col] if author_col in title_row else "-"
-                book_price = title_row[price_col] if price_col in title_row else "0"
-                isbn_val = title_row[isbn_col] if isbn_col and isbn_col in title_row else "-"
-                required_qty = 112
-
-                st.markdown(f"""
-                <div style="background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border: 1.5px solid #34d399; padding: 18px; border-radius: 12px; margin: 15px 0;">
-                    <div style="font-size: 16px; font-weight: 800; color: #064e3b; margin-bottom: 12px;">
-                        📘 தேர்ந்தெடுக்கப்பட்ட நூல் விவரம்
-                    </div>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; font-size: 14px; color: #065f46;">
-                        <div>📚 <b>தலைப்பு:</b> {selected_title}</div>
-                        <div>✍️ <b>ஆசிரியர்:</b> {author_name}</div>
-                        <div>💰 <b>விலை:</b> ₹{book_price}</div>
-                        <div>🏷️ <b>ISBN:</b> {isbn_val}</div>
-                        <div>🏛️ <b>பெறப்பட வேண்டிய எண்ணிக்கை:</b> {required_qty}</div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-                with st.form("distribution_entry_form"):
-                    entered_qty = st.number_input(
-                        "📥 பெறப்பட்ட எண்ணிக்கையை உள்ளீடு செய்யவும் (Enter Received Quantity):", 
-                        min_value=0, max_value=500, value=int(required_qty), step=1
-                    )
+                if selected_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
+                    title_row = pub_filtered_df[pub_filtered_df[title_col] == selected_title].iloc[0]
                     
-                    submitted_temp = st.form_submit_button("➕ தற்காலிக பட்டியலில் சேமி", type="primary")
-                    
-                    if submitted_temp:
-                        entry_data = {
-                            "Publisher": selected_publisher,
-                            "Title": selected_title,
-                            "Author": author_name,
-                            "Price": book_price,
-                            "Required Qty": required_qty,
-                            "Received Qty": entered_qty,
-                            "Date": datetime.now().strftime("%Y-%m-%d %H:%M")
-                        }
-                        st.session_state["temp_distributed_list"].append(entry_data)
-                        st.success(f"✅ '{selected_title}' தற்காலிக பட்டியலில் வெற்றிகரமாகச் சேர்க்கப்பட்டது!")
+                    author_name = title_row[author_col] if author_col in title_row else "-"
+                    book_price = title_row[price_col] if price_col in title_row else "0"
+                    isbn_val = title_row[isbn_col] if isbn_col and isbn_col in title_row else "-"
+                    required_qty = 112
+
+                    st.markdown(f"""
+                    <div style="background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border: 1.5px solid #34d399; padding: 18px; border-radius: 12px; margin: 15px 0;">
+                        <div style="font-size: 16px; font-weight: 800; color: #064e3b; margin-bottom: 12px;">
+                            📘 தேர்ந்தெடுக்கப்பட்ட நூல் விவரம்
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; font-size: 14px; color: #065f46;">
+                            <div>📚 <b>தலைப்பு:</b> {selected_title}</div>
+                            <div>✍️ <b>ஆசிரியர்:</b> {author_name}</div>
+                            <div>💰 <b>விலை:</b> ₹{book_price}</div>
+                            <div>🏷️ <b>ISBN:</b> {isbn_val}</div>
+                            <div>🏛️ <b>பெறப்பட வேண்டிய எண்ணிக்கை:</b> {required_qty}</div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    with st.form("distribution_entry_form"):
+                        entered_qty = st.number_input(
+                            "📥 பெறப்பட்ட எண்ணிக்கையை உள்ளீடு செய்யவும் (Enter Received Quantity):", 
+                            min_value=0, max_value=500, value=int(required_qty), step=1
+                        )
+                        
+                        submitted_temp = st.form_submit_button("➕ தற்காலிக பட்டியலில் சேமி", type="primary")
+                        
+                        if submitted_temp:
+                            entry_data = {
+                                "Publisher": selected_publisher,
+                                "Title": selected_title,
+                                "Author": author_name,
+                                "Price": book_price,
+                                "Required Qty": required_qty,
+                                "Received Qty": entered_qty,
+                                "Date": datetime.now().strftime("%Y-%m-%d %H:%M")
+                            }
+                            st.session_state["temp_distributed_list"].append(entry_data)
+                            st.success(f"✅ '{selected_title}' தற்காலிக பட்டியலில் வெற்றிகரமாகச் சேர்க்கப்பட்டது!")
+                            st.rerun()
 
                 if st.session_state["temp_distributed_list"]:
                     st.markdown("---")
@@ -253,10 +262,11 @@ elif current == "பிரிக்க":
                     st.dataframe(temp_df, use_container_width=True)
                     
                     if st.button("💾 இறுதியாகச் சேமி & சமர்ப்பించు", type="primary"):
-                        # நிரந்தர அறிக்கைப் பட்டியலுக்கு மாற்றுதல்
                         st.session_state["submitted_reports"].extend(st.session_state["temp_distributed_list"])
                         st.session_state["temp_distributed_list"] = []
-                        st.success("🎉 தரவுகள் வெற்றிகரமாகச் சேமிக்கப்பட்டன! இதனை 'அறிக்கைகள்' பகுதியில் பார்வையிடலாம்.")
+                        # நேரடியாக அறிக்கைகள் பக்கத்திற்குத் திருப்புதல்
+                        st.session_state["current_menu"] = "அறிக்கைகள்"
+                        st.success("🎉 தரவுகள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
                         st.rerun()
 
 elif current == "அனுப்ப":
@@ -273,7 +283,6 @@ elif current == "அறிக்கைகள்":
         st.markdown(f"**மொத்தப் பதிவு செய்யப்பட்ட தலைப்புகள்:** {len(report_df)}")
         st.dataframe(report_df, use_container_width=True)
         
-        # அறிக்கைப் பகுதியில் நேரடியாக எக்செல் பதிவிறக்கம் செய்ய பொத்தான்
         csv_data = report_df.to_csv(index=False).encode('utf-8-sig')
         st.download_button(
             label="📥 இந்த அறிக்கையை CSV/Excel வடிவில் பதிவிறக்குக",
