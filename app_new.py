@@ -176,12 +176,14 @@ elif current == "பிரிக்க":
     if neon_df.empty:
         st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
     else:
-        pub_col = next((c for c in neon_df.columns if 'pub' in c), neon_df.columns[1])
-        title_col = next((c for c in neon_df.columns if 'title' in c), neon_df.columns[2])
+        pub_col = next((c for c in neon_df.columns if 'publication' in c or 'pub' in c), neon_df.columns[1])
+        title_col = next((c for c in neon_df.columns if 'title' in c or 'book' in c), neon_df.columns[2])
         author_col = next((c for c in neon_df.columns if 'author' in c), neon_df.columns[3])
         
-        # விலை மற்றும் எண்ணிக்கை தூண்களைச் சரியாகக் கண்டறிதல்
-        price_col = next((c for c in neon_df.columns if 'price' in c or 'விலை' in c or 'amount' in c), None)
+        # சரியான விலை மற்றும் எண்ணிக்கை நெடுவரிசைகளைக் கண்டறிதல்
+        price_col = next((c for c in neon_df.columns if c == 'price'), None)
+        accepted_price_col = next((c for c in neon_df.columns if 'accepted' in c), None)
+        isbn_col = next((c for c in neon_df.columns if 'isbn' in c), None)
         qty_col = next((c for c in neon_df.columns if 'qty' in c or 'count' in c or 'copies' in c or 'எண்ணிக்கை' in c), None)
 
         all_publishers = sorted(neon_df[pub_col].dropna().unique().tolist()) if pub_col else []
@@ -222,8 +224,10 @@ elif current == "பிரிக்க":
                         
                         author_name = str(title_row[author_col]) if author_col in title_row and pd.notna(title_row[author_col]) else "-"
                         book_price = str(title_row[price_col]) if price_col and price_col in title_row and pd.notna(title_row[price_col]) else "0"
+                        accepted_price = str(title_row[accepted_price_col]) if accepted_price_col and accepted_price_col in title_row and pd.notna(title_row[accepted_price_col]) else "0"
+                        isbn_val = str(title_row[isbn_col]) if isbn_col and isbn_col in title_row and pd.notna(title_row[isbn_col]) else "-"
                         
-                        # டேட்டாபேஸில் உள்ள எண்ணிக்கையை எடுத்தல், இல்லையெனில் இயல்புநிலையாக 112 அமைத்தல்
+                        # எண்ணிக்கையை எக்செல் தரவிலிருந்து எடுத்தல், இல்லையெனில் 112
                         db_qty = title_row[qty_col] if qty_col and qty_col in title_row and pd.notna(title_row[qty_col]) else 112
                         try:
                             required_qty = int(float(db_qty))
@@ -235,11 +239,13 @@ elif current == "பிரிக்க":
                             <div style="font-size: 16px; font-weight: 800; color: #064e3b; margin-bottom: 12px;">
                                 📘 தேர்ந்தெடுக்கப்பட்ட நூல் விவரம்
                             </div>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; font-size: 14px; color: #065f46;">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; font-size: 14px; color: #065f46;">
                                 <div>📚 <b>தலைப்பு:</b> {selected_title}</div>
                                 <div>✍️ <b>ஆசிரியர்:</b> {author_name}</div>
-                                <div>💰 <b>விலை:</b> ₹{book_price}</div>
-                                <div>🏛️ <b>பெறப்பட வேண்டிய எண்ணிக்கை:</b> {required_qty}</div>
+                                <div>💰 <b>விலை (Price):</b> ₹{book_price}</div>
+                                <div>💵 <b>ஏற்றுக்கொள்ளப்பட்ட விலை:</b> ₹{accepted_price}</div>
+                                <div>🏷️ <b>ISBN:</b> {isbn_val}</div>
+                                <div>🏛️ <b>எண்ணிக்கை:</b> {required_qty}</div>
                             </div>
                         </div>
                         """, unsafe_allow_html=True)
@@ -258,6 +264,8 @@ elif current == "பிரிக்க":
                                     "Title": selected_title,
                                     "Author": author_name,
                                     "Price": book_price,
+                                    "Accepted Price": accepted_price,
+                                    "ISBN": isbn_val,
                                     "Required Qty": required_qty,
                                     "Received Qty": entered_qty,
                                     "Date": datetime.now().strftime("%Y-%m-%d %H:%M")
