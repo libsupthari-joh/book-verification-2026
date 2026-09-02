@@ -242,13 +242,14 @@ if not st.session_state["logged_in"]:
 @st.cache_data
     def load_neon_database():
         try:
-            # உங்கள் Neon Database URL-ஐ இங்கே நேரடியாகவும் கொடுக்கலாம்
+            import psycopg2
+            # உங்கள் Neon Database-ன் நேரடி URL-ஐ கீழே கொடுக்கவும்
             db_url = "postgresql://neondb_owner:npg_NEqeOTXak5v7@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
             
-            import psycopg2
             conn = psycopg2.connect(db_url)
             df = pd.read_sql("SELECT * FROM books;", con=conn)
             conn.close()
+            
             if not df.empty:
                 return df
         except Exception as e:
