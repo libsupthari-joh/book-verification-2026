@@ -22,13 +22,8 @@ html, body, [class*="css"] {
     font-family: 'Noto Sans Tamil', sans-serif !important;
 }
 
-/* Login Page Background */
 .stApp {
     background: #f8fafc;
-}
-
-.login-bg-app {
-    background: linear-gradient(135deg, #064e3b, #022c22) !important;
 }
 
 [data-testid="stHeader"] { background: transparent; }
@@ -60,62 +55,64 @@ html, body, [class*="css"] {
     font-weight: 600;
 }
 
-/* Login Card Styling */
+/* Compact Login Card Styling */
 .login-card-wrapper {
     background: #ffffff;
     border-radius: 16px;
-    padding: 30px 25px;
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+    padding: 25px 20px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
     border: 1.5px solid #a7f3d0;
-    max-width: 400px;
-    margin: 40px auto;
+    max-width: 380px;
+    margin: 30px auto;
 }
 
 .login-header-box {
     text-align: center;
     background: linear-gradient(135deg, #ecfdf5, #d1fae5);
     border: 1.5px solid #a7f3d0;
-    border-radius: 12px;
-    padding: 15px;
-    margin-bottom: 20px;
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 15px;
 }
 
 .login-title {
     color: #064e3b;
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 800;
 }
 
-/* 3D Colorful Menu Buttons Styling */
+/* 3D Colorful Menu Buttons with Clear Text Styling */
 div.stButton > button {
     border-radius: 10px !important;
     font-weight: 700 !important;
     font-size: 13px !important;
     min-height: 52px !important;
-    color: white !important;
+    color: #ffffff !important;
     border: none !important;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), inset 0 2px 4px rgba(255, 255, 255, 0.3) !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.12), inset 0 2px 4px rgba(255, 255, 255, 0.3) !important;
     transition: all 0.2s ease-in-out;
 }
 
 div.stButton > button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15), inset 0 2px 4px rgba(255, 255, 255, 0.4) !important;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2), inset 0 2px 4px rgba(255, 255, 255, 0.4) !important;
+    color: #ffffff !important;
 }
 
-/* Individual 3D Button Colors */
-.btn-0 > button { background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important; }
-.btn-1 > button { background: linear-gradient(135deg, #10b981, #047857) !important; }
-.btn-2 > button { background: linear-gradient(135deg, #8b5cf6, #6d28d9) !important; }
-.btn-3 > button { background: linear-gradient(135deg, #f59e0b, #b45309) !important; }
-.btn-4 > button { background: linear-gradient(135deg, #06b6d4, #0e7490) !important; }
-.btn-5 > button { background: linear-gradient(135deg, #ec4899, #be185d) !important; }
-.btn-6 > button { background: linear-gradient(135deg, #ef4444, #b91c1c) !important; }
-.btn-7 > button { background: linear-gradient(135deg, #14b8a6, #0f766e) !important; }
-.btn-8 > button { background: linear-gradient(135deg, #6366f1, #4338ca) !important; }
-.btn-9 > button { background: linear-gradient(135deg, #84cc16, #4d7c0f) !important; }
-.btn-10 > button { background: linear-gradient(135deg, #f97316, #c2410c) !important; }
-.btn-11 > button { background: linear-gradient(135deg, #eab308, #a16207) !important; }
+/* Vibrant 3D Button Colors */
+.btn-0 > button { background: linear-gradient(135deg, #2563eb, #1d4ed8) !important; }
+.btn-1 > button { background: linear-gradient(135deg, #059669, #047857) !important; }
+.btn-2 > button { background: linear-gradient(135deg, #7c3aed, #6d28d9) !important; }
+.btn-3 > button { background: linear-gradient(135deg, #d97706, #b45309) !important; }
+.btn-4 > button { background: linear-gradient(135deg, #0891b2, #0e7490) !important; }
+.btn-5 > button { background: linear-gradient(135deg, #db2777, #be185d) !important; }
+.btn-6 > button { background: linear-gradient(135deg, #dc2626, #b91c1c) !important; }
+.btn-7 > button { background: linear-gradient(135deg, #0d9488, #0f766e) !important; }
+.btn-8 > button { background: linear-gradient(135deg, #4f46e5, #4338ca) !important; }
+.btn-9 > button { background: linear-gradient(135deg, #65a30d, #4d7c0f) !important; }
+.btn-10 > button { background: linear-gradient(135deg, #ea580c, #c2410c) !important; }
+.btn-11 > button { background: linear-gradient(135deg, #ca8a04, #a16207) !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -177,7 +174,7 @@ def show_login_page():
     </style>
     <div class="login-card-wrapper">
         <div class="login-header-box">
-            <div style="font-size: 32px; margin-bottom: 5px;">📚</div>
+            <div style="font-size: 26px; margin-bottom: 4px;">📚</div>
             <div class="login-title">மாவட்ட மைய நூலகம்<br>கிருஷ்ணகிரி</div>
         </div>
     """, unsafe_allow_html=True)
