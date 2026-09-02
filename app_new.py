@@ -388,8 +388,68 @@ if st.session_state["current_menu"] == "🏷️ பகுப்பு எண் 
 current = st.session_state["current_menu"]
 
 if current == "🔀 பிரிக்க":
-    st.subheader("🔀 நூல்களைப் பிரிக்கும் பகுதி (Distribution / Splitting)")
-    st.info("இங்கு நூல்களை உரிய வழிமுறைகளின்படி பிரிக்கலாம்.")
+    st.subheader("🔀 நூல்களைப் பிரிக்கும் பகுதி (Publisher-wise Book Distribution)")
+    
+    # Nano Table / Publisher Database Mock
+    publishers_db = {
+        "பாபு பதிப்பகம் (Babu Publications)": {"books": 1250, "titles": 45, "authors": "கவிஞர் தமிழ்வாணன், இரா. மணி", "price": "₹150 - ₹850", "libs": 112},
+        "மலர் பதிப்பகம் (Malar Publications)": {"books": 840, "titles": 30, "authors": "டாக்டர் சுப்பையா, மு. மேத்தா", "price": "₹200 - ₹600", "libs": 112},
+        "பாரதி பதிப்பகம் (Bharathi Puthakalayam)": {"books": 3200, "titles": 120, "authors": "பல ஆசிரியர்கள்", "price": "₹100 - ₹1200", "libs": 112},
+        "தமிழி பதிப்பகம் (Tamizhi Pathippagam)": {"books": 610, "titles": 22, "authors": "மாலதி செந்தில்", "price": "₹250 - ₹500", "libs": 112},
+        "தென்றல் பதிப்பகம் (Thenral Pathippagam)": {"books": 1450, "titles": 55, "authors": "வேலு கிருஷ்ணன்", "price": "₹180 - ₹950", "libs": 112}
+    }
+    
+    pub_names = list(publishers_db.keys())
+    
+    # Searchable Dropdown (Type to filter)
+    selected_publisher = st.selectbox(
+        "🔍 பதிப்பாளர் பெயரைத் தேர்ந்தெடுக்கவும் (பதிப்பகத்தின் முதல் எழுத்துக்களை உள்ளிடவும்):",
+        ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + pub_names
+    )
+    
+    if selected_publisher != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+        p_info = publishers_db[selected_publisher]
+        
+        # Publisher Details Summary Card with Icons
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border: 1.5px solid #34d399; padding: 16px; border-radius: 12px; margin: 15px 0; box-shadow: 0 4px 10px rgba(5,150,105,0.1);">
+            <div style="font-size: 15px; font-weight: 800; color: #064e3b; margin-bottom: 10px; border-bottom: 1px solid #6ee7b7; padding-bottom: 6px;">
+                🏢 தேர்ந்தெடுக்கப்பட்ட பதிப்பகம்: <span style="color: #047857;">{selected_publisher}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; font-size: 13px; color: #065f46;">
+                <div>📚 <b>மொத்த நூல்கள்:</b> {p_info['books']}</div>
+                <div>📑 <b>தலைப்புகள்:</b> {p_info['titles']}</div>
+                <div>✍️ <b>ஆசிரியர்(கள்):</b> {p_info['authors']}</div>
+                <div>💰 <b>விலை வரம்பு:</b> {p_info['price']}</div>
+                <div>🏛️ <b>நூலகங்கள்:</b> {p_info['libs']}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("#### 📋 அனுமதிக்கப்பட்டுள்ள தலைப்புகள் தேர்வு விவரம் (Allowed Titles Selection)")
+        
+        # Interactive Table for Title Selection
+        sample_titles_df = pd.DataFrame({
+            "தேர்வு": [True, False, True, False, True],
+            "பதிவு எண்": ["REG-101", "REG-102", "REG-103", "REG-104", "REG-105"],
+            "நூல் தலைப்பு (Book Title)": [
+                "தமிழ் இலக்கிய வரலாறு - பகுதி 1", 
+                "நவீன அறிவியல் அற்புதங்கள்", 
+                "சுதந்திரப் போராட்டத்தில் தமிழர்கள்", 
+                "சுற்றுச்சூழல் பாதுகாப்பு வழிகாட்டிகள்", 
+                "கணினி அறிவியலும் தமிழும்"
+            ],
+            "ஆசிரியர்": ["மு. வரதராசனார்", "Dr. A.P.J. அப்துல் கலாம்", "மா.பொ. சிவஞானம்", "வற்தா சுப்பிரமணியன்", "டாக்டர் செ. இராமகிருஷ்ணன்"],
+            "விலை (₹)": [350, 450, 600, 280, 500],
+            "பகுப்பு": ["இலக்கியம்", "அறிவியல்", "வரலாறு", "சுற்றுச்சூழல்", "தொழில்நுட்பம்"]
+        })
+        
+        edited_titles = st.data_editor(sample_titles_df, hide_index=True, use_container_width=True)
+        
+        col_btn1, col_btn2 = st.columns([1, 4])
+        with col_btn1:
+            if st.button("💾 சேமி & பிரிக்க", type="primary", use_container_width=True):
+                st.success("✅ தேர்ந்தெடுக்கப்பட்ட நூல்கள் வெற்றிகரமாகப் பிரிக்கப்பட்டு சேமிக்கப்பட்டன!")
 
 elif current == "📤 அனுப்ப":
     st.subheader("📤 நூல்களை அனுப்பும் பகுதி (Dispatch)")
