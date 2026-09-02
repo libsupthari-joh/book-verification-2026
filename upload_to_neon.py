@@ -239,19 +239,22 @@ if not st.session_state["logged_in"]:
     show_login_page()
     st.stop()
 
-# Neon / SQLite டேட்டாபேஸிலிருந்து தரவுகளைப் பெறுதல்
-@st.cache_data(ttl=60)
-def load_data_from_db():
-    conn = sqlite3.connect("local_books.db")
-    try:
-        books_df = pd.read_sql("SELECT * FROM books", conn)
-    except Exception:
-        books_df = pd.DataFrame()
-    conn.close()
-    return books_df
-
-book_df = load_data_from_db()
-
+@st.cache_data
+    def load_neon_database():
+        try:
+            # உங்கள் Neon Database URL-ஐ இங்கே நேரடியாகவும் கொடுக்கலாம்
+            db_url = "postgresql://neondb_owner:npg_NEqeOTXak5v7@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+            
+            import psycopg2
+            conn = psycopg2.connect(db_url)
+            df = pd.read_sql("SELECT * FROM books;", con=conn)
+            conn.close()
+            if not df.empty:
+                return df
+        except Exception as e:
+            st.warning(f"⚠️ டேட்டாபேஸ் இணைப்பில் சிறு சிக்கல்: {e}")
+        
+        return pd.DataFrame()
 def clean_text(value):
     if value is None or pd.isna(value):
         return ""
