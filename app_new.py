@@ -14,7 +14,7 @@ import streamlit as st
 st.set_page_config(
     page_title="மாவட்ட நூலக ஆணைக்குழு, கிருஷ்ணகிரி",
     page_icon="📚",
-    layout="wide",
+    layout="centered",
     initial_sidebar_state="collapsed",
 )
 
@@ -27,22 +27,22 @@ html, body, [class*="css"] {
 }
 
 .stApp {
-    background: #064e3b;
+    background: linear-gradient(135deg, #064e3b, #022c22);
 }
 
 [data-testid="stHeader"] { background: transparent; }
 [data-testid="stToolbar"] { visibility: hidden; }
 
 h1 {
-    font-size: 26px !important;
+    font-size: 24px !important;
     font-weight: 800 !important;
-    padding: 18px 22px !important;
-    border-radius: 14px;
+    padding: 14px 18px !important;
+    border-radius: 12px;
     color: #fff !important;
-    background: linear-gradient(135deg, #064e3b, #047857) !important;
-    box-shadow: 0 6px 15px rgba(6,78,59,0.3);
+    background: linear-gradient(135deg, #059669, #047857) !important;
+    box-shadow: 0 4px 12px rgba(6,78,59,0.3);
     text-align: center;
-    margin-bottom: 20px !important;
+    margin-bottom: 15px !important;
 }
 
 h2, h3 {
@@ -51,80 +51,86 @@ h2, h3 {
 }
 
 p, span, label, div {
-    font-size: 16px !important;
+    font-size: 15px !important;
     color: #111827;
 }
 
 .profile-card, .book-info-card {
     background: #ffffff;
     border: 1.5px solid #a7f3d0;
-    box-shadow: 0 6px 12px -2px rgba(0,0,0,0.08);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.06);
 }
 
 .profile-card {
-    padding: 16px 20px;
-    border-radius: 12px;
+    padding: 12px 16px;
+    border-radius: 10px;
     color: #064e3b;
     background: #ecfdf5;
 }
 
 .book-info-card {
-    border-left: 8px solid #047857;
-    border-radius: 12px;
-    padding: 18px 20px;
-    line-height: 2.2;
-    margin: 14px 0 18px;
+    border-left: 6px solid #047857;
+    border-radius: 10px;
+    padding: 14px 16px;
+    line-height: 2.0;
+    margin: 12px 0 16px;
     background: #ffffff;
 }
 
-.login-main-container {
+.login-card-wrapper {
     background: #ffffff;
-    border-radius: 20px;
-    padding: 40px 35px;
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
-    border: 2px solid #a7f3d0;
-    max-width: 450px;
-    margin: 60px auto;
+    border-radius: 16px;
+    padding: 30px 25px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    border: 1.5px solid #a7f3d0;
+    max-width: 420px;
+    margin: 40px auto;
+}
+
+.login-header-box {
+    text-align: center;
+    background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+    border: 1.5px solid #a7f3d0;
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 20px;
 }
 
 .login-header-icon {
-    font-size: 40px;
-    text-align: center;
-    margin-bottom: 5px;
+    font-size: 32px;
+    margin-bottom: 4px;
 }
 
 .login-title {
-    text-align: center;
     color: #064e3b;
-    font-size: 22px;
+    font-size: 18px;
     font-weight: 800;
     line-height: 1.4;
-    margin-bottom: 25px;
 }
 
 .stButton > button, .stDownloadButton > button {
-    min-height: 50px !important;
-    border-radius: 10px !important;
-    font-size: 16px !important;
+    min-height: 44px !important;
+    border-radius: 8px !important;
+    font-size: 15px !important;
     font-weight: 700 !important;
     color: #ffffff !important;
-    background: linear-gradient(135deg, #064e3b, #047857) !important;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.15) !important;
+    background: linear-gradient(135deg, #059669, #047857) !important;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.12) !important;
     border: none !important;
     width: 100% !important;
 }
 
 .stButton > button:hover, .stDownloadButton > button:hover {
-    background: linear-gradient(135deg, #047857, #022c22) !important;
+    background: linear-gradient(135deg, #047857, #064e3b) !important;
     color: #fff !important;
 }
 
 button[kind="secondary"] {
     background: linear-gradient(135deg, #ecfdf5, #d1fae5) !important;
     color: #064e3b !important;
-    box-shadow: 0 3px 8px rgba(6,78,59,0.12) !important;
+    box-shadow: 0 2px 6px rgba(6,78,59,0.1) !important;
     font-weight: 700 !important;
-    border: 1.5px solid #a7f3d0 !important;
+    border: 1.2px solid #a7f3d0 !important;
 }
 button[kind="secondary"]:hover {
     background: linear-gradient(135deg, #d1fae5, #a7f3d0) !important;
@@ -132,8 +138,8 @@ button[kind="secondary"]:hover {
 }
 button[kind="primary"] {
     background: linear-gradient(135deg, #064e3b, #047857) !important;
-    box-shadow: 0 4px 12px rgba(6,78,59,0.4) !important;
-    border: 1.5px solid #064e3b !important;
+    box-shadow: 0 3px 10px rgba(6,78,59,0.3) !important;
+    border: 1.2px solid #064e3b !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -162,7 +168,6 @@ def make_session_token(role):
 def verify_session_token(role, token):
     return bool(role and token) and hmac.compare_digest(make_session_token(role), str(token))
 
-# பயனர்களின் விவரங்கள் மற்றும் கடவுச்சொற்கள்
 USERS_DATABASE = {
     "Admin": {"password_hash": hash_password("Hari@@1979"), "name": "முதன்மை நிர்வாகி (Admin)"},
     "DCL Staff": {"password_hash": hash_password("123456"), "name": "DCL Staff"},
@@ -192,9 +197,11 @@ if not st.session_state["logged_in"]:
 
 def show_login_page():
     st.markdown("""
-    <div class="login-main-container">
-        <div class="login-header-icon">📚</div>
-        <div class="login-title">மாவட்ட நூலக ஆணைக்குழு,<br>கிருஷ்ணகிரி</div>
+    <div class="login-card-wrapper">
+        <div class="login-header-box">
+            <div class="login-header-icon">📚</div>
+            <div class="login-title">மாவட்ட நூலக ஆணைக்குழு,<br>கிருஷ்ணகிரி</div>
+        </div>
     """, unsafe_allow_html=True)
     
     with st.form("secure_login_form"):
@@ -323,11 +330,11 @@ if st.session_state["current_page"] == menu_items[0]:
         publishers = sorted(df_books[c_pub].dropna().unique().tolist())
         selected_publisher = st.selectbox(
             "1. பதிப்பாளரைத் தேர்ந்தெடுக்கவும் (Select Publisher):",
-            ["-- அனைத்து பதிப்பாளர்களும் (All Publishers) --"] + publishers,
+            ["-- தேர்ந்தெடுக்கவும் --"] + publishers,
             key="pub_select_dropdown"
         )
         
-        if not selected_publisher.startswith("-- அனைத்து"):
+        if not selected_publisher.startswith("-- தேர்ந்தெடுக்கவும் --"):
             pub_filtered_books = df_books[df_books[c_pub] == selected_publisher]
         else:
             pub_filtered_books = df_books
@@ -337,7 +344,7 @@ if st.session_state["current_page"] == menu_items[0]:
     grouped_df = pub_filtered_books.groupby(c_title, as_index=False).agg({
         c_pub: "first",
         c_author: "first",
-        c_isbn: "first" if c_isbn in pub_filtered_books.columns else lambda x: "N/A",
+        c_isbn: "first" if c_isbn in pub_filtered_books.columns else lambda x: "N/Class",
         c_lang: "first",
         c_price: "first",
         c_qty: "sum"
@@ -353,7 +360,7 @@ if st.session_state["current_page"] == menu_items[0]:
     st.markdown("2. புத்தகத் தலைப்பைத் தேர்ந்தெடுக்கவும்:")
     
     if not grouped_df.empty:
-        book_titles = ["-- தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + grouped_df["தலைப்பு"].tolist()
+        book_titles = ["-- தேர்ந்தெடுக்கவும் --"] + grouped_df["தலைப்பு"].tolist()
         selected_book_title = st.selectbox(
             "புத்தகத் தலைப்பு தேர்வு:",
             book_titles,
@@ -361,7 +368,7 @@ if st.session_state["current_page"] == menu_items[0]:
             key="auto_book_title_select"
         )
         
-        if selected_book_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
+        if selected_book_title != "-- தேர்ந்தெடுக்கவும் --":
             b_row = grouped_df[grouped_df["தலைப்பு"] == selected_book_title].iloc[0]
             orig_qty = int(b_row["அனுமதிக்கப்பட்ட எண்ணிக்கை"])
             author_val = b_row.get("ஆசிரியர்", "N/A")
@@ -386,7 +393,7 @@ if st.session_state["current_page"] == menu_items[0]:
                 if submitted_rec:
                     st.session_state["verified_records"].append({
                         "தலைப்பு": b_row["தலைப்பு"],
-                        "பதிப்பகம்": b_row["பதிப்பகம்"],
+                        "பதிப்பகம்": b_row["பதிppகம்"] if "பதிppகம்" in b_row else b_row["பதிப்பகம்"],
                         "ஆசிரியர்": author_val,
                         "ISBN": isbn_val,
                         "மொழி": b_row[c_lang],
@@ -421,11 +428,11 @@ elif len(menu_items) > 1 and st.session_state["current_page"] == menu_items[1]:
         
         selected_v_pub = st.selectbox(
             "🔎 சரிபார்க்கப்பட்ட பதிப்பாளரைத் தேர்ந்தெடுக்கவும்:",
-            ["-- அனைத்து பதிப்பாளர்களும் (All Publishers) --"] + verified_publishers,
+            ["-- தேர்ந்தெடுக்கவும் --"] + verified_publishers,
             key="verified_pub_filter"
         )
         
-        if selected_v_pub.startswith("-- அனைத்து"):
+        if selected_v_pub.startswith("-- தேர்ந்தெடுக்கவும் --"):
             filtered_v_df = v_df
             file_prefix = "All_Verified_Publishers"
         else:
