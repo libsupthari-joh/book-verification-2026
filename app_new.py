@@ -154,11 +154,14 @@ current = st.session_state["current_menu"]
 def load_neon_database():
     try:
         import psycopg2
-        db_url = "postgresql://neondb_owner:npg_NEqeOTXak5v7@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+        db_url = "postgresql://neondb_owner:npg_gY5h1PjZtXvK@ep-super-pond-a50s70up.us-east-2.aws.neon.tech/neondb?sslmode=require"
         conn = psycopg2.connect(db_url)
         df = pd.read_sql("SELECT * FROM books;", con=conn)
         conn.close()
+        
         if not df.empty:
+            # நெடுவரிசைப் பெயர்களைச் சிறிய எழுத்துகளாக மாற்றுதல் (Case-insensitive fix)
+            df.columns = [str(col).strip().lower() for col in df.columns]
             return df
     except Exception as e:
         st.warning(f"⚠️ டேட்டாபேஸ் இணைப்பில் சிறு சிக்கல்: {e}")
