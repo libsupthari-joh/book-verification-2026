@@ -295,12 +295,11 @@ elif current == "பிரிக்க":
                                     "Publisher": selected_publisher,
                                     "Title": selected_title,
                                     "Author": author_name,
-                                    "Price": book_price,
                                     "Accepted Price": accepted_price,
                                     "ISBN": isbn_val,
                                     "Required Qty": required_qty,
                                     "Received Qty": entered_qty,
-                                    "Date": datetime.now().strftime("%Y-%m-%d %H:%M")
+                                    
                                 }
                                 if not any(item["Title"] == selected_title for item in st.session_state["temp_distributed_list"]):
                                     st.session_state["temp_distributed_list"].append(entry_data)
