@@ -295,11 +295,12 @@ elif current == "பிரிக்க":
                                     "Publisher": selected_publisher,
                                     "Title": selected_title,
                                     "Author": author_name,
+                                    "Price": book_price,
                                     "Accepted Price": accepted_price,
                                     "ISBN": isbn_val,
                                     "Required Qty": required_qty,
                                     "Received Qty": entered_qty,
-                                    
+                                    "Date": datetime.now().strftime("%Y-%m-%d %H:%M")
                                 }
                                 if not any(item["Title"] == selected_title for item in st.session_state["temp_distributed_list"]):
                                     st.session_state["temp_distributed_list"].append(entry_data)
@@ -351,6 +352,38 @@ elif current == "அறிக்கைகள்":
             use_container_width=True
         )
 
+elif current == "தவறான பதிவு நீக்கம்":
+    st.subheader("❌ தவறான பதிவினை நீக்குதல் / திருத்துதல் (Delete / Edit Verified Records)")
+    
+    if not st.session_state["submitted_reports"]:
+        st.info("ℹ️ நீக்க அல்லது திருத்தச் சமர்ப்பிக்கப்பட்ட தரவுகள் எதுவும் இல்லை.")
+    else:
+        st.markdown("⚠️ கீழே உள்ள பட்டியலில் இருந்து தவறாகப் பதிவு செய்யப்பட்ட நூலினைத் தேர்ந்தெடுத்து நீக்கலாம் அல்லது எண்ணிக்கையைத் திருத்தலாம்.")
+        
+        sub_df = pd.DataFrame(st.session_state["submitted_reports"])
+        
+        for idx, row in sub_df.iterrows():
+            with st.container():
+                cols_card = st.columns([5, 2, 2])
+                with cols_card[0]:
+                    st.markdown(f"**பதிப்பகம்:** {row['Publisher']} <br> **தலைப்பு:** {row['Title']} <br> **பெறப்பட்ட எண்ணிக்கை:** {row['Received Qty']}", unsafe_allow_html=True)
+                with cols_card[1]:
+                    new_qty = st.number_input("எண்ணிக்கை திருத்து", min_value=0, value=int(row['Received Qty']), key=f"edit_qty_{idx}")
+                with cols_card[2]:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    col_del, col_upd = st.columns(2)
+                    with col_del:
+                        if st.button("🗑️ நீக்கு", key=f"del_btn_{idx}", type="secondary"):
+                            st.session_state["submitted_reports"].pop(idx)
+                            st.success("✅ பதிவு வெற்றிகரமாக நீக்கப்பட்டது!")
+                            st.rerun()
+                    with col_upd:
+                        if st.button("💾 புதுப்பி", key=f"upd_btn_{idx}", type="primary"):
+                            st.session_state["submitted_reports"][idx]["Received Qty"] = new_qty
+                            st.success("✅ எண்ணிக்கை வெற்றிகரமாக மாற்றப்பட்டது!")
+                            st.rerun()
+                st.markdown("---")
+
 elif current == "அனுப்ப":
     st.subheader("📤 நூல்களை அனுப்பும் பகுதி (Dispatch)")
     st.info("நூலகங்களுக்கு நூல்களை அனுப்பும் விவரங்களை இங்கே பதிவிடலாம்.")
@@ -366,10 +399,6 @@ elif current == "பதிவெண் மாற்ற":
 elif current == "Master Data":
     st.subheader("🗂️ Master Data மேலாண்மை")
     st.info("அடிப்படைத் தரவுகளை நிர்வகிக்க.")
-
-elif current == "தவறான பதிவு நீக்கம்":
-    st.subheader("❌ தவறான பதிவினை நீக்குதல்")
-    st.info("தவறாகப் பதிவு செய்யப்பட்ட தரவுகளை நீக்க.")
 
 elif current == "கடவுச்சொல் மாற்ற":
     st.subheader("🔑 கடவுச்சொல் மாற்றும் பகுதி")
