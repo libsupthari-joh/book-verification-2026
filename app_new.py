@@ -86,6 +86,7 @@ html, body, [class*="css"] { font-family: 'Noto Sans Tamil', sans-serif !importa
 def hash_password(password):
     return hashlib.sha256(str(password).encode("utf-8")).hexdigest()
 
+# நூலகர் ஐடிகள் மற்றும் அவற்றுக்கான நூலகப் பெயர்கள்
 USERS_DATABASE = {
     "Admin": {"password_hash": hash_password("Hari@@1979"), "name": "முதன்மை நிர்வாகி (Admin)"},
     "DCL Staff": {"password_hash": hash_password("123456"), "name": "DCL Staff"},
@@ -143,7 +144,8 @@ def load_submitted_reports_from_db():
 for key, default in {
     "logged_in": False, "user_role": None, "user_name": "", "librarian_location": "",
     "current_menu": None, "temp_distributed_list": [], 
-    "submitted_reports": load_submitted_reports_from_db()
+    "submitted_reports": load_submitted_reports_from_db(),
+    "dispatch_records": [], "librarian_records": []
 }.items():
     st.session_state.setdefault(key, default)
 
@@ -215,6 +217,7 @@ with col_logout[1]:
         st.session_state["user_role"] = None
         st.rerun()
 
+# பங்கைப் பொறுத்து மெனுக்கள் மாறுதல்
 if st.session_state["user_role"] == "Admin":
     menu_options = [
         ("🔀", "பிரிக்க"), ("📤", "அனுப்ப"), ("📊", "அறிக்கைகள்"), ("⚠️", "கவனிக்க"),
@@ -244,20 +247,21 @@ st.markdown("---")
 total_submitted_count = sum([int(item.get("Received Qty", 0)) for item in st.session_state['submitted_reports']])
 today_str = datetime.now().strftime("%d/%m/%Y")
 
-st.markdown(f"""
-<div class="ticker-container">
-    <div class="ticker-badge">🔴 Live News</div>
-    <div style="overflow: hidden; width: 100%;">
-        <div class="marquee-text">
-            📚 பெறப்பட்ட நூல்கள் : <b>45,305</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-            ✅ பிரிக்கப்பட்டது : <b>{total_submitted_count}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-            ⏳ மீதம் பிரிக்க வேண்டியது : <b>{45305 - total_submitted_count}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-            📤 அனுப்பப்பட்டது : <b>0</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-            🗓️ இன்று ({today_str}) பிரிக்கப்பட்டது : <b>{total_submitted_count}</b>
+if st.session_state["user_role"] in ["Admin", "DCLStaff"]:
+    st.markdown(f"""
+    <div class="ticker-container">
+        <div class="ticker-badge">🔴 Live News</div>
+        <div style="overflow: hidden; width: 100%;">
+            <div class="marquee-text">
+                📚 பெறப்பட்ட நூல்கள் : <b>45,305</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+                ✅ பிரிக்கப்பட்டது : <b>{total_submitted_count}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+                ⏳ மீதம் பிரிக்க வேண்டியது : <b>{45305 - total_submitted_count}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+                📤 அனுப்பப்பட்டது : <b>0</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+                🗓️ இன்று ({today_str}) பிரிக்கப்பட்டது : <b>{total_submitted_count}</b>
+            </div>
         </div>
     </div>
-</div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
 current = st.session_state["current_menu"]
 
@@ -275,152 +279,7 @@ def load_neon_database():
     return pd.DataFrame()
 
 if current is None:
-    st.info("👆 மேல் உள்ள மெனு பட்டன்களில் ஏதேனும் ஒன்றை (உதாரணமாக **'🔀 பிரிக்க'** அல்லது **'📊 அறிக்கைகள்'**) தேர்வு செய்யவும்.")
-
-elif current == "பிரிக்க" and st.session_state["user_role"] in ["Admin", "DCL Staff"]:
-    st.subheader("🔀 நூல்களைப் பிரிக்கும் பகுதி (Publisher-wise Book Distribution)")
-    
-    neon_df = load_neon_database()
-
-    if neon_df.empty:
-        st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
-    else:
-        pub_col = next((c for c in neon_df.columns if c in ['publication name', 'publication_name', 'publisher_name'] or 'publication' in c), None)
-        title_col = next((c for c in neon_df.columns if c == 'title' or (('title' in c) and ('book' not in c))), None)
-        if not title_col:
-            title_col = next((c for c in neon_df.columns if 'title' in c), neon_df.columns[2])
-            
-        author_col = next((c for c in neon_df.columns if 'author' in c), None)
-        price_col = next((c for c in neon_df.columns if c == 'price'), None)
-        accepted_price_col = next((c for c in neon_df.columns if 'accept' in c or 'accepted' in c or 'rate' in c or 'offer' in c), None)
-        isbn_col = next((c for c in neon_df.columns if 'isbn' in c), None)
-
-        all_publishers = sorted(neon_df[pub_col].dropna().unique().tolist()) if pub_col else []
-
-        selected_publisher = st.selectbox(
-            "🔍 1. பதிப்பாளர் பெயரைத் தேர்ந்தெடுக்கவும்:",
-            ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + all_publishers,
-            key="publisher_dropdown"
-        )
-
-        if selected_publisher != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
-            pub_filtered_df = neon_df[neon_df[pub_col] == selected_publisher].copy()
-            
-            total_pub_titles_count = len(pub_filtered_df[title_col].dropna().unique())
-            total_pub_books_count = len(pub_filtered_df)
-            
-            submitted_titles = [item["Title"] for item in st.session_state["submitted_reports"] if item["Publisher"] == selected_publisher]
-            temp_added_titles = [item["Title"] for item in st.session_state["temp_distributed_list"] if item["Publisher"] == selected_publisher]
-            
-            excluded_titles = set(submitted_titles + temp_added_titles)
-            available_filtered_df = pub_filtered_df[~pub_filtered_df[title_col].isin(excluded_titles)]
-            all_titles = sorted(available_filtered_df[title_col].dropna().unique().tolist())
-
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1.5px solid #34d399; padding: 14px 18px; border-radius: 10px; margin: 10px 0 15px 0;">
-                <div style="font-size: 15px; font-weight: 800; color: #064e3b; margin-bottom: 8px;">
-                    🏢 பதிப்பகம்: {selected_publisher} — சுருக்க விவரம்
-                </div>
-                <div style="display: flex; flex-wrap: wrap; gap: 20px; font-size: 14px; color: #065f46; font-weight: 600;">
-                    <div>📚 மொத்த தலைப்புகள்: <b>{total_pub_titles_count}</b></div>
-                    <div>📦 மொத்த நூல்கள்: <b>{total_pub_books_count}</b></div>
-                    <div>✅ சமர்ப்பிக்கப்பட்டது: <b>{len(submitted_titles)}</b></div>
-                    <div>⏳ மீதம் உள்ளவை: <b>{len(all_titles)}</b></div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            if all_titles:
-                selected_title = st.selectbox(
-                    "📖 2. தலைப்பைத் தேர்ந்தெடுக்கவும் (Select Book Title):",
-                    ["-- தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + all_titles,
-                    key="title_dropdown"
-                )
-
-                if selected_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
-                    title_row_df = pub_filtered_df[pub_filtered_df[title_col] == selected_title]
-                    if not title_row_df.empty:
-                        title_row = title_row_df.iloc[0]
-                        author_name = str(title_row[author_col]) if author_col and author_col in title_row and pd.notna(title_row[author_col]) else "-"
-                        book_price = str(title_row[price_col]) if price_col and price_col in title_row and pd.notna(title_row[price_col]) else "0"
-                        
-                        accepted_price = "0"
-                        if accepted_price_col and accepted_price_col in title_row and pd.notna(title_row[accepted_price_col]):
-                            accepted_price = str(title_row[accepted_price_col])
-
-                        isbn_val = str(title_row[isbn_col]) if isbn_col and isbn_col in title_row and pd.notna(title_row[isbn_col]) else "-"
-                        required_qty = len(title_row_df)
-
-                        with st.form(f"distribution_entry_form_{selected_publisher}_{selected_title}"):
-                            entered_qty = st.number_input(
-                                "📥 பெறப்பட்ட எண்ணிக்கையை உள்ளீடு செய்யவும்:", 
-                                min_value=0, max_value=500, value=int(required_qty), step=1
-                            )
-                            submitted_temp = st.form_submit_button("➕ தற்காலிக பட்டியலில் சேமி", type="primary")
-                            
-                            if submitted_temp:
-                                entry_data = {
-                                    "Publisher": selected_publisher,
-                                    "Title": selected_title,
-                                    "Author": author_name,
-                                    "Price": book_price,
-                                    "Accepted Price": accepted_price,
-                                    "ISBN": isbn_val,
-                                    "Required Qty": required_qty,
-                                    "Received Qty": entered_qty,
-                                    "Date": datetime.now().strftime("%Y-%m-%d %H:%M")
-                                }
-                                if not any(item["Title"] == selected_title for item in st.session_state["temp_distributed_list"]):
-                                    st.session_state["temp_distributed_list"].append(entry_data)
-                                st.success(f"✅ '{selected_title}' தற்காலிக பட்டியலில் சேர்க்கப்பட்டது!")
-                                st.rerun()
-            else:
-                st.success(f"🎉 '{selected_publisher}' பதிப்பகத்தில் உள்ள அனைத்து நூல்களும் வெற்றிகரமாகச் சரிபார்க்கப்பட்டுவிட்டன!")
-
-            if st.session_state["temp_distributed_list"]:
-                st.markdown("---")
-                st.markdown("#### 📋 தற்காலிகமாகச் சேமிக்கப்பட்ட தலைப்புகளின் பட்டியல்")
-                temp_df = pd.DataFrame(st.session_state["temp_distributed_list"])
-                st.dataframe(temp_df, use_container_width=True)
-                
-                current_pub_temp_count = len([item for item in st.session_state["temp_distributed_list"] if item["Publisher"] == selected_publisher])
-                remaining_to_add = total_pub_titles_count - (len(submitted_titles) + current_pub_temp_count)
-                
-                if remaining_to_add > 0:
-                    st.warning(f"⚠️ எச்சரிக்கை: இந்தப் பதிப்பகத்தில் இன்னும் **{remaining_to_add}** தலைப்புகள் சரிபார்க்கப்படாமல் உள்ளன. அனைத்து தலைப்புகளையும் சேர்த்த பிறகுதான் இறுதியாகச் சமர்ப்பிக்க முடியும்!")
-                else:
-                    if st.button("💾 இறுதியாகச் சேமி & சமர்ப்பించు", type="primary", key="final_submit_btn"):
-                        try:
-                            conn = psycopg2.connect(DB_URL)
-                            cur = conn.cursor()
-                            for item in st.session_state["temp_distributed_list"]:
-                                cur.execute("""
-                                    INSERT INTO submitted_reports (publisher, title, author, price, accepted_price, isbn, required_qty, received_qty, date)
-                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                """, (
-                                    item["Publisher"], item["Title"], item["Author"], item["Price"], 
-                                    item["Accepted Price"], item["ISBN"], item["Required Qty"], 
-                                    item["Received Qty"], item["Date"]
-                                ))
-                            conn.commit()
-                            cur.close()
-                            conn.close()
-                            
-                            st.session_state["submitted_reports"] = load_submitted_reports_from_db()
-                            st.session_state["temp_distributed_list"] = []
-                            st.session_state["current_menu"] = "அறிக்கைகள்"
-                            st.success("🎉 தரவுகள் Neon Database-ல் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"❌ Database save error: {e}")
-
-elif current == "அறிக்கைகள்" and st.session_state["user_role"] in ["Admin", "DCL Staff"]:
-    st.subheader("📊 அறிக்கைகள் & பதிவுக் சரிபார்ப்பு")
-    if not st.session_state["submitted_reports"]:
-        st.info("ℹ️ இதுவரை சமர்ப்பிக்கப்பட்ட தரவுகள் எதுவும் இல்லை.")
-    else:
-        full_report_df = pd.DataFrame(st.session_state["submitted_reports"])
-        st.dataframe(full_report_df, use_container_width=True)
+    st.info("👆 மேல் உள்ள மெனு பட்டன்களில் ஏதேனும் ஒன்றை தேர்வு செய்யவும்.")
 
 elif current == "நூலகத் தரவுகள்" and st.session_state["user_role"] == "Librarian":
     st.subheader(f"📚 {st.session_state['librarian_location']} நூலகத்திற்கான ஒதுக்கீடு மற்றும் நூல்கள் விவரங்கள்")
@@ -447,12 +306,155 @@ elif current == "நூலகத் தரவுகள்" and st.session_state[
             st.warning("⚠️ நூலகப் பெயர் அடையாளம் காணப்படவில்லை.")
 
 elif current == "பதிவிறக்கம்" and st.session_state["user_role"] == "Librarian":
-    st.subheader("📥 உங்கள் நூலக அறிக்கைப் பதிவிறக்கம்")
-    st.info(f"{st.session_state['librarian_location']} நூலக அறிக்கைகளைப் பதிவிறக்கலாம்.")
+    st.subheader(f"📥 {st.session_state['librarian_location']} நூலக அறிக்கைப் பதிவிறக்கம்")
+    neon_df = load_neon_database()
+    if not neon_df.empty:
+        lib_col_name = next((c for c in neon_df.columns if 'library' in c and ('name' in c or 'tm' in c)), None)
+        if lib_col_name:
+            lib_specific_df = neon_df[neon_df[lib_col_name].astype(str).str.contains(st.session_state["librarian_location"], case=False, na=False)]
+            if not lib_specific_df.empty:
+                csv_data = lib_specific_df.to_csv(index=False).encode('utf-8-sig')
+                st.download_button(
+                    label="📥 அறிக்கையைப் பதிவிறக்குக (Download CSV)",
+                    data=csv_data,
+                    file_name=f"Report_{st.session_state['librarian_location']}.csv",
+                    mime="text/csv",
+                    type="primary",
+                    use_container_width=True
+                )
+            else:
+                st.info("ℹ️ பதிவிறக்கம் செய்யத் தரவுகள் எதுவும் இல்லை.")
 
-elif st.session_state["user_role"] == "Admin":
-    st.subheader(f"⚙️ நிர்வாகி பகுதி: {current}")
-    st.info("Admin கணக்கின் கீழ் இப்பகுதியை நீங்கள் முழுமையாக நிர்வகிக்கலாம்.")
+elif st.session_state["user_role"] in ["Admin", "DCL Staff"]:
+    if current == "பிரிக்க":
+        st.subheader("🔀 நூல்களைப் பிரிக்கும் பகுதி (Publisher-wise Book Distribution)")
+        neon_df = load_neon_database()
+        if neon_df.empty:
+            st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
+        else:
+            pub_col = next((c for c in neon_df.columns if c in ['publication name', 'publication_name', 'publisher_name'] or 'publication' in c), None)
+            title_col = next((c for c in neon_df.columns if c == 'title' or (('title' in c) and ('book' not in c))), None)
+            if not title_col:
+                title_col = next((c for c in neon_df.columns if 'title' in c), neon_df.columns[2])
+                
+            author_col = next((c for c in neon_df.columns if 'author' in c), None)
+            price_col = next((c for c in neon_df.columns if c == 'price'), None)
+            accepted_price_col = next((c for c in neon_df.columns if 'accept' in c or 'accepted' in c or 'rate' in c or 'offer' in c), None)
+            isbn_col = next((c for c in neon_df.columns if 'isbn' in c), None)
 
+            all_publishers = sorted(neon_df[pub_col].dropna().unique().tolist()) if pub_col else []
+            selected_publisher = st.selectbox(
+                "🔍 1. பதிப்பாளர் பெயரைத் தேர்ந்தெடுக்கவும்:",
+                ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + all_publishers,
+                key="publisher_dropdown"
+            )
+
+            if selected_publisher != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+                pub_filtered_df = neon_df[neon_df[pub_col] == selected_publisher].copy()
+                total_pub_titles_count = len(pub_filtered_df[title_col].dropna().unique())
+                total_pub_books_count = len(pub_filtered_df)
+                
+                submitted_titles = [item["Title"] for item in st.session_state["submitted_reports"] if item["Publisher"] == selected_publisher]
+                temp_added_titles = [item["Title"] for item in st.session_state["temp_distributed_list"] if item["Publisher"] == selected_publisher]
+                
+                excluded_titles = set(submitted_titles + temp_added_titles)
+                available_filtered_df = pub_filtered_df[~pub_filtered_df[title_col].isin(excluded_titles)]
+                all_titles = sorted(available_filtered_df[title_col].dropna().unique().tolist())
+
+                st.markdown(f"""
+                <div style="background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1.5px solid #34d399; padding: 14px 18px; border-radius: 10px; margin: 10px 0 15px 0;">
+                    <div style="font-size: 15px; font-weight: 800; color: #064e3b; margin-bottom: 8px;">
+                        🏢 பதிப்பகம்: {selected_publisher} — சுருக்க விவரம்
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 20px; font-size: 14px; color: #065f46; font-weight: 600;">
+                        <div>📚 மொத்த தலைப்புகள்: <b>{total_pub_titles_count}</b></div>
+                        <div>📦 மொத்த நூல்கள்: <b>{total_pub_books_count}</b></div>
+                        <div>✅ சமர்ப்பிக்கப்பட்டது: <b>{len(submitted_titles)}</b></div>
+                        <div>⏳ மீதம் உள்ளவை: <b>{len(all_titles)}</b></div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                if all_titles:
+                    selected_title = st.selectbox(
+                        "📖 2. தலைப்பைத் தேர்ந்தெடுக்கவும் (Select Book Title):",
+                        ["-- தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + all_titles,
+                        key="title_dropdown"
+                    )
+
+                    if selected_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
+                        title_row_df = pub_filtered_df[pub_filtered_df[title_col] == selected_title]
+                        if not title_row_df.empty:
+                            title_row = title_row_df.iloc[0]
+                            author_name = str(title_row[author_col]) if author_col and author_col in title_row and pd.notna(title_row[author_col]) else "-"
+                            book_price = str(title_row[price_col]) if price_col and price_col in title_row and pd.notna(title_row[price_col]) else "0"
+                            accepted_price = str(title_row[accepted_price_col]) if accepted_price_col and accepted_price_col in title_row and pd.notna(title_row[accepted_price_col]) else "0"
+                            isbn_val = str(title_row[isbn_col]) if isbn_col and isbn_col in title_row and pd.notna(title_row[isbn_col]) else "-"
+                            required_qty = len(title_row_df)
+
+                            with st.form(f"distribution_entry_form_{selected_publisher}_{selected_title}"):
+                                entered_qty = st.number_input(
+                                    "📥 பெறப்பட்ட எண்ணிக்கையை உள்ளீடு செய்யவும்:", 
+                                    min_value=0, max_value=500, value=int(required_qty), step=1
+                                )
+                                submitted_temp = st.form_submit_button("➕ தற்காலிக பட்டியலில் சேமி", type="primary")
+                                
+                                if submitted_temp:
+                                    entry_data = {
+                                        "Publisher": selected_publisher,
+                                        "Title": selected_title,
+                                        "Author": author_name,
+                                        "Price": book_price,
+                                        "Accepted Price": accepted_price,
+                                        "ISBN": isbn_val,
+                                        "Required Qty": required_qty,
+                                        "Received Qty": entered_qty,
+                                        "Date": datetime.now().strftime("%Y-%m-%d %H:%M")
+                                    }
+                                    if not any(item["Title"] == selected_title for item in st.session_state["temp_distributed_list"]):
+                                        st.session_state["temp_distributed_list"].append(entry_data)
+                                    st.success(f"✅ '{selected_title}' தற்காலிக பட்டியலில் சேர்க்கப்பட்டது!")
+                                    st.rerun()
+
+                if st.session_state["temp_distributed_list"]:
+                    st.markdown("---")
+                    st.markdown("#### 📋 தற்காலிகமாகச் சேமிக்கப்பட்ட தலைப்புகளின் பட்டியல்")
+                    temp_df = pd.DataFrame(st.session_state["temp_distributed_list"])
+                    st.dataframe(temp_df, use_container_width=True)
+                    
+                    if st.button("💾 இறுதியாகச் சேமி & சமர்ப்பించు", type="primary", key="final_submit_btn"):
+                        try:
+                            conn = psycopg2.connect(DB_URL)
+                            cur = conn.cursor()
+                            for item in st.session_state["temp_distributed_list"]:
+                                cur.execute("""
+                                    INSERT INTO submitted_reports (publisher, title, author, price, accepted_price, isbn, required_qty, received_qty, date)
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                """, (
+                                    item["Publisher"], item["Title"], item["Author"], item["Price"], 
+                                    item["Accepted Price"], item["ISBN"], item["Required Qty"], 
+                                    item["Received Qty"], item["Date"]
+                                ))
+                            conn.commit()
+                            cur.close()
+                            conn.close()
+                            
+                            st.session_state["submitted_reports"] = load_submitted_reports_from_db()
+                            st.session_state["temp_distributed_list"] = []
+                            st.success("🎉 தரவுகள் Neon Database-ல் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Database save error: {e}")
+
+    elif current == "அறிக்கைகள்":
+        st.subheader("📊 அறிக்கைகள் & பதிவுக் சரிபார்ப்பு")
+        if not st.session_state["submitted_reports"]:
+            st.info("ℹ️ இதுவரை சமர்ப்பிக்கப்பட்ட தரவுகள் எதுவும் இல்லை.")
+        else:
+            full_report_df = pd.DataFrame(st.session_state["submitted_reports"])
+            st.dataframe(full_report_df, use_container_width=True)
+    else:
+        st.subheader(f"⚙️ நிர்வாகி பகுதி: {current}")
+        st.info("Admin கணக்கின் கீழ் இப்பகுதியை நீங்கள் நிர்வகிக்கலாம்.")
 else:
     st.warning("⚠️ இந்தப் பகுதிக்குச் செல்ல உங்களுக்கு அனுமதி இல்லை.")
