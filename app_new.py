@@ -403,7 +403,6 @@ elif current == "Master Data":
                         rec_qty = int(title_received_map.get(title_val, 0))
                         
                         group_df = group_df.copy()
-                        # Received Stats: 1 என்றால் 1, இல்லையெனில் 0 என ஒவ்வொரு வரிசைக்கும் வழங்குதல் (சில சமயங்களில் 2 கூட வரலாம்)
                         received_status = [1 if i < rec_qty else 0 for i in range(req_qty)]
                         group_df["received_stats"] = received_status
                         rows_list.append(group_df)
@@ -465,7 +464,27 @@ elif current == "Master Data":
 
 elif current == "தவறான பதிவு நீக்கம்":
     st.subheader("❌ தவறான பதிவினை நீக்குதல் / திருத்துதல் (Delete / Edit Verified Records)")
-    st.info("👆 மேல் உள்ள தேர்வில் ஏதேனும் ஒரு பிரிவைத் தேர்வு செய்தால், அதற்கான திருத்தும் மற்றும் நீக்கும் வசதிகள் உடனே தோன்றும்.")
+    
+    if not st.session_state["submitted_reports"]:
+        st.info("ℹ️ இதுவரை நீக்குவதற்கு அல்லது திருத்துவதற்குச் சமர்ப்பிக்கப்பட்ட பதிவுகள் எதுவும் இல்லை.")
+    else:
+        st.markdown("#### 📋 சமர்ப்பிக்கப்பட்ட பதிவுகளின் பட்டியல் (இங்கு நீக்கலாம்):")
+        
+        # Display each submitted record with a delete button
+        for idx, item in enumerate(st.session_state["submitted_reports"]):
+            col_info, col_btn = st.columns([5, 1])
+            with col_info:
+                st.markdown(f"""
+                <div style="background: #f1f5f9; padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 13px; color: #1e293b;">
+                    <b>பதிப்பகம்:</b> {item.get('Publisher')} | <b>தலைப்பு:</b> {item.get('Title')} | 
+                    <b>பெறப்பட்டவை:</b> {item.get('Received Qty')} | <b>தேதி:</b> {item.get('Date')}
+                </div>
+                """, unsafe_allow_html=True)
+            with col_btn:
+                if st.button("🗑️ நீக்கு", key=f"del_rep_{idx}", type="secondary"):
+                    deleted_item = st.session_state["submitted_reports"].pop(idx)
+                    st.success(f"✅ '{deleted_item.get('Title')}' பதிவு வெற்றிகரமாக நீக்கப்பட்டது!")
+                    st.rerun()
 
 elif current == "கடவுச்சொல் மாற்ற":
     st.subheader("🔑 கடவுச்சொல் மாற்றும் பகுதி (Change Password)")
