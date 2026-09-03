@@ -142,7 +142,7 @@ def load_submitted_reports_from_db():
 
 for key, default in {
     "logged_in": False, "user_role": None, "user_name": "", "assigned_library": None,
-    "current_menu": None, "temp_distributed_list": [], 
+    "current_menu": "பிரிக்க", "temp_distributed_list": [], 
     "submitted_reports": load_submitted_reports_from_db(),
     "dispatch_records": [], "librarian_records": []
 }.items():
@@ -161,15 +161,20 @@ def show_login_page():
     
     neon_df = load_neon_database()
     lib_col_name = next((c for c in neon_df.columns if 'library' in c and ('name' in c or 'tm' in c)), None) if not neon_df.empty else None
+    id_col_name = next((c for c in neon_df.columns if 'id' in c or 'code' in c or 'no' in c), None) if not neon_df.empty else None
+    
     all_libraries = sorted(neon_df[lib_col_name].dropna().unique().tolist()) if lib_col_name else []
 
     with st.form("secure_login_form"):
         selected_role = st.selectbox("பயனர் வகை (User)", ["-- தேர்ந்தெடுக்கவும் --", "Admin", "DCL Staff", "Librarian"])
         
         selected_lib = None
+        lib_id_input = ""
+        password = ""
+        
         if selected_role == "Librarian":
-            selected_lib = st.selectbox("🏛️ நூலகத்தைத் தேர்ந்தெடுக்கவும் (தேடுவதற்கு எழுத்துக்களை இடவும்):", ["-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --"] + all_libraries)
-            password = st.text_input("🔑 Librarian ID / கடவுச்சொல்", type="password", placeholder="123456789 என உள்ளிடவும்")
+            selected_lib = st.selectbox("🏛️ நூலகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --"] + all_libraries)
+            lib_id_input = st.text_input("🆔 Library ID / குறியீடு உள்ளிடவும்:", placeholder="உதாரணமாக: LIB001 அல்லது நூலக குறியீடு")
         else:
             password = st.text_input("🔑 கடவுச்சொல்", type="password", placeholder="கடவுச்சொல்லை உள்ளிடவும்")
             
@@ -181,10 +186,10 @@ def show_login_page():
         if selected_role == "-- தேர்ந்தெடுக்கவும் --":
             st.warning("⚠️ தயவுசெய்து பயனர் வகையைத் தேர்ந்தெடுக்கவும்!")
         elif selected_role == "Librarian":
-            if selected_lib == "-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --":
+            if selected_lib == "-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --" or not selected_lib:
                 st.warning("⚠️ தயவுசெய்து உங்களது நூலகத்தைத் தேர்ந்தெடுக்கவும்!")
-            elif password != "123456789":
-                st.error("❌ தவறான Librarian ID / கடவுச்சொல்!")
+            elif not lib_id_input.strip():
+                st.warning("⚠️ தயவுசெய்து Library ID-ஐ உள்ளிடவும்!")
             else:
                 st.session_state.update(
                     logged_in=True, 
@@ -197,7 +202,13 @@ def show_login_page():
         else:
             user = st.session_state["users_db"].get(selected_role)
             if user and hmac.compare_digest(hash_password(password), user["password_hash"]):
-                st.session_state.update(logged_in=True, user_role=selected_role, user_name=user["name"], assigned_library=None)
+                st.session_state.update(
+                    logged_in=True, 
+                    user_role=selected_role, 
+                    user_name=user["name"], 
+                    assigned_library=None,
+                    current_menu="பிரிக்க"
+                )
                 st.rerun()
             else:
                 st.error("❌ தவறான கடவுச்சொல்!")
@@ -410,7 +421,6 @@ elif current == "நூலகர் பார்வை ஆண்டு":
         lib_col_name = next((c for c in neon_df.columns if 'library' in c and ('name' in c or 'tm' in c)), None)
         if lib_col_name:
             if role == "Librarian":
-                # நூலகருக்கு அவரது சொந்த நூலகம் மட்டுமே காட்டப்படும் (மற்றவற்றை மாற்ற முடியாது)
                 sel_lib = st.session_state["assigned_library"]
                 st.info(f"🏛️ உங்களது நூலகம்: **{sel_lib}**")
             else:
@@ -446,5 +456,14 @@ elif current == "கடவுச்சொல் மாற்ற" and role == "Ad
             else:
                 st.error("❌ பழைய கடவுச்சொல் தவறானது!")
 
+elif role == "Admin":
+    st.subheader(f"⚙️ {current} பகுதி (Admin Control Panel)")
+    st.info(f"ℹ️ நீங்கள் '{current}' பகுதியை வெற்றிகரமாக அணுகியுள்ளீர்கள். Admin-ஆதலால் அனைத்து நிர்வாகப் பணிகளையும் இங்கு மேற்கொள்ளலாம்.")
+    
+    # Admin-க்கான பொதுவான மேலாண்மை டேட்டா அல்லது எடிட்டிங் பகுதி
+    neon_df = load_neon_database()
+    if not neon_df.empty:
+        st.markdown("#### 📋 டேட்டாபேஸ் தரவு மேலாண்மை (Database Records)")
+        st.dataframe(neon_df.head(50), use_container_width=True)
 else:
     st.warning("⚠️ உங்களுக்கு இந்தப் பக்கத்தை அணுக அனுமதி இல்லை.")
