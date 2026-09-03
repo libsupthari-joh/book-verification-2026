@@ -295,13 +295,11 @@ elif current == "பிரிக்க":
                                     "Publisher": selected_publisher,
                                     "Title": selected_title,
                                     "Author": author_name,
-                                    "Price": book_price,
                                     "Accepted Price": accepted_price,
                                     "ISBN": isbn_val,
                                     "Required Qty": required_qty,
                                     "Received Qty": entered_qty,
-                                    "Date": datetime.now().strftime("%Y-%m-%d %H:%M")
-                                }
+                                                                    }
                                 if not any(item["Title"] == selected_title for item in st.session_state["temp_distributed_list"]):
                                     st.session_state["temp_distributed_list"].append(entry_data)
                                 st.success(f"✅ '{selected_title}' தற்காலிக பட்டியலில் சேர்க்கப்பட்டது!")
@@ -315,12 +313,19 @@ elif current == "பிரிக்க":
                 temp_df = pd.DataFrame(st.session_state["temp_distributed_list"])
                 st.dataframe(temp_df, use_container_width=True)
                 
-                if st.button("💾 இறுதியாகச் சேமி & சமர்ப்பించు", type="primary", key="final_submit_btn"):
-                    st.session_state["submitted_reports"].extend(st.session_state["temp_distributed_list"])
-                    st.session_state["temp_distributed_list"] = []
-                    st.session_state["current_menu"] = "அறிக்கைகள்"
-                    st.success("🎉 தரவுகள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
-                    st.rerun()
+                # Check if all titles of this publisher are added to temp list
+                current_pub_temp_count = len([item for item in st.session_state["temp_distributed_list"] if item["Publisher"] == selected_publisher])
+                remaining_to_add = total_pub_titles_count - (len(submitted_titles) + current_pub_temp_count)
+                
+                if remaining_to_add > 0:
+                    st.warning(f"⚠️ எச்சரிக்கை: இந்தப் பதிப்பகத்தில் இன்னும் **{remaining_to_add}** தலைப்புகள் சரிபார்க்கப்படாமல் உள்ளன. அனைத்து தலைப்புகளையும் சேர்த்த பிறகுதான் இறுதியாகச் சமர்ப்பிக்க முடியும்!")
+                else:
+                    if st.button("💾 இறுதியாகச் சேமி & சமர்ப்பించు", type="primary", key="final_submit_btn"):
+                        st.session_state["submitted_reports"].extend(st.session_state["temp_distributed_list"])
+                        st.session_state["temp_distributed_list"] = []
+                        st.session_state["current_menu"] = "அறிக்கைகள்"
+                        st.success("🎉 தரவுகள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
+                        st.rerun()
 
 elif current == "அறிக்கைகள்":
     st.subheader("📊 அறிக்கைகள் & பதிவுக் சரிபார்ப்பு (Publishers & Title & Books Verification Report)")
