@@ -36,8 +36,48 @@ html, body, [class*="css"] { font-family: 'Noto Sans Tamil', sans-serif !importa
 .login-card-wrapper { background: #ffffff; border-radius: 16px; padding: 22px 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); border: 1.5px solid #a7f3d0; width: 100%; max-width: 380px; }
 .login-header-box { text-align: center; background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1.5px solid #a7f3d0; border-radius: 10px; padding: 10px; margin-bottom: 12px; }
 .login-title { color: #064e3b; font-size: 15px; font-weight: 800; }
-.ticker-container { background: linear-gradient(135deg, #f0fdf4, #dcfce7); border: 1.5px solid #86efac; padding: 8px 12px; border-radius: 10px; color: #065f46; font-weight: 700; font-size: 13px; display: flex; align-items: center; box-shadow: 0 2px 8px rgba(6, 95, 70, 0.08); margin-bottom: 20px; overflow: hidden; white-space: nowrap; }
-.ticker-badge { background: #065f46; color: white; padding: 3px 10px; border-radius: 6px; font-size: 12px; margin-right: 15px; display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+
+/* 💡 Live News Ticker Scrolling Animation */
+.ticker-container { 
+    background: linear-gradient(135deg, #f0fdf4, #dcfce7); 
+    border: 1.5px solid #86efac; 
+    padding: 8px 12px; 
+    border-radius: 10px; 
+    color: #065f46; 
+    font-weight: 700; 
+    font-size: 13px; 
+    display: flex; 
+    align-items: center; 
+    box-shadow: 0 2px 8px rgba(6, 95, 70, 0.08); 
+    margin-bottom: 20px; 
+    overflow: hidden; 
+    white-space: nowrap; 
+}
+.ticker-badge { 
+    background: #065f46; 
+    color: white; 
+    padding: 3px 10px; 
+    border-radius: 6px; 
+    font-size: 12px; 
+    margin-right: 15px; 
+    display: flex; 
+    align-items: center; 
+    gap: 5px; 
+    flex-shrink: 0; 
+    z-index: 2;
+}
+.marquee-text {
+    display: inline-block;
+    white-space: nowrap;
+    animation: marquee 25s linear infinite;
+}
+.marquee-text:hover {
+    animation-play-state: paused;
+}
+@keyframes marquee {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(-100%); }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -138,12 +178,14 @@ today_str = datetime.now().strftime("%d/%m/%Y")
 st.markdown(f"""
 <div class="ticker-container">
     <div class="ticker-badge">🔴 Live News</div>
-    <div class="ticker-text" style="overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
-        📚 பெறப்பட்ட நூல்கள் : <b>45,305</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-        ✅ பிரிக்கப்பட்டது : <b>{total_submitted_count}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-        ⏳ மீதம் பிரிக்க வேண்டியது : <b>{45305 - total_submitted_count}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-        📤 அனுப்பப்பட்டது : <b>0</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-        🗓️ இன்று ({today_str}) பிரிக்கப்பட்டது : <b>{total_submitted_count}</b>
+    <div style="overflow: hidden; width: 100%;">
+        <div class="marquee-text">
+            📚 பெறப்பட்ட நூல்கள் : <b>45,305</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+            ✅ பிரிக்கப்பட்டது : <b>{total_submitted_count}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+            ⏳ மீதம் பிரிக்க வேண்டியது : <b>{45305 - total_submitted_count}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+            📤 அனுப்பப்பட்டது : <b>0</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+            🗓️ இன்று ({today_str}) பிரிக்கப்பட்டது : <b>{total_submitted_count}</b>
+        </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -154,7 +196,7 @@ current = st.session_state["current_menu"]
 def load_neon_database():
     try:
         import psycopg2
-        db_url = "postgresql://neondb_owner:npg_NEqeOTXak5v7@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+        db_url = "postgresql://neondb_owner:npg_gY5h1PjZtXvK@ep-super-pond-a50s70up.us-east-2.aws.neon.tech/neondb?sslmode=require"
         conn = psycopg2.connect(db_url)
         df = pd.read_sql("SELECT * FROM books;", con=conn)
         conn.close()
@@ -201,7 +243,6 @@ elif current == "பிரிக்க":
 
             pub_filtered_df = neon_df[neon_df[pub_col] == selected_publisher].copy()
             
-            # 💡 பதிப்பகத்திற்கான புள்ளிவிவரங்கள் கணக்கிடுதல்
             total_pub_titles_count = len(pub_filtered_df[title_col].dropna().unique())
             total_pub_books_count = len(pub_filtered_df)
             
@@ -213,7 +254,6 @@ elif current == "பிரிக்க":
             else:
                 tamil_count = total_pub_titles_count
 
-            # 💡 பதிப்பாளர் கீழேயே ஒட்டுமொத்த விவரங்களைக் காட்டுதல்
             st.markdown(f"""
             <div style="background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1.5px solid #34d399; padding: 14px 18px; border-radius: 10px; margin: 10px 0 15px 0;">
                 <div style="font-size: 15px; font-weight: 800; color: #064e3b; margin-bottom: 8px;">
@@ -228,7 +268,6 @@ elif current == "பிரிக்க":
             </div>
             """, unsafe_allow_html=True)
 
-            # 💡 சமர்ப்பிக்கப்பட்ட மற்றும் தற்காலிக பட்டியலில் உள்ள தலைப்புகளை வடிகட்டி நீக்குதல் (Hidden from dropdown)
             submitted_titles = [item["Title"] for item in st.session_state["submitted_reports"] if item["Publisher"] == selected_publisher]
             temp_added_titles = [item["Title"] for item in st.session_state["temp_distributed_list"] if item["Publisher"] == selected_publisher]
             
@@ -322,12 +361,17 @@ elif current == "பிரிக்க":
                         st.warning(f"⚠️ இப்பதப்பகத்தில் இன்னும் **{remaining_check}** தலைப்புகள் சரிபார்க்கப்பட வேண்டியுள்ளது.")
                     else:
                         st.success("🎉 இந்தப் பதிப்பகத்தில் உள்ள அனைத்துத் தலைப்புகளும் சரிபார்க்கப்பட்டுவிட்டன! இப்போது இறுதியாகச் சமர்ப்பிக்கலாம்.")
-                        if st.button("💾 இறுதியாகச் சேமி & சமர்ப்பించు", type="primary"):
+                        
+                    # 💡 இறுதிச் சமர்ப்பிப்புப் பட்டன் எப்போதும் சரியாகச் செயல்படும் படி தனிப் பகுதியாக மாற்றப்பட்டுள்ளது
+                    if st.button("💾 இறுதியாகச் சேமி & சமர்ப்பించు", type="primary", key="final_submit_btn"):
+                        if st.session_state["temp_distributed_list"]:
                             st.session_state["submitted_reports"].extend(st.session_state["temp_distributed_list"])
                             st.session_state["temp_distributed_list"] = []
                             st.session_state["current_menu"] = "அறிக்கைகள்"
                             st.success("🎉 தரவுகள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
                             st.rerun()
+                        else:
+                            st.warning("⚠️ சேமிக்க தற்காலிகப் பட்டியலில் தரவுகள் எதுவும் இல்லை!")
 
 elif current == "அனுப்ப":
     st.subheader("📤 நூல்களை அனுப்பும் பகுதி (Dispatch)")
