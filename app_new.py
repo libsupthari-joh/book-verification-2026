@@ -36,7 +36,7 @@ html, body, [class*="css"] { font-family: 'Noto Sans Tamil', sans-serif !importa
 .header-title { font-size: 20px; font-weight: 800; color: #ffffff; }
 .header-subtitle { font-size: 13px; color: #a7f3d0; font-weight: 600; }
 .login-top-container { display: flex; justify-content: center; align-items: flex-start; padding-top: 30px; }
-.login-card-wrapper { background: #ffffff; border-radius: 16px; padding: 22px 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); border: 1.5px solid #a7f3d0; width: 100%; max-width: 380px; }
+.login-card-wrapper { background: #ffffff; border-radius: 16px; padding: 22px 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); border: 1.5px solid #a7f3d0; width: 100%; max-width: 420px; }
 .login-header-box { text-align: center; background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1.5px solid #a7f3d0; border-radius: 10px; padding: 10px; margin-bottom: 12px; }
 .login-title { color: #064e3b; font-size: 15px; font-weight: 800; }
 
@@ -90,14 +90,20 @@ if "users_db" not in st.session_state:
     st.session_state["users_db"] = {
         "Admin": {"password_hash": hash_password("Hari@@1979"), "name": "முதன்மை நிர்வாகி (Admin)"},
         "DCL Staff": {"password_hash": hash_password("123456"), "name": "DCL Staff"},
-        "Librarian": {"password_hash": hash_password("123456789"), "name": "Librarian"},
     }
 
-def authenticate_user(role_key, password):
-    user = st.session_state["users_db"].get(role_key)
-    if user and hmac.compare_digest(hash_password(password), user["password_hash"]):
-        return user
-    return None
+@st.cache_data
+def load_neon_database():
+    try:
+        conn = psycopg2.connect(DB_URL)
+        df = pd.read_sql("SELECT * FROM books;", con=conn)
+        conn.close()
+        if not df.empty:
+            df.columns = [str(c).strip().lower() for c in df.columns]
+            return df
+    except Exception as e:
+        st.error(f"❌ டேட்டாபேஸ் இணைப்பில் பிழை: {e}")
+    return pd.DataFrame()
 
 def init_submitted_table():
     try:
@@ -135,7 +141,7 @@ def load_submitted_reports_from_db():
         return []
 
 for key, default in {
-    "logged_in": False, "user_role": None, "user_name": "",
+    "logged_in": False, "user_role": None, "user_name": "", "assigned_library": None,
     "current_menu": None, "temp_distributed_list": [], 
     "submitted_reports": load_submitted_reports_from_db(),
     "dispatch_records": [], "librarian_records": []
@@ -153,9 +159,20 @@ def show_login_page():
             </div>
     """, unsafe_allow_html=True)
     
+    neon_df = load_neon_database()
+    lib_col_name = next((c for c in neon_df.columns if 'library' in c and ('name' in c or 'tm' in c)), None) if not neon_df.empty else None
+    all_libraries = sorted(neon_df[lib_col_name].dropna().unique().tolist()) if lib_col_name else []
+
     with st.form("secure_login_form"):
         selected_role = st.selectbox("பயனர் வகை (User)", ["-- தேர்ந்தெடுக்கவும் --", "Admin", "DCL Staff", "Librarian"])
-        password = st.text_input("🔑 கடவுச்சொல்", type="password", placeholder="கடவுச்சொல்லை உள்ளிடவும்")
+        
+        selected_lib = None
+        if selected_role == "Librarian":
+            selected_lib = st.selectbox("🏛️ நூலகத்தைத் தேர்ந்தெடுக்கவும் (தேடுவதற்கு எழுத்துக்களை இடவும்):", ["-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --"] + all_libraries)
+            password = st.text_input("🔑 Librarian ID / கடவுச்சொல்", type="password", placeholder="123456789 என உள்ளிடவும்")
+        else:
+            password = st.text_input("🔑 கடவுச்சொல்", type="password", placeholder="கடவுச்சொல்லை உள்ளிடவும்")
+            
         submitted = st.form_submit_button("உள்ளுழை", use_container_width=True)
         
     st.markdown("</div></div>", unsafe_allow_html=True)
@@ -163,15 +180,27 @@ def show_login_page():
     if submitted:
         if selected_role == "-- தேர்ந்தெடுக்கவும் --":
             st.warning("⚠️ தயவுசெய்து பயனர் வகையைத் தேர்ந்தெடுக்கவும்!")
-        else:
-            user = authenticate_user(selected_role, password)
-            if not user:
-                st.error("❌ தவறான கடவுச்சொல்!")
+        elif selected_role == "Librarian":
+            if selected_lib == "-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --":
+                st.warning("⚠️ தயவுசெய்து உங்களது நூலகத்தைத் தேர்ந்தெடுக்கவும்!")
+            elif password != "123456789":
+                st.error("❌ தவறான Librarian ID / கடவுச்சொல்!")
             else:
-                st.session_state.update(logged_in=True, user_role=selected_role, user_name=user["name"])
-                if selected_role == "Librarian":
-                    st.session_state["current_menu"] = "நூலகர் பார்வை ஆண்டு"
+                st.session_state.update(
+                    logged_in=True, 
+                    user_role="Librarian", 
+                    user_name=f"நூலகர் ({selected_lib})",
+                    assigned_library=selected_lib,
+                    current_menu="நூலகர் பார்வை ஆண்டு"
+                )
                 st.rerun()
+        else:
+            user = st.session_state["users_db"].get(selected_role)
+            if user and hmac.compare_digest(hash_password(password), user["password_hash"]):
+                st.session_state.update(logged_in=True, user_role=selected_role, user_name=user["name"], assigned_library=None)
+                st.rerun()
+            else:
+                st.error("❌ தவறான கடவுச்சொல்!")
 
 if not st.session_state["logged_in"]:
     show_login_page()
@@ -185,20 +214,20 @@ st.markdown("""
     </div>
     <div style="text-align: right;">
         <span style="background: rgba(255,255,255,0.15); padding: 6px 12px; border-radius: 8px; font-size: 13px;">
-            👤 {} ({})
+            👤 {}
         </span>
     </div>
 </div>
-""".format(st.session_state["user_name"], st.session_state["user_role"]), unsafe_allow_html=True)
+""".format(st.session_state["user_name"]), unsafe_allow_html=True)
 
 col_logout = st.columns([11, 1])
 with col_logout[1]:
     if st.button("🚪 வெளியேறு", use_container_width=True):
         st.session_state["logged_in"] = False
         st.session_state["user_role"] = None
+        st.session_state["assigned_library"] = None
         st.rerun()
 
-# Role-based menu restriction
 role = st.session_state["user_role"]
 if role == "Admin":
     allowed_menus = [
@@ -210,11 +239,11 @@ if role == "Admin":
 elif role == "DCL Staff":
     allowed_menus = [
         ("🔀", "பிரிக்க"), ("📤", "அனுப்ப"), ("📊", "அறிக்கைகள்"), 
-        ("👥", "நூலகர் பார்வை ஆண்டு"), ("🔑", "கடவுச்சொல் மாற்ற")
+        ("👥", "நூலகர் பார்வை ஆண்டு")
     ]
 elif role == "Librarian":
     allowed_menus = [
-        ("👥", "நூலகர் பார்வை ஆண்டு"), ("🔑", "கடவுச்சொல் மாற்ற")
+        ("👥", "நூலகர் பார்வை ஆண்டு")
     ]
 else:
     allowed_menus = []
@@ -248,19 +277,6 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 current = st.session_state["current_menu"]
-
-@st.cache_data
-def load_neon_database():
-    try:
-        conn = psycopg2.connect(DB_URL)
-        df = pd.read_sql("SELECT * FROM books;", con=conn)
-        conn.close()
-        if not df.empty:
-            df.columns = [str(c).strip().lower() for c in df.columns]
-            return df
-    except Exception as e:
-        st.error(f"❌ டேட்டாபேஸ் இணைப்பில் பிழை: {e}")
-    return pd.DataFrame()
 
 if current is None:
     st.info("👆 மேல் உள்ள மெனு பட்டன்களில் ஏதேனும் ஒன்றை தேர்வு செய்யவும்.")
@@ -386,17 +402,22 @@ elif current == "அறிக்கைகள்" and role in ["Admin", "DCL Staf
         st.download_button(label="📥 அறிக்கையைப் பதிவிறக்குக (Download CSV)", data=csv_all, file_name=f"Verification_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv", mime="text/csv", type="primary", use_container_width=True)
 
 elif current == "நூலகர் பார்வை ஆண்டு":
-    st.subheader("👥 நூலகர் பார்வை ஆண்டு விவரங்கள் மேலாண்மை")
+    st.subheader("👥 நூலகர் பார்வை ஆண்டு விவரங்கள்")
     neon_df = load_neon_database()
     if neon_df.empty:
         st.warning("⚠️ டேட்டாபேஸ் தரவுகள் கிடைக்கவில்லை.")
     else:
         lib_col_name = next((c for c in neon_df.columns if 'library' in c and ('name' in c or 'tm' in c)), None)
         if lib_col_name:
-            all_libs = sorted(neon_df[lib_col_name].dropna().unique().tolist())
-            sel_lib = st.selectbox("🔍 நூலகத்தைத் தேர்ந்தெடுக்கவும் (Select Library):", ["-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --"] + all_libs)
+            if role == "Librarian":
+                # நூலகருக்கு அவரது சொந்த நூலகம் மட்டுமே காட்டப்படும் (மற்றவற்றை மாற்ற முடியாது)
+                sel_lib = st.session_state["assigned_library"]
+                st.info(f"🏛️ உங்களது நூலகம்: **{sel_lib}**")
+            else:
+                all_libs = sorted(neon_df[lib_col_name].dropna().unique().tolist())
+                sel_lib = st.selectbox("🔍 நூலகத்தைத் தேர்ந்தெடுக்கவும் (Select Library):", ["-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --"] + all_libs)
             
-            if sel_lib != "-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --":
+            if sel_lib and sel_lib != "-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --":
                 lib_df = neon_df[neon_df[lib_col_name] == sel_lib].copy()
                 st.markdown(f"### 🏛️ நூலகம்: {sel_lib} (மொத்த நூல்கள்: {len(lib_df)})")
                 st.dataframe(lib_df, use_container_width=True)
@@ -406,8 +427,8 @@ elif current == "நூலகர் பார்வை ஆண்டு":
         else:
             st.warning("⚠️ நூலகப் பெயர் காலம் (Library Name Column) டேட்டாபேஸில் கிடைக்கவில்லை.")
 
-elif current == "கடவுச்சொல் மாற்ற":
-    st.subheader("🔑 கடவுச்சொல் மாற்றும் பகுதி (Change Password)")
+elif current == "கடவுச்சொல் மாற்ற" and role == "Admin":
+    st.subheader("🔑 கடவுச்சொல் மாற்றும் பகுதி (Admin Only)")
     with st.form("pwd_form"):
         old_p = st.text_input("பழைய கடவுச்சொல்", type="password")
         new_p = st.text_input("புதிய கடவுச்சொல்", type="password")
@@ -415,20 +436,15 @@ elif current == "கடவுச்சொல் மாற்ற":
         submitted_pwd = st.form_submit_button("கடவுச்சொல்லை மாற்றுக", type="primary")
         
         if submitted_pwd:
-            current_role = st.session_state["user_role"]
-            stored_hash = st.session_state["users_db"][current_role]["password_hash"]
+            stored_hash = st.session_state["users_db"]["Admin"]["password_hash"]
             if hmac.compare_digest(hash_password(old_p), stored_hash):
                 if new_p == conf_p and len(new_p) > 0:
-                    st.session_state["users_db"][current_role]["password_hash"] = hash_password(new_p)
+                    st.session_state["users_db"]["Admin"]["password_hash"] = hash_password(new_p)
                     st.success("✅ கடவுச்சொல் வெற்றிகரமாக மாற்றப்பட்டது!")
                 else:
                     st.error("❌ புதிய கடவுச்சொற்கள் பொருந்தவில்லை அல்லது காலியாக உள்ளது!")
             else:
                 st.error("❌ பழைய கடவுச்சொல் தவறானது!")
-
-elif current == "தவறான பதிவு நீக்கம்" and role == "Admin":
-    st.subheader("❌ தவறான பதிவினை நீக்குதல் / திருத்துதல் (Admin Only)")
-    st.info("நிர்வாகி (Admin) மட்டுமே இந்தப் பகுதியைப் பயன்படுத்த முடியும்.")
 
 else:
     st.warning("⚠️ உங்களுக்கு இந்தப் பக்கத்தை அணுக அனுமதி இல்லை.")
