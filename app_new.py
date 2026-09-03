@@ -211,7 +211,6 @@ elif current == "பிரிக்க":
                 tamil_count = len(pub_filtered_df[pub_filtered_df[lang_col].astype(str).str.contains('தமிழ்|tamil', case=False, na=False)][title_col].dropna().unique())
                 english_count = len(pub_filtered_df[pub_filtered_df[lang_col].astype(str).str.contains('ஆங்கிலம்|english', case=False, na=False)][title_col].dropna().unique())
             else:
-                # அனுமானமாக அல்லது இல்லாத பட்சத்தில் தலைப்பு எண்ணிக்கையைக் காட்டுதல்
                 tamil_count = total_pub_titles_count
 
             # 💡 பதிப்பாளர் கீழேயே ஒட்டுமொத்த விவரங்களைக் காட்டுதல்
@@ -229,13 +228,17 @@ elif current == "பிரிக்க":
             </div>
             """, unsafe_allow_html=True)
 
+            # 💡 சமர்ப்பிக்கப்பட்ட மற்றும் தற்காலிக பட்டியலில் உள்ள தலைப்புகளை வடிகட்டி நீக்குதல் (Hidden from dropdown)
             submitted_titles = [item["Title"] for item in st.session_state["submitted_reports"] if item["Publisher"] == selected_publisher]
+            temp_added_titles = [item["Title"] for item in st.session_state["temp_distributed_list"] if item["Publisher"] == selected_publisher]
             
-            pub_filtered_df = pub_filtered_df[~pub_filtered_df[title_col].isin(submitted_titles)]
-            all_titles = sorted(pub_filtered_df[title_col].dropna().unique().tolist())
+            excluded_titles = set(submitted_titles + temp_added_titles)
+            
+            available_filtered_df = pub_filtered_df[~pub_filtered_df[title_col].isin(excluded_titles)]
+            all_titles = sorted(available_filtered_df[title_col].dropna().unique().tolist())
 
             if not all_titles:
-                st.success(f"🎉 '{selected_publisher}' பதிப்பகத்தில் உள்ள அனைத்து நூல்களும் ({total_pub_titles_count} தலைப்புகள்) ஏற்கனவே முழுமையாகச் சரிபார்க்கப்பட்டு சமர்ப்பிக்கப்பட்டுவிட்டன!")
+                st.success(f"🎉 '{selected_publisher}' பதிப்பகத்தில் உள்ள அனைத்து நூல்களும் வெற்றிகரமாகச் சரிபார்க்கப்பட்டுவிட்டன!")
             else:
                 selected_title = st.selectbox(
                     "📖 2. தலைப்பைத் தேர்ந்தெடுக்கவும் (Select Book Title):",
@@ -313,10 +316,10 @@ elif current == "பிரிக்க":
                     st.dataframe(temp_df, use_container_width=True)
                     
                     temp_titles_count = len(temp_df)
-                    remaining_check = total_pub_titles_count - temp_titles_count
+                    remaining_check = total_pub_titles_count - len(submitted_titles) - temp_titles_count
 
                     if remaining_check > 0:
-                        st.warning(f"⚠️ இப்பதப்பகத்தில் இன்னும் **{remaining_check}** தலைப்புகள் சரிபார்க்கப்பட வேண்டியுள்ளது. அனைத்துத் தலைப்புகளையும் சரிபார்த்த பின்னரே இறுதிப் பட்டியல் சமர்ப்பிக்க இயலும்!")
+                        st.warning(f"⚠️ இப்பதப்பகத்தில் இன்னும் **{remaining_check}** தலைப்புகள் சரிபார்க்கப்பட வேண்டியுள்ளது.")
                     else:
                         st.success("🎉 இந்தப் பதிப்பகத்தில் உள்ள அனைத்துத் தலைப்புகளும் சரிபார்க்கப்பட்டுவிட்டன! இப்போது இறுதியாகச் சமர்ப்பிக்கலாம்.")
                         if st.button("💾 இறுதியாகச் சேமி & சமர்ப்பించు", type="primary"):
