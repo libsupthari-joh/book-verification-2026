@@ -171,7 +171,7 @@ for i, (icon, label) in enumerate(menu_options):
 
 st.markdown("---")
 
-total_submitted_count = sum([item.get("Received Qty", 0) for item in st.session_state['submitted_reports']])
+total_submitted_count = sum([int(item.get("Received Qty", 0)) for item in st.session_state['submitted_reports']])
 today_str = datetime.now().strftime("%d/%m/%Y")
 
 st.markdown(f"""
@@ -226,7 +226,6 @@ elif current == "பிரிக்க":
         price_col = next((c for c in neon_df.columns if c == 'price'), None)
         accepted_price_col = next((c for c in neon_df.columns if 'accept' in c or 'accepted' in c or 'rate' in c or 'offer' in c), None)
         isbn_col = next((c for c in neon_df.columns if 'isbn' in c), None)
-        lang_col = next((c for c in neon_df.columns if 'lang' in c or 'language' in c or 'moli' in c or 'mozhi' in c), None)
 
         all_publishers = sorted(neon_df[pub_col].dropna().unique().tolist()) if pub_col else []
 
@@ -237,9 +236,6 @@ elif current == "பிரிக்க":
         )
 
         if selected_publisher != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
-            if st.session_state["temp_distributed_list"] and st.session_state["temp_distributed_list"][0]["Publisher"] != selected_publisher:
-                st.session_state["temp_distributed_list"] = []
-
             pub_filtered_df = neon_df[neon_df[pub_col] == selected_publisher].copy()
             
             total_pub_titles_count = len(pub_filtered_df[title_col].dropna().unique())
@@ -266,9 +262,7 @@ elif current == "பிரிக்க":
             </div>
             """, unsafe_allow_html=True)
 
-            if not all_titles:
-                st.success(f"🎉 '{selected_publisher}' பதிப்பகத்தில் உள்ள அனைத்து நூல்களும் வெற்றிகரமாகச் சரிபார்க்கப்பட்டுவிட்டன!")
-            else:
+            if all_titles:
                 selected_title = st.selectbox(
                     "📖 2. தலைப்பைத் தேர்ந்தெடுக்கவும் (Select Book Title):",
                     ["-- தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + all_titles,
@@ -312,19 +306,21 @@ elif current == "பிரிக்க":
                                     st.session_state["temp_distributed_list"].append(entry_data)
                                 st.success(f"✅ '{selected_title}' தற்காலிக பட்டியலில் சேர்க்கப்பட்டது!")
                                 st.rerun()
+            else:
+                st.success(f"🎉 '{selected_publisher}' பதிப்பகத்தில் உள்ள அனைத்து நூல்களும் வெற்றிகரமாகச் சரிபார்க்கப்பட்டுவிட்டன!")
 
-                if st.session_state["temp_distributed_list"]:
-                    st.markdown("---")
-                    st.markdown("#### 📋 தற்காலிகமாகச் சேமிக்கப்பட்ட தலைப்புகளின் பட்டியல்")
-                    temp_df = pd.DataFrame(st.session_state["temp_distributed_list"])
-                    st.dataframe(temp_df, use_container_width=True)
-                    
-                    if st.button("💾 இறுதியாகச் சேமி & சமர்ப்பించు", type="primary", key="final_submit_btn"):
-                        st.session_state["submitted_reports"].extend(st.session_state["temp_distributed_list"])
-                        st.session_state["temp_distributed_list"] = []
-                        st.session_state["current_menu"] = "அறிக்கைகள்"
-                        st.success("🎉 தரவுகள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
-                        st.rerun()
+            if st.session_state["temp_distributed_list"]:
+                st.markdown("---")
+                st.markdown("#### 📋 தற்காலிகமாகச் சேமிக்கப்பட்ட தலைப்புகளின் பட்டியல்")
+                temp_df = pd.DataFrame(st.session_state["temp_distributed_list"])
+                st.dataframe(temp_df, use_container_width=True)
+                
+                if st.button("💾 இறுதியாகச் சேமி & சமர்ப்பించు", type="primary", key="final_submit_btn"):
+                    st.session_state["submitted_reports"].extend(st.session_state["temp_distributed_list"])
+                    st.session_state["temp_distributed_list"] = []
+                    st.session_state["current_menu"] = "அறிக்கைகள்"
+                    st.success("🎉 தரவுகள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
+                    st.rerun()
 
 elif current == "அறிக்கைகள்":
     st.subheader("📊 அறிக்கைகள் & பதிவுக் சரிபார்ப்பு (Publishers & Title & Books Verification Report)")
