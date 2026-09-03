@@ -195,7 +195,7 @@ current = st.session_state["current_menu"]
 def load_neon_database():
     try:
         import psycopg2
-        db_url = "postgresql://neondb_owner:npg_NEqeOTXak5v7@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+        db_url = "postgresql://neondb_owner:npg_vA4w9qUFJheu@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
         conn = psycopg2.connect(db_url)
         df = pd.read_sql("SELECT * FROM books;", con=conn)
         conn.close()
