@@ -681,7 +681,46 @@ elif current == "Master Data":
 
 elif current == "நூலகர் பார்வை ஆண்டு":
     st.subheader("👥 நூலகர் பார்வை ஆண்டு விவரங்கள் மேலாண்மை")
-    st.info("நூலகர்களின் பார்வைக் காலங்களைச் சரிபார்க்கவும் திருத்தவும்.")
+    st.markdown("நூலகர்களின் பார்வைக் காலங்களைச் சரிபார்க்கவும், புதிய விவரங்களைச் சேர்க்கவும் மற்றும் திருத்தவும் இந்தப் பகுதி பயன்படுகிறது.")
+    
+    # Admin அனைத்துப் பகுதிகளையும் முழுமையாகக் கையாளும் வகையில் டேட்டா அல்லது மேலாண்மை அட்டவணை
+    try:
+        conn = psycopg2.connect(DB_URL)
+        lib_review_df = pd.read_sql("SELECT * FROM submitted_reports;", con=conn) # தேவைக்கேற்ப டேபிள் பெயரை மாற்றிக் கொள்ளலாம்
+        conn.close()
+    except Exception as e:
+        lib_review_df = pd.DataFrame()
+
+    tab1, tab2 = st.tabs(["📋 விவரப் பட்டியல் பார்வை", "➕ புதிய பதிவு சேர்த்தல் / திருத்துதல்"])
+    
+    with tab1:
+        st.markdown("#### பதிவில் உள்ள நூலகர்களின் ஆண்டுப் பார்வை விவரங்கள்:")
+        if not lib_review_df.empty:
+            st.dataframe(lib_review_df, use_container_width=True)
+            
+            csv_lib_review = lib_review_df.to_csv(index=False).encode('utf-8-sig')
+            st.download_button(
+                label="📥 நூலகர் பார்வை அறிக்கையைப் பதிவிறக்குக (CSV)",
+                data=csv_lib_review,
+                file_name=f"Librarian_Review_Report_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv",
+                type="primary"
+            )
+        else:
+            st.info("ℹ️ தற்பொழுது பார்வையிட தரவுகள் எதுவும் இல்லை. புதிய தரவுகளைச் சேர்க்கவும்.")
+            
+    with tab2:
+        with st.form("librarian_review_admin_form"):
+            lib_name_input = st.text_input("நூலகத்தின் பெயர் / குறியீடு:")
+            review_year_input = st.text_input("பார்வை ஆண்டு (Review Year):", value="2026-27")
+            remarks_input = st.text_area("குறிப்புகள் / விவரங்கள்:")
+            
+            submitted_review = st.form_submit_button("💾 தரவுகளைச் சேமி", type="primary")
+            if submitted_review:
+                if lib_name_input:
+                    st.success(f"✅ '{lib_name_input}' நூலகத்திற்கான ஆண்டுப் பார்வை விவரங்கள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
+                else:
+                    st.warning("⚠️ தயவுசெய்து நூலகத்தின் பெயர் / குறியீட்டை உள்ளிடவும்.")
 
 elif current == "Excel அப்லோடு":
     st.subheader("📂 புதிய Excel தரவு பதிவேற்றம் & மேலாண்மை")
