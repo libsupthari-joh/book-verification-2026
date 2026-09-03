@@ -359,7 +359,7 @@ elif current == "அறிக்கைகள்":
         )
 
 # ==========================================
-# 🗂️ Master Data பகுதி (பெறப்பட்ட நூலகங்கள் மட்டும் & இரு வகைப் பிரிப்பு)
+# 🗂️ Master Data பகுதி (முன்பிருந்த எளிய முறை - பதிப்பகம், தலைப்புகள், நூல்கள் எண்ணிக்கை)
 # ==========================================
 elif current == "Master Data":
     st.subheader("🗂️ Master Data மேலாண்மை & நூலகங்களின் விவரப் பட்டியல்")
@@ -370,19 +370,10 @@ elif current == "Master Data":
     else:
         pub_col = next((c for c in neon_df.columns if c in ['publication name', 'publication_name', 'publisher_name'] or 'publication' in c), None)
         
-        # 1. பணி செய்த பதிப்பாளர்கள் மட்டும் வருமாறு வடிகட்டுதல்
-        worked_publishers = set()
-        for item in st.session_state.get("submitted_reports", []):
-            if "Publisher" in item:
-                worked_publishers.add(item["Publisher"])
-        for item in st.session_state.get("temp_distributed_list", []):
-            if "Publisher" in item:
-                worked_publishers.add(item["Publisher"])
-                
-        all_master_pubs = sorted(list(worked_publishers)) if worked_publishers else sorted(neon_df[pub_col].dropna().unique().tolist()) if pub_col else []
+        all_master_pubs = sorted(neon_df[pub_col].dropna().unique().tolist()) if pub_col else []
         
         sel_master_pub = st.selectbox(
-            "🏢 பணி செய்த பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:",
+            "🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:",
             ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + all_master_pubs,
             key="master_pub_dropdown"
         )
@@ -390,33 +381,24 @@ elif current == "Master Data":
         if sel_master_pub != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
             pub_master_df = neon_df[neon_df[pub_col] == sel_master_pub].copy()
             
-            # பெறப்பட்ட நூலகங்களைக் கணக்கிடுதல் (உதாரணமாக 5 எனில் முதல் 5 மட்டும்)
-            received_qty_for_pub = 0
-            for item in st.session_state.get("submitted_reports", []):
-                if item.get("Publisher") == sel_master_pub:
-                    received_qty_for_pub += int(item.get("Received Qty", 0))
-            
-            total_req = len(pub_master_df)
-            if received_qty_for_pub == 0:
-                received_qty_for_pub = total_req # இயல்நிலையாக அனைத்துமிருந்தால் காட்ட
-                
-            filtered_pub_master_df = pub_master_df.head(received_qty_for_pub)
-            pending_qty = max(0, total_req - received_qty_for_pub)
+            # முன்பிருந்தவாறு மொத்த நூல்கள், தலைப்புகள் மற்றும் பதிப்பக எண்ணிக்கை விவரங்கள்
+            total_books_count = len(pub_master_df)
+            title_col_name = next((c for c in neon_df.columns if 'title' in c), None)
+            total_titles_count = len(pub_master_df[title_col_name].dropna().unique()) if title_col_name else 0
             
             st.markdown(f"""
             <div style="background: #f0fdf4; border: 1.5px solid #86efac; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
                 <b>📊 பதிப்பகச் சுருக்கம்:</b><br>
-                • மொத்த நூல்கள் (Required): <b>{total_req}</b><br>
-                • பெறப்பட்ட நூலகங்கள் மட்டும் (Received): <span style="color: #16a34a; font-weight: bold;">{len(filtered_pub_master_df)}</span><br>
-                • விடுவிக்கப்பட்ட/பெறப்படாதவை (Excluded): <span style="color: #dc2626; font-weight: bold;">{pending_qty}</span>
+                • மொத்த நூல்கள் (Required): <b>{total_books_count}</b><br>
+                • பெறப்பட்ட நூலகங்கள் மட்டும் (Received): <span style="color: #16a34a; font-weight: bold;">{total_books_count}</span><br>
+                • விடுவிக்கப்பட்ட/பெறப்படாதவை (Excluded): <span style="color: #dc2626; font-weight: bold;">0</span>
             </div>
             """, unsafe_allow_html=True)
             
-            # 2. நூலகங்களை தேர்வு செய்யும் போது அந்த நூலகத்திற்குரிய விவரங்கள் தனித்தனியாக வருவது (Two-way separation view)
             library_name_col = next((c for c in neon_df.columns if 'library_name' in c or 'library name' in c or c == 'library'), None)
             
-            if library_name_col and library_name_col in filtered_pub_master_df.columns:
-                library_options = sorted(filtered_pub_master_df[library_name_col].dropna().unique().tolist())
+            if library_name_col and library_name_col in pub_master_df.columns:
+                library_options = sorted(pub_master_df[library_name_col].dropna().unique().tolist())
                 sel_library = st.selectbox(
                     "🏫 நூலகத்தைத் தேர்ந்தெடுக்கவும் (Select Library):",
                     ["-- அனைத்து நூலகங்களும் --"] + library_options,
@@ -424,12 +406,12 @@ elif current == "Master Data":
                 )
                 
                 if sel_library != "-- அனைத்து நூலகங்களும் --":
-                    final_view_df = filtered_pub_master_df[filtered_pub_master_df[library_name_col] == sel_library]
+                    final_view_df = pub_master_df[pub_master_df[library_name_col] == sel_library]
                     st.markdown(f"### 📍 நூலகம்: {sel_library} — உரிய விவரங்கள்")
                 else:
-                    final_view_df = filtered_pub_master_df
+                    final_view_df = pub_master_df
             else:
-                final_view_df = filtered_pub_master_df
+                final_view_df = pub_master_df
                 
             st.dataframe(final_view_df, use_container_width=True)
             
@@ -444,103 +426,7 @@ elif current == "Master Data":
 
 elif current == "தவறான பதிவு நீக்கம்":
     st.subheader("❌ தவறான பதிவினை நீக்குதல் / திருத்துதல் (Delete / Edit Verified Records)")
-    
-    edit_action_option = st.selectbox(
-        "📌 எந்தப் பகுதியில் உள்ள தரவுகளை மாற்ற / நீக்க வேண்டும் என்பதைத் தேர்ந்தெடுக்கவும்:",
-        [
-            "-- பகுதியைத் தேர்ந்தெடுக்கவும் --",
-            "1. பதிப்பாளர் தேர்வு (Publisher Records)",
-            "2. அனுப்பிய விவரங்கள் (Dispatch Records)",
-            "3. அறிக்கை தரவுகள் (Submitted Reports)",
-            "4. கவனிக்க வேண்டியவை (Review / Price Conflicts)",
-            "5. பதிவெண் மாற்றங்கள் (Accession Number Updates)",
-            "6. Master Data தரவுகள்",
-            "7. பகுப்பு எண் மாற்றங்கள் (Classification Number Updates)"
-        ],
-        key="main_error_correction_sub_menu"
-    )
-    
-    st.markdown("---")
-    
-    if edit_action_option == "1. பதிப்பாளர் தேர்வு (Publisher Records)":
-        st.markdown("### 🏢 1. பதிப்பாளர் தேர்வு & திருத்துதல் / நீக்குதல்")
-        
-        completed_publishers = set()
-        for item in st.session_state.get("submitted_reports", []):
-            if "Publisher" in item:
-                completed_publishers.add(item["Publisher"])
-        for item in st.session_state.get("temp_distributed_list", []):
-            if "Publisher" in item:
-                completed_publishers.add(item["Publisher"])
-                
-        pub_list = sorted(list(completed_publishers))
-        
-        if not pub_list:
-            st.info("ℹ️ இதுவரை எந்தப் பதிப்பகப் பணியும் முடிக்கப்படவில்லை.")
-        else:
-            sel_pub = st.selectbox("பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + pub_list, key="err_pub_sel")
-            
-            if sel_pub != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
-                completed_titles = set()
-                for item in st.session_state.get("submitted_reports", []):
-                    if item.get("Publisher") == sel_pub and "Title" in item:
-                        completed_titles.add(item["Title"])
-                for item in st.session_state.get("temp_distributed_list", []):
-                    if item.get("Publisher") == sel_pub and "Title" in item:
-                        completed_titles.add(item["Title"])
-                        
-                title_list = sorted(list(completed_titles))
-                
-                sel_title = st.selectbox("தலைப்பைத் தேர்ந்தெடுக்கவும்:", ["-- தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + title_list, key="err_title_sel")
-                
-                if sel_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
-                    req_qty = 7  
-                    rec_qty = 5
-                    target_index = None
-                    
-                    for idx, item in enumerate(st.session_state.get("submitted_reports", [])):
-                        if item.get("Publisher") == sel_pub and item.get("Title") == sel_title:
-                            req_qty = int(item.get("Required Qty", 7))
-                            rec_qty = int(item.get("Received Qty", 5))
-                            target_index = idx
-                            break
-
-                    st.markdown(f"""
-                    <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
-                        <b>📖 நூல் தலைப்பு:</b> {sel_title}<br>
-                        <b>📌 பெறப்பட வேண்டிய மொத்த எண்ணிக்கை (Required):</b> <span style="color: #2563eb; font-weight: bold;">{req_qty}</span><br>
-                        <b>📥 ஏற்கனவே பெறப்பட்ட எண்ணிக்கை (Received):</b> <span style="color: #16a34a; font-weight: bold;">{rec_qty}</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        new_val = st.number_input("📥 பெறப்பட்ட எண்ணிக்கையைத் திருத்துக (Update Received Qty):", min_value=0, max_value=req_qty, value=rec_qty, key="err_pub_qty")
-                    with c2:
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        col_d, col_u = st.columns(2)
-                        with col_d:
-                            if st.button("🗑️ நீக்கு", key="err_pub_del_btn", use_container_width=True):
-                                if target_index is not None:
-                                    st.session_state["submitted_reports"].pop(target_index)
-                                st.success("✅ பதிவு வெற்றிகரமாக நீக்கப்பட்டது!")
-                                st.rerun()
-                        with col_u:
-                            if st.button("💾 மாற்று/புதுப்பி", key="err_pub_upd_btn", type="primary", use_container_width=True):
-                                if target_index is not None:
-                                    st.session_state["submitted_reports"][target_index]["Received Qty"] = new_val
-                                else:
-                                    st.session_state["submitted_reports"].append({
-                                        "Publisher": sel_pub,
-                                        "Title": sel_title,
-                                        "Required Qty": req_qty,
-                                        "Received Qty": new_val,
-                                        "Date": datetime.now().strftime("%Y-%m-%d %H:%M")
-                                    })
-                                st.success(f"✅ எண்ணிக்கை வெற்றிகரமாக {new_val} என மாற்றப்பட்டது!")
-                                st.rerun()
-    else:
-        st.info("👆 மேல் உள்ள தேர்வில் ஏதேனும் ஒரு பிரிவைத் தேர்வு செய்தால், அதற்கான திருத்தும் மற்றும் நீக்கும் வசதிகள் உடனே தோன்றும்.")
+    st.info("👆 மேல் உள்ள தேர்வில் ஏதேனும் ஒரு பிரிவைத் தேர்வு செய்தால், அதற்கான திருத்தும் மற்றும் நீக்கும் வசதிகள் உடனே தோன்றும்.")
 
 elif current == "கடவுச்சொல் மாற்ற":
     st.subheader("🔑 கடவுச்சொல் மாற்றும் பகுதி (Change Password)")
@@ -565,7 +451,7 @@ elif current == "Excel பதிவிறக்கம்":
             label="📥 முழுமையான தரவுகளை Excel கோப்பாகப் பதிவிறக்குக",
             data=csv_data,
             file_name=f"Master_Verification_Data_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv",
+            mime="text/css",
             type="primary"
         )
 
