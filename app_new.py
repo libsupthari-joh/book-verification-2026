@@ -358,10 +358,63 @@ elif current == "அறிக்கைகள்":
             use_container_width=True
         )
 
+# ==========================================
+# 🗂️ Master Data பகுதி (70 / 90 மற்றும் 0 கணக்கீட்டு வசதியுடன்)
+# ==========================================
+elif current == "Master Data":
+    st.subheader("🗂️ Master Data மேலாண்மை & நூல்களின் விவரப் பட்டியல்")
+    
+    neon_df = load_neon_database()
+    if neon_df.empty:
+        st.warning("⚠️ Master Data-வில் தரவுகள் கிடைக்கவில்லை.")
+    else:
+        pub_col = next((c for c in neon_df.columns if c in ['publication name', 'publication_name', 'publisher_name'] or 'publication' in c), None)
+        
+        all_master_pubs = sorted(neon_df[pub_col].dropna().unique().tolist()) if pub_col else []
+        
+        sel_master_pub = st.selectbox(
+            "🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:",
+            ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + all_master_pubs,
+            key="master_pub_dropdown"
+        )
+        
+        if sel_master_pub != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+            pub_master_df = neon_df[neon_df[pub_col] == sel_master_pub].copy()
+            
+            st.markdown(f"### 📋 {sel_master_pub} — நூல்களின் விரிவான பட்டியல் (Master Data)")
+            
+            # பெறப்பட்ட மற்றும் மீதமுள்ள கணக்கீடுகள்
+            received_qty_for_pub = 0
+            for item in st.session_state.get("submitted_reports", []):
+                if item.get("Publisher") == sel_master_pub:
+                    received_qty_for_pub += int(item.get("Received Qty", 0))
+            
+            total_req = len(pub_master_df)
+            pending_qty = max(0, total_req - received_qty_for_pub)
+            
+            st.markdown(f"""
+            <div style="background: #f0fdf4; border: 1.5px solid #86efac; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+                <b>📊 பதிப்பகச் சுருக்கம்:</b><br>
+                • மொத்த நூல்கள் (Required): <b>{total_req}</b><br>
+                • பெறப்பட்ட நூல்கள் (Received): <span style="color: #16a34a; font-weight: bold;">{received_qty_for_pub}</span><br>
+                • மீதம் உள்ளவை (Pending/Zero): <span style="color: #dc2626; font-weight: bold;">{pending_qty}</span>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.dataframe(pub_master_df, use_container_width=True)
+            
+            master_csv = pub_master_df.to_csv(index=False).encode('utf-8-sig')
+            st.download_button(
+                label="📥 இந்தப் பதிப்பகத்தின் Master Data-வைப் பதிவிறக்குக (CSV)",
+                data=master_csv,
+                file_name=f"Master_Data_{sel_master_pub}.csv",
+                mime="text/csv",
+                type="primary"
+            )
+
 elif current == "தவறான பதிவு நீக்கம்":
     st.subheader("❌ தவறான பதிவினை நீக்குதல் / திருத்துதல் (Delete / Edit Verified Records)")
     
-    # முதன்மை மெனுவிற்குள் உள்ள துணைப் பிரிவுகள் (Sub-options)
     edit_action_option = st.selectbox(
         "📌 எந்தப் பகுதியில் உள்ள தரவுகளை மாற்ற / நீக்க வேண்டும் என்பதைத் தேர்ந்தெடுக்கவும்:",
         [
@@ -379,7 +432,6 @@ elif current == "தவறான பதிவு நீக்கம்":
     
     st.markdown("---")
     
-    # 1. பதிப்பாளர் தேர்வு பகுதி (பெறப்பட வேண்டிய மற்றும் பெறப்பட்ட விவரங்களுடன்)
     if edit_action_option == "1. பதிப்பாளர் தேர்வு (Publisher Records)":
         st.markdown("### 🏢 1. பதிப்பாளர் தேர்வு & திருத்துதல் / நீக்குதல்")
         
@@ -412,8 +464,7 @@ elif current == "தவறான பதிவு நீக்கம்":
                 sel_title = st.selectbox("தலைப்பைத் தேர்ந்தெடுக்கவும்:", ["-- தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + title_list, key="err_title_sel")
                 
                 if sel_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
-                    # தரவுகளில் இருந்து பெறப்பட வேண்டிய மற்றும் பெறப்பட்ட எண்ணிக்கையைக் கண்டறிதல்
-                    req_qty = 90  # இயல்புநிலை (உதாரணமாக திருக்குறள் கலைஞர் உரை)
+                    req_qty = 90  
                     rec_qty = 75
                     target_index = None
                     
@@ -424,7 +475,6 @@ elif current == "தவறான பதிவு நீக்கம்":
                             target_index = idx
                             break
 
-                    # நீங்கள் கேட்டது போல பெறப்பட வேண்டிய மற்றும் பெறப்பட்ட விவரங்களைக் காட்டுதல்
                     st.markdown(f"""
                     <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
                         <b>📖 நூல் தலைப்பு:</b> {sel_title}<br>
@@ -435,7 +485,6 @@ elif current == "தவறான பதிவு நீக்கம்":
 
                     c1, c2 = st.columns(2)
                     with c1:
-                        # புதிய பெட்டியில் மீதமுள்ள நூல்களைச் சேர்த்து மொத்த எண்ணிக்கையை மாற்றுவது (எ.கா: 75 + 15 = 90)
                         new_val = st.number_input("📥 பெறப்பட்ட எண்ணிக்கையைத் திருத்துக (Update Received Qty):", min_value=0, max_value=req_qty*2, value=rec_qty, key="err_pub_qty")
                     with c2:
                         st.markdown("<br>", unsafe_allow_html=True)
@@ -460,10 +509,9 @@ elif current == "தவறான பதிவு நீக்கம்":
                                     })
                                 st.success(f"✅ எண்ணிக்கை வெற்றிகரமாக {new_val} என மாற்றப்பட்டது!")
                                 st.rerun()
-
-    # (மற்ற பிரிவுகள் வழக்கம் போல் தொடரும்...)
     else:
         st.info("👆 மேல் உள்ள தேர்வில் ஏதேனும் ஒரு பிரிவைத் தேர்வு செய்தால், அதற்கான திருத்தும் மற்றும் நீக்கும் வசதிகள் உடனே தோன்றும்.")
+
 elif current == "கடவுச்சொல் மாற்ற":
     st.subheader("🔑 கடவுச்சொல் மாற்றும் பகுதி (Change Password)")
     with st.form("pwd_form"):
