@@ -359,9 +359,6 @@ elif current == "அறிக்கைகள்":
             use_container_width=True
         )
 
-# ==========================================
-# 🗂️ Master Data பகுதி (பணி முடிக்கப்பட்ட விவரங்கள் மட்டும், பதிப்பகம் / நூலகம் தனித்தனித் தேர்வுடன்)
-# ==========================================
 elif current == "Master Data":
     st.subheader("🗂️ Master Data சேமிப்பு & மேலாண்மை பகுதி (பணி முடிக்கப்பட்டவை)")
     
@@ -370,7 +367,6 @@ elif current == "Master Data":
     else:
         master_df = pd.DataFrame(st.session_state["submitted_reports"])
         
-        # பார்வை முறை தேர்வு (Publisher-wise அல்லது Library-wise)
         view_mode = st.radio(
             "📂 பார்வைக் முறையைத் தேர்ந்தெடுக்கவும்:",
             ["🏢 பதிப்பகம் வாரியாக (Publisher-wise)", "🏛️ நூலகம் வாரியாக (Library-wise)"],
@@ -382,7 +378,6 @@ elif current == "Master Data":
         if "Publisher-wise" in view_mode:
             st.markdown("### 🏢 பணி முடிக்கப்பட்ட பதிப்பகங்கள் வாரியான விவரங்கள்")
             
-            # சுருக்கப் புள்ளிவிவரங்கள்
             total_sub_pubs = master_df["Publisher"].nunique()
             total_sub_titles = len(master_df)
             total_req_books = master_df["Required Qty"].sum() if "Required Qty" in master_df.columns else 0
@@ -422,7 +417,6 @@ elif current == "Master Data":
         else:
             st.markdown("### 🏛️ பணி முடிக்கப்பட்ட நூலகம் வாரியான விவரங்கள்")
             
-            # நூலகம் தொடர்பான விவரங்கள் சமர்ப்பிக்கப்பட்ட அறிக்கைகளில் இருந்தால் அதைக் காட்டுதல்
             lib_filter_list = ["-- அனைத்து நூலகங்களும் --"]
             if "Library Name" in master_df.columns:
                 lib_list = sorted(master_df["Library Name"].dropna().unique().tolist())
@@ -444,7 +438,9 @@ elif current == "Master Data":
                 file_name=f"Master_Data_LibraryWise_{datetime.now().strftime('%Y%m%d')}.csv",
                 mime="text/csv",
                 type="primary"
-            )elif current == "தவறான பதிவு நீக்கம்":
+            )
+
+elif current == "தவறான பதிவு நீக்கம்":
     st.subheader("❌ தவறான பதிவினை நீக்குதல் / திருத்துதல் (Delete / Edit Verified Records)")
     st.info("👆 மேல் உள்ள தேர்வில் ஏதேனும் ஒரு பிரிவைத் தேர்வு செய்தால், அதற்கான திருத்தும் மற்றும் நீக்கும் வசதிகள் உடனே தோன்றும்.")
 
