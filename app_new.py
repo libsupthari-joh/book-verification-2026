@@ -359,7 +359,7 @@ elif current == "அறிக்கைகள்":
         )
 
 # ==========================================
-# 🗂️ Master Data பகுதி (முதல் படத்தில் உள்ள அனைத்து விவரங்களுடன், Price அடுத்து Received/Not Received 1 அல்லது 0 உடன்)
+# 🗂️ Master Data பகுதி (சரிபார்க்கப்பட்ட பதிப்பகங்கள் மட்டும் Dropdown-ல் வரும்படி திருத்தப்பட்டது)
 # ==========================================
 elif current == "Master Data":
     st.subheader("🗂️ Master Data மேலாண்மை & தலைப்பு வாரியான விவரப் பட்டியல்")
@@ -372,14 +372,16 @@ elif current == "Master Data":
         title_col_name = next((c for c in neon_df.columns if 'title' in c), None)
         price_col = next((c for c in neon_df.columns if c == 'price'), None)
         
-        all_master_pubs = sorted(neon_df[pub_col].dropna().unique().tolist()) if pub_col else []
+        # சமர்ப்பிக்கப்பட்ட அறிக்கைகளில் உள்ள பதிப்பகங்களை மட்டும் எடுத்தல்
+        submitted_publishers = list(set([item.get("Publisher") for item in st.session_state["submitted_reports"] if item.get("Publisher")]))
+        submitted_publishers = sorted(submitted_publishers)
         
-        if not all_master_pubs:
-            st.info("ℹ️ Master Data-வில் பதிப்பகங்கள் கிடைக்கவில்லை.")
+        if not submitted_publishers:
+            st.info("ℹ️ இதுவரை எந்தவொரு பதிப்பகமும் சரிபார்க்கப்பட்டு சமர்ப்பிக்கப்படவில்லை. (முதலில் 'பிரிக்க' பகுதியில் நூல்களைச் சரிபார்த்து சமர்ப்பிக்கவும்)")
         else:
             sel_master_pub = st.selectbox(
                 "🏢 1. பணி செய்து முடித்த பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:",
-                ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + all_master_pubs,
+                ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + submitted_publishers,
                 key="master_pub_dropdown"
             )
             
@@ -412,7 +414,6 @@ elif current == "Master Data":
                         
                         total_allotted_libs = len(title_filtered_df)
                         
-                        # சமர்ப்பிக்கப்பட்ட அறிக்கைகளில் இருந்து இந்தத் தலைப்பிற்கான பெறப்பட்ட எண்ணிக்கையைக் கண்டறிதல்
                         matched_reports = [item for item in st.session_state["submitted_reports"] if item.get("Publisher") == sel_master_pub and item.get("Title") == sel_title]
                         
                         if matched_reports:
@@ -422,7 +423,7 @@ elif current == "Master Data":
                             
                         not_received_count = max(0, total_allotted_libs - received_count)
 
-                        # தலைப்புச் சுருக்கம் (Title Summary Box)
+                        # தலைப்புச் சுருக்கம்
                         st.markdown(f"""
                         <div style="background: linear-gradient(135deg, #eff6ff, #dbeafe); border: 1.5px solid #93c5fd; padding: 14px 18px; border-radius: 10px; margin: 10px 0 15px 0;">
                             <div style="font-size: 15px; font-weight: 800; color: #1e3a8a; margin-bottom: 8px;">
@@ -436,10 +437,8 @@ elif current == "Master Data":
                         </div>
                         """, unsafe_allow_html=True)
                         
-                        # Price நெடுவரிசைக்கு அடுத்து Received / Not Received கலம் சேர்த்து, பெறப்பட்ட நூலகங்களுக்கு 1, பெறப்படாதவைகளுக்கு 0 என அமைத்தல்
                         received_status_list = [1 if i < received_count else 0 for i in range(total_allotted_libs)]
                         
-                        # Price நெடுவரிசையின் நிலையைச் சரிபார்த்து அதற்கு அடுத்ததாகச் சேர்த்தல்
                         cols_list = list(title_filtered_df.columns)
                         if price_col and price_col in cols_list:
                             p_idx = cols_list.index(price_col)
@@ -460,7 +459,6 @@ elif current == "Master Data":
                         )
                 else:
                     st.warning("⚠️ தலைப்புக்கான காலம் (Title Column) கண்டுபிடிக்கப்படவில்லை.")
-
 elif current == "தவறான பதிவு நீக்கம்":
     st.subheader("❌ தவறான பதிவினை நீக்குதல் / திருத்துதல் (Delete / Edit Verified Records)")
     st.info("👆 மேல் உள்ள தேர்வில் ஏதேனும் ஒரு பிரிவைத் தேர்வு செய்தால், அதற்கான திருத்தும் மற்றும் நீக்கும் வசதிகள் உடனே தோன்றும்.")
