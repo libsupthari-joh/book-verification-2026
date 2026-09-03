@@ -360,7 +360,7 @@ elif current == "அறிக்கைகள்":
         )
 
 elif current == "Master Data":
-    st.subheader("🗂️ Master Data சேமிப்பு & மேலாண்மை பகுதி (Neon Table Data)")
+    st.subheader("🗂️ Master Data சேமிப்பு & மேலாண்மை பகுதி (Neon Table Data with Received Stats)")
     
     neon_df = load_neon_database()
     if neon_df.empty or not st.session_state["submitted_reports"]:
@@ -383,7 +383,7 @@ elif current == "Master Data":
         st.markdown("---")
         
         if "Publisher-wise" in view_mode:
-            st.markdown("### 🏢 பணி முடிக்கப்பட்ட பதிப்பகங்கள் வாரியான முழு விவரங்கள் (Neon Table Data)")
+            st.markdown("### 🏢 பணி முடிக்கப்பட்ட பதிப்பகங்கள் வாரியான முழு விவரங்கள் (Received Stats உடன்)")
             
             if not submitted_pubs:
                 st.info("ℹ️ பணி முடிக்கப்பட்ட பதிப்பகங்கள் எதுவும் இல்லை.")
@@ -393,14 +393,49 @@ elif current == "Master Data":
                 if sel_master_pub != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
                     pub_neon_df = neon_df[neon_df[pub_col] == sel_master_pub].copy()
                     
-                    st.markdown(f"### 📍 பதிப்பகம்: {sel_master_pub} — Neon டேட்டாபேஸ் முழு விவர அட்டவணை")
-                    st.dataframe(pub_neon_df, use_container_width=True)
+                    rep_df = pd.DataFrame(st.session_state["submitted_reports"])
+                    pub_rep = rep_df[rep_df["Publisher"] == sel_master_pub]
+                    title_received_map = dict(zip(pub_rep["Title"], pub_rep["Received Qty"])) if not pub_rep.empty else {}
                     
-                    csv_master = pub_neon_df.to_csv(index=False).encode('utf-8-sig')
+                    rows_list = []
+                    for title_val, group_df in pub_neon_df.groupby(title_col):
+                        req_qty = len(group_df)
+                        rec_qty = int(title_received_map.get(title_val, 0))
+                        
+                        group_df = group_df.copy()
+                        # Received Stats: 1 என்றால் 1, இல்லையெனில் 0 என ஒவ்வொரு வரிசைக்கும் வழங்குதல் (சில சமயங்களில் 2 கூட வரலாம்)
+                        received_status = [1 if i < rec_qty else 0 for i in range(req_qty)]
+                        group_df["received_stats"] = received_status
+                        rows_list.append(group_df)
+                    
+                    if rows_list:
+                        final_pub_df = pd.concat(rows_list, ignore_index=True)
+                    else:
+                        final_pub_df = pub_neon_df
+                        
+                    total_titles = final_pub_df[title_col].nunique()
+                    total_books = len(final_pub_df)
+                    total_rec_books = final_pub_df["received_stats"].sum() if "received_stats" in final_pub_df.columns else 0
+                    total_not_rec_books = total_books - total_rec_books
+                    
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("🏢 பதிப்பகம்", sel_master_pub)
+                    with col2:
+                        st.metric("📚 தலைப்புகள்", total_titles)
+                    with col3:
+                        st.metric("✅ பெறப்பட்ட நூல்கள்", int(total_rec_books))
+                    with col4:
+                        st.metric("⏳ பெறப்படாத நூல்கள்", int(total_not_rec_books))
+                        
+                    st.markdown(f"### 📍 பதிப்பகம்: {sel_master_pub} — முழு அட்டவணை விவரங்கள்")
+                    st.dataframe(final_pub_df, use_container_width=True)
+                    
+                    csv_master = final_pub_df.to_csv(index=False).encode('utf-8-sig')
                     st.download_button(
                         label="📥 பதிப்பக Master Data பதிவிறக்கம் (CSV)",
                         data=csv_master,
-                        file_name=f"Master_Data_{sel_master_pub}.csv",
+                        file_name=f"Master_Data_ReceivedStats_{sel_master_pub}.csv",
                         mime="text/csv",
                         type="primary"
                     )
