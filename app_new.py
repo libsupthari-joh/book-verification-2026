@@ -359,7 +359,7 @@ elif current == "அறிக்கைகள்":
         )
 
 # ==========================================
-# 🗂️ Master Data பகுதி (விலைக்கு அடுத்து Received/Not Received கலம் 1 அல்லது 0 உடன்)
+# 🗂️ Master Data பகுதி (முதல் படத்தில் உள்ள அனைத்து விவரங்களுடன், Price அடுத்து Received/Not Received 1 அல்லது 0 உடன்)
 # ==========================================
 elif current == "Master Data":
     st.subheader("🗂️ Master Data மேலாண்மை & தலைப்பு வாரியான விவரப் பட்டியல்")
@@ -437,9 +437,15 @@ elif current == "Master Data":
                         """, unsafe_allow_html=True)
                         
                         # Price நெடுவரிசைக்கு அடுத்து Received / Not Received கலம் சேர்த்து, பெறப்பட்ட நூலகங்களுக்கு 1, பெறப்படாதவைகளுக்கு 0 என அமைத்தல்
-                        # உதாரணமாக முதல் 'received_count' எண்ணிக்கையிலான நூலகங்களுக்கு 1ம், மீதமுள்ளவைகளுக்கு 0ம் வழங்கலாம் அல்லது டேட்டாபேஸ் நிலைக்கேற்ப அமைக்கலாம்.
                         received_status_list = [1 if i < received_count else 0 for i in range(total_allotted_libs)]
-                        title_filtered_df["Received_Status"] = received_status_list
+                        
+                        # Price நெடுவரிசையின் நிலையைச் சரிபார்த்து அதற்கு அடுத்ததாகச் சேர்த்தல்
+                        cols_list = list(title_filtered_df.columns)
+                        if price_col and price_col in cols_list:
+                            p_idx = cols_list.index(price_col)
+                            title_filtered_df.insert(p_idx + 1, "received_status", received_status_list)
+                        else:
+                            title_filtered_df["received_status"] = received_status_list
                         
                         st.markdown(f"### 📍 தலைப்பு: {sel_title} — அனைத்து நூலகங்களின் விவரங்கள்")
                         st.dataframe(title_filtered_df, use_container_width=True)
