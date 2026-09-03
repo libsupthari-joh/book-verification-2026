@@ -86,11 +86,13 @@ html, body, [class*="css"] { font-family: 'Noto Sans Tamil', sans-serif !importa
 def hash_password(password):
     return hashlib.sha256(str(password).encode("utf-8")).hexdigest()
 
+# நூலகர்களின் பெயர்கள் மற்றும் ஐடிக்களுடன் கூடிய தரவுத்தளம்
 USERS_DATABASE = {
     "Admin": {"password_hash": hash_password("Hari@@1979"), "name": "முதன்மை நிர்வாகி (Admin)"},
     "DCL Staff": {"password_hash": hash_password("123456"), "name": "DCL Staff"},
-    "TNDPL01617": {"password_hash": hash_password("123456789"), "name": "Chinthakampalli Librarian", "lib_name": "Chinthakampalli"},
-    "TNDPL01586": {"password_hash": hash_password("123456789"), "name": "Pochampalli Librarian", "lib_name": "Pochampalli"},
+    # நூலகர்களின் ஐடி, கடவுச்சொல் மற்றும் நூலகப் பெயர்
+    "TNDPL01617": {"password_hash": hash_password("123456789"), "name": "சிந்தகம்பள்ளி நூலகர்", "lib_name": "Chinthakampalli"},
+    "TNDPL01586": {"password_hash": hash_password("123456789"), "name": "போச்சம்பள்ளி நூலகர்", "lib_name": "Pochampalli"},
 }
 
 def authenticate_user(role_key, password, librarian_id=""):
@@ -216,7 +218,7 @@ with col_logout[1]:
         st.session_state["user_role"] = None
         st.rerun()
 
-# பங்கை (Role) பொறுத்து மெனு பட்டியலை நிர்ணயித்தல்
+# பங்கு வாரியான மெனுக்கள் (Admin: அனைத்தும், DCL Staff: 3 பணிகள், Librarian: நூலகத் தரவுகள் மட்டும்)
 if st.session_state["user_role"] == "Admin":
     menu_options = [
         ("🔀", "பிரிக்க"), ("📤", "அனுப்ப"), ("📊", "அறிக்கைகள்"), ("⚠️", "கவனிக்க"),
@@ -225,12 +227,10 @@ if st.session_state["user_role"] == "Admin":
         ("📂", "Excel அப்லோடு"), ("🏷️", "பகுப்பு எண் புதுப்பி")
     ]
 elif st.session_state["user_role"] == "DCL Staff":
-    # DCL Staff-க்கு குறிப்பிட்ட 3 பணிகள் மட்டும்
     menu_options = [
         ("🔀", "பிரிக்க"), ("📤", "அனுப்ப"), ("📊", "அறிக்கைகள்")
     ]
 else:
-    # Librarian-க்கு சம்பந்தப்பட்ட நூலகத் தரவுகளை மட்டும் பார்க்கும் பகுதி
     menu_options = [
         ("📊", "நூலகத் தரவுகள்"), ("📥", "பதிவிறக்கம்")
     ]
@@ -245,7 +245,7 @@ for i, (icon, label) in enumerate(menu_options):
 
 st.markdown("---")
 
-today_str = datetime.now().strftime("%d/%m/%Y")
+current = st.session_state["current_menu"]
 
 @st.cache_data
 def load_neon_database():
@@ -260,35 +260,8 @@ def load_neon_database():
         pass
     return pd.DataFrame()
 
-current = st.session_state["current_menu"]
-
 if current is None:
     st.info("👆 மேல் உள்ள மெனு பட்டன்களில் ஏதேனும் ஒன்றை தேர்வு செய்யவும்.")
-
-elif current == "பிரிக்க" and st.session_state["user_role"] in ["Admin", "DCL Staff"]:
-    st.subheader("🔀 நூல்களைப் பிரிக்கும் பகுதி (Publisher-wise Book Distribution)")
-    neon_df = load_neon_database()
-    if neon_df.empty:
-        st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
-    else:
-        pub_col = next((c for c in neon_df.columns if c in ['publication name', 'publication_name', 'publisher_name'] or 'publication' in c), None)
-        title_col = next((c for c in neon_df.columns if c == 'title' or 'title' in c), neon_df.columns[2])
-        all_publishers = sorted(neon_df[pub_col].dropna().unique().tolist()) if pub_col else []
-        selected_publisher = st.selectbox("🔍 பதிப்பாளர் பெயரைத் தேர்ந்தெடுக்கவும்:", ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + all_publishers)
-        if selected_publisher != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
-            st.success(f"தேர்ந்தெடுக்கப்பட்ட பதிப்பகம்: {selected_publisher}")
-
-elif current == "அனுப்ப" and st.session_state["user_role"] in ["Admin", "DCL Staff"]:
-    st.subheader("📤 அனுப்பும் பகுதி (Dispatch Section)")
-    st.info("நூல்களை நூலகங்களுக்கு அனுப்பும் விவரங்கள்.")
-
-elif current == "அறிக்கைகள்" and st.session_state["user_role"] in ["Admin", "DCL Staff"]:
-    st.subheader("📊 அறிக்கைகள் & பதிவுக் சரிபார்ப்பு")
-    if not st.session_state["submitted_reports"]:
-        st.info("ℹ️ இதுவரை சமர்ப்பிக்கப்பட்ட தரவுகள் எதுவும் இல்லை.")
-    else:
-        full_report_df = pd.DataFrame(st.session_state["submitted_reports"])
-        st.dataframe(full_report_df, use_container_width=True)
 
 elif current == "நூலகத் தரவுகள்" and st.session_state["user_role"] == "Librarian":
     st.subheader(f"📚 {st.session_state['librarian_location']} நூலகத்திற்கான ஒதுக்கீடு மற்றும் நூல்கள் விவரங்கள்")
@@ -310,7 +283,7 @@ elif current == "நூலகத் தரவுகள்" and st.session_state[
                     type="primary"
                 )
             else:
-                st.info(f"ℹ️ {st.session_state['librarian_location']} நூலகத்திற்குரிய தனிப்பட்ட நூல்கள் எதுவும் டேட்டாபேஸில் காணப்படவில்லை.")
+                st.info(f"ℹ️ {st.session_state['librarian_location']} நூலகத்திற்குரிய தனிப்பட்ட நூல்கள் எதுவும் காணப்படவில்லை.")
         else:
             st.warning("⚠️ நூலகப் பெயர் அடையாளம் காணப்படவில்லை.")
 
@@ -318,9 +291,14 @@ elif current == "பதிவிறக்கம்" and st.session_state["user_r
     st.subheader("📥 உங்கள் நூலக அறிக்கைப் பதிவிறக்கம்")
     st.info(f"{st.session_state['librarian_location']} நூலக அறிக்கைகளைப் பதிவிறக்கலாம்.")
 
-elif st.session_state["user_role"] == "Admin":
-    st.subheader(f"⚙️ நிர்வாகி பகுதி: {current}")
-    st.info("Admin கணக்கின் கீழ் இப்பகுதியை நீங்கள் முழுமையாக நிர்வகிக்கலாம்.")
-
+elif st.session_state["user_role"] in ["Admin", "DCL Staff"]:
+    if current == "பிரிக்க":
+        st.subheader("🔀 நூல்களைப் பிரிக்கும் பகுதி")
+    elif current == "அனுப்ப":
+        st.subheader("📤 அனுப்பும் பகுதி")
+    elif current == "அறிக்கைகள்":
+        st.subheader("📊 அறிக்கைகள் பகுதி")
+    else:
+        st.subheader(f"⚙️ நிர்வாகி பகுதி: {current}")
 else:
     st.warning("⚠️ இந்தப் பகுதிக்குச் செல்ல உங்களுக்கு அனுமதி இல்லை.")
