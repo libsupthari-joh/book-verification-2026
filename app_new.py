@@ -37,7 +37,6 @@ html, body, [class*="css"] { font-family: 'Noto Sans Tamil', sans-serif !importa
 .login-header-box { text-align: center; background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1.5px solid #a7f3d0; border-radius: 10px; padding: 10px; margin-bottom: 12px; }
 .login-title { color: #064e3b; font-size: 15px; font-weight: 800; }
 
-/* 💡 Live News Ticker Scrolling Animation */
 .ticker-container { 
     background: linear-gradient(135deg, #f0fdf4, #dcfce7); 
     border: 1.5px solid #86efac; 
@@ -246,13 +245,12 @@ elif current == "பிரிக்க":
             total_pub_titles_count = len(pub_filtered_df[title_col].dropna().unique())
             total_pub_books_count = len(pub_filtered_df)
             
-            tamil_count = 0
-            english_count = 0
-            if lang_col:
-                tamil_count = len(pub_filtered_df[pub_filtered_df[lang_col].astype(str).str.contains('தமிழ்|tamil', case=False, na=False)][title_col].dropna().unique())
-                english_count = len(pub_filtered_df[pub_filtered_df[lang_col].astype(str).str.contains('ஆங்கிலம்|english', case=False, na=False)][title_col].dropna().unique())
-            else:
-                tamil_count = total_pub_titles_count
+            submitted_titles = [item["Title"] for item in st.session_state["submitted_reports"] if item["Publisher"] == selected_publisher]
+            temp_added_titles = [item["Title"] for item in st.session_state["temp_distributed_list"] if item["Publisher"] == selected_publisher]
+            
+            excluded_titles = set(submitted_titles + temp_added_titles)
+            available_filtered_df = pub_filtered_df[~pub_filtered_df[title_col].isin(excluded_titles)]
+            all_titles = sorted(available_filtered_df[title_col].dropna().unique().tolist())
 
             st.markdown(f"""
             <div style="background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1.5px solid #34d399; padding: 14px 18px; border-radius: 10px; margin: 10px 0 15px 0;">
@@ -261,20 +259,12 @@ elif current == "பிரிக்க":
                 </div>
                 <div style="display: flex; flex-wrap: wrap; gap: 20px; font-size: 14px; color: #065f46; font-weight: 600;">
                     <div>📚 மொத்த தலைப்புகள்: <b>{total_pub_titles_count}</b></div>
-                    <div>📦 மொத்த நூல்கள் (ஒதுக்கீடுகள்): <b>{total_pub_books_count}</b></div>
-                    <div>🇮🇳 தமிழ் நூல்கள்/தலைப்புகள்: <b>{tamil_count}</b></div>
-                    <div>🇬🇧 ஆங்கில நூல்கள்/தலைப்புகள்: <b>{english_count}</b></div>
+                    <div>📦 மொத்த நூல்கள்: <b>{total_pub_books_count}</b></div>
+                    <div>✅ சமர்ப்பிக்கப்பட்டது: <b>{len(submitted_titles)}</b></div>
+                    <div>⏳ மீதம் உள்ளவை: <b>{len(all_titles)}</b></div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
-
-            submitted_titles = [item["Title"] for item in st.session_state["submitted_reports"] if item["Publisher"] == selected_publisher]
-            temp_added_titles = [item["Title"] for item in st.session_state["temp_distributed_list"] if item["Publisher"] == selected_publisher]
-            
-            excluded_titles = set(submitted_titles + temp_added_titles)
-            
-            available_filtered_df = pub_filtered_df[~pub_filtered_df[title_col].isin(excluded_titles)]
-            all_titles = sorted(available_filtered_df[title_col].dropna().unique().tolist())
 
             if not all_titles:
                 st.success(f"🎉 '{selected_publisher}' பதிப்பகத்தில் உள்ள அனைத்து நூல்களும் வெற்றிகரமாகச் சரிபார்க்கப்பட்டுவிட்டன!")
@@ -289,46 +279,21 @@ elif current == "பிரிக்க":
                     title_row_df = pub_filtered_df[pub_filtered_df[title_col] == selected_title]
                     if not title_row_df.empty:
                         title_row = title_row_df.iloc[0]
-                        
                         author_name = str(title_row[author_col]) if author_col and author_col in title_row and pd.notna(title_row[author_col]) else "-"
                         book_price = str(title_row[price_col]) if price_col and price_col in title_row and pd.notna(title_row[price_col]) else "0"
                         
                         accepted_price = "0"
                         if accepted_price_col and accepted_price_col in title_row and pd.notna(title_row[accepted_price_col]):
                             accepted_price = str(title_row[accepted_price_col])
-                        else:
-                            for col in title_row_df.columns:
-                                if 'accept' in col or 'rate' in col or 'price' in col:
-                                    val = title_row[col]
-                                    if pd.notna(val) and str(val) != book_price and str(val) != "0":
-                                        accepted_price = str(val)
-                                        break
 
                         isbn_val = str(title_row[isbn_col]) if isbn_col and isbn_col in title_row and pd.notna(title_row[isbn_col]) else "-"
                         required_qty = len(title_row_df)
 
-                        st.markdown(f"""
-                        <div style="background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border: 1.5px solid #34d399; padding: 18px; border-radius: 12px; margin: 15px 0;">
-                            <div style="font-size: 16px; font-weight: 800; color: #064e3b; margin-bottom: 12px;">
-                                📘 தேர்ந்தெடுக்கப்பட்ட நூல் விவரம்
-                            </div>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; font-size: 14px; color: #065f46;">
-                                <div>📚 <b>தலைப்பு:</b> {selected_title}</div>
-                                <div>✍️ <b>ஆசிரியர்:</b> {author_name}</div>
-                                <div>💰 <b>விலை (Price):</b> ₹{book_price}</div>
-                                <div>💵 <b>ஏற்றுக்கொள்ளப்பட்ட விலை:</b> ₹{accepted_price}</div>
-                                <div>🏷️ <b>ISBN:</b> {isbn_val}</div>
-                                <div>🏛️ <b>எண்ணிக்கை:</b> {required_qty}</div>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-
                         with st.form(f"distribution_entry_form_{selected_publisher}_{selected_title}"):
                             entered_qty = st.number_input(
-                                "📥 பெறப்பட்ட எண்ணிக்கையை உள்ளீடு செய்யவும் (Enter Received Quantity):", 
+                                "📥 பெறப்பட்ட எண்ணிக்கையை உள்ளீடு செய்யவும்:", 
                                 min_value=0, max_value=500, value=int(required_qty), step=1
                             )
-                            
                             submitted_temp = st.form_submit_button("➕ தற்காலிக பட்டியலில் சேமி", type="primary")
                             
                             if submitted_temp:
@@ -345,43 +310,27 @@ elif current == "பிரிக்க":
                                 }
                                 if not any(item["Title"] == selected_title for item in st.session_state["temp_distributed_list"]):
                                     st.session_state["temp_distributed_list"].append(entry_data)
-                                st.success(f"✅ '{selected_title}' தற்காலிக பட்டியலில் வெற்றிகரமாகச் சேர்க்கப்பட்டது!")
+                                st.success(f"✅ '{selected_title}' தற்காலிக பட்டியலில் சேர்க்கப்பட்டது!")
                                 st.rerun()
 
                 if st.session_state["temp_distributed_list"]:
                     st.markdown("---")
-                    st.markdown("#### 📋 தற்காலிகமாகச் சேமிக்கப்பட்ட தலைப்புகளின் பட்டியல் (Temporary List)")
+                    st.markdown("#### 📋 தற்காலிகமாகச் சேமிக்கப்பட்ட தலைப்புகளின் பட்டியல்")
                     temp_df = pd.DataFrame(st.session_state["temp_distributed_list"])
                     st.dataframe(temp_df, use_container_width=True)
                     
-                    temp_titles_count = len(temp_df)
-                    remaining_check = total_pub_titles_count - len(submitted_titles) - temp_titles_count
-
-                    if remaining_check > 0:
-                        st.warning(f"⚠️ இப்பதப்பகத்தில் இன்னும் **{remaining_check}** தலைப்புகள் சரிபார்க்கப்பட வேண்டியுள்ளது.")
-                    else:
-                        st.success("🎉 இந்தப் பதிப்பகத்தில் உள்ள அனைத்துத் தலைப்புகளும் சரிபார்க்கப்பட்டுவிட்டன! இப்போது இறுதியாகச் சமர்ப்பிக்கலாம்.")
-                        
-                    # 💡 இறுதிச் சமர்ப்பிப்புப் பட்டன் எப்போதும் சரியாகச் செயல்படும் படி தனிப் பகுதியாக மாற்றப்பட்டுள்ளது
                     if st.button("💾 இறுதியாகச் சேமி & சமர்ப்பించు", type="primary", key="final_submit_btn"):
-                        if st.session_state["temp_distributed_list"]:
-                            st.session_state["submitted_reports"].extend(st.session_state["temp_distributed_list"])
-                            st.session_state["temp_distributed_list"] = []
-                            st.session_state["current_menu"] = "அறிக்கைகள்"
-                            st.success("🎉 தரவுகள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
-                            st.rerun()
-                        else:
-                            st.warning("⚠️ சேமிக்க தற்காலிகப் பட்டியலில் தரவுகள் எதுவும் இல்லை!")
-
-elif current == "அனுப்ப":
-    st.subheader("📤 நூல்களை அனுப்பும் பகுதி (Dispatch)")
-    st.info("நூலகங்களுக்கு நூல்களை அனுப்பும் விவரங்களை இங்கே பதிவிடலாம்.")
+                        st.session_state["submitted_reports"].extend(st.session_state["temp_distributed_list"])
+                        st.session_state["temp_distributed_list"] = []
+                        st.session_state["current_menu"] = "அறிக்கைகள்"
+                        st.success("🎉 தரவுகள் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
+                        st.rerun()
 
 elif current == "அறிக்கைகள்":
     st.subheader("📊 அறிக்கைகள் & பதிவுக் சரிபார்ப்பு (Publishers & Title & Books Verification Report)")
     
     if not st.session_state["submitted_reports"]:
-        st.info("ℹ️ இதுவரை சமர்ப்பிக்கப்பட்ட தரவுகள் எதுவும் இல்லை. 'பிரிக்க' மெனுவில் தரவுகளைச் சேமிக்கவும்.")
+        st.info("ℹ️ இதுவரை சமர்ப்பிக்கப்பட்ட தரவுகள் எதுவும் இல்லை. 'பிரிக்க' மெனுவில் தரவுகளைத் தற்காலிகப் பட்டியலில் சேர்த்து **'இறுதியாகச் சேமி & சமர்ப்பించు'** பொத்தானை அழுத்தவும்.")
     else:
         full_report_df = pd.DataFrame(st.session_state["submitted_reports"])
         
@@ -397,27 +346,19 @@ elif current == "அறிக்கைகள்":
             
         st.dataframe(display_df, use_container_width=True)
         
-        col_dl1, col_dl2 = st.columns(2)
-        with col_dl1:
-            csv_all = full_report_df.to_csv(index=False).encode('utf-8-sig')
-            st.download_button(
-                label="📥 அனைத்துப் பதிப்பக அறிக்கையையும் பதிவிறக்குக",
-                data=csv_all,
-                file_name=f"All_Publishers_Verification_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                mime="text/csv",
-                type="primary",
-                use_container_width=True
-            )
-        with col_dl2:
-            if selected_report_pub != "-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --":
-                csv_single = display_df.to_csv(index=False).encode('utf-8-sig')
-                st.download_button(
-                    label=f"📥 '{selected_report_pub}' அறிக்கையைமட்டும் பதிவிறக்குக",
-                    data=csv_single,
-                    file_name=f"{selected_report_pub}_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                    mime="text/csv",
-                    use_container_width=True
-                )
+        csv_all = full_report_df.to_csv(index=False).encode('utf-8-sig')
+        st.download_button(
+            label="📥 அறிக்கையைப் பதிவிறக்குக (Download CSV)",
+            data=csv_all,
+            file_name=f"Verification_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+            mime="text/csv",
+            type="primary",
+            use_container_width=True
+        )
+
+elif current == "அனுப்ப":
+    st.subheader("📤 நூல்களை அனுப்பும் பகுதி (Dispatch)")
+    st.info("நூலகங்களுக்கு நூல்களை அனுப்பும் விவரங்களை இங்கே பதிவிடலாம்.")
 
 elif current == "கவனிக்க":
     st.subheader("⚠️ கவனிக்க — ஒரே தலைப்பில் வேறு விலைகள் உள்ளவை")
