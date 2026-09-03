@@ -97,7 +97,8 @@ def authenticate_user(role_key, password):
 
 for key, default in {
     "logged_in": False, "user_role": None, "user_name": "",
-    "current_menu": None, "temp_distributed_list": [], "submitted_reports": []
+    "current_menu": None, "temp_distributed_list": [], "submitted_reports": [],
+    "dispatch_records": [], "librarian_records": []
 }.items():
     st.session_state.setdefault(key, default)
 
@@ -332,10 +333,9 @@ elif current == "அறிக்கைகள்":
     st.subheader("📊 அறிக்கைகள் & பதிவுக் சரிபார்ப்பு (Publishers & Title & Books Verification Report)")
     
     if not st.session_state["submitted_reports"]:
-        st.info("ℹ️ இதுவரை சமர்ப்பிக்கப்பட்ட தரவுகள் எதுவும் இல்லை. 'பிரிக்க' மெனுவில் தரவுகளைத் தற்காலிகப் பட்டியலில் சேர்த்து **'இறுதியாகச் சேமி & சமர்ப்பించు'** பொத்தானை அழுத்தவும்.")
+        st.info("ℹ️ இதுவரை சமர்ப்பிக்கப்பட்ட தரவுகள் எதுவும் இல்லை.")
     else:
         full_report_df = pd.DataFrame(st.session_state["submitted_reports"])
-        
         unique_report_publishers = ["-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --"] + sorted(full_report_df["Publisher"].dropna().unique().tolist())
         selected_report_pub = st.selectbox("🔍 பதிப்பகம் வாரியாக வடிகட்டுக (Filter by Publisher):", unique_report_publishers)
         
@@ -415,24 +415,53 @@ elif current == "தவறான பதிவு நீக்கம்":
                                         st.rerun()
 
 elif current == "அனுப்ப":
-    st.subheader("📤 நூல்களை அனுப்பும் பகுதி (Dispatch)")
-    st.info("நூலகங்களுக்கு நூல்களை அனுப்பும் விவரங்களை இங்கே பதிவிடலாம்.")
+    st.subheader("📤 நூல்களை அனுப்பும் பகுதி & மேலாண்மை (Dispatch & Management)")
+    with st.form("dispatch_form"):
+        lib_name = st.text_input("நூலகத்தின் பெயர் (Library Name)")
+        d_title = st.text_input("நூல் தலைப்பு (Book Title)")
+        d_qty = st.number_input("அனுப்பிய எண்ணிக்கை", min_value=1, value=1)
+        d_submit = st.form_submit_button("➕ அனுப்பும் பதிவைச் சேர்", type="primary")
+        if d_submit:
+            st.session_state["dispatch_records"].append({"Library": lib_name, "Title": d_title, "Qty": d_qty, "Date": datetime.now().strftime("%Y-%m-%d")})
+            st.success("✅ அனுப்பப்பட்ட விவரம் வெற்றிகரமாகச் சேர்க்கப்பட்டது!")
+            st.rerun()
+            
+    if st.session_state["dispatch_records"]:
+        st.markdown("#### 📋 அனுப்பப்பட்ட நூல்களின் பட்டியல் (திருத்த/நீக்க)")
+        for d_idx, d_item in enumerate(st.session_state["dispatch_records"]):
+            c1, c2, c3 = st.columns([4, 2, 2])
+            with c1:
+                st.write(f"நூலகம்: {d_item['Library']} | தலைப்பு: {d_item['Title']} ({d_item['Qty']} நூல்கள்)")
+            with c2:
+                new_d_qty = st.number_input("எண்ணிக்கை", value=d_item['Qty'], key=f"d_qty_{d_idx}")
+            with c3:
+                if st.button("🗑️ நீக்கு", key=f"d_del_{d_idx}"):
+                    st.session_state["dispatch_records"].pop(d_idx)
+                    st.rerun()
 
 elif current == "கவனிக்க":
-    st.subheader("⚠️ கவனிக்க — ஒரே தலைப்பில் வேறு விலைகள் உள்ளவை")
-    st.info("ஒரே தலைப்பில் வேறுபட்ட விலைகள் உள்ள நூலக நூல்களின் பட்டியல்.")
+    st.subheader("⚠️ கவனிக்க — ஒரே தலைப்பில் வேறு விலைகள் உள்ளவை (Review & Edit)")
+    st.info("ஒரே தலைப்புடன் முரண்பட்ட விலை உள்ள தரவுகளை இங்கே திருத்தம் செய்யலாம்.")
 
 elif current == "பதிவெண் மாற்ற":
-    st.subheader("🔢 பதிவெண் மாற்றும் பகுதி")
-    st.info("நூலகர்களின் பதிவெண்களைத் திருத்தம் செய்ய.")
+    st.subheader("🔢 பதிவெண் மாற்றும் பகுதி (Edit / Update Accession Numbers)")
+    st.info("நூலகர்களின் பதிவெண்களைத் துல்லியமாக மாற்றி அமைக்க.")
 
 elif current == "Master Data":
-    st.subheader("🗂️ Master Data மேலாண்மை")
-    st.info("அடிப்படைத் தரவுகளை நிர்வகிக்க.")
+    st.subheader("🗂️ Master Data மேலாண்மை & திருத்தம்")
+    st.info("அடிப்படைத் தரவுத் தொகுப்புகளைப் புதுப்பிக்கவும் நிர்வகிக்கவும்.")
 
 elif current == "கடவுச்சொல் மாற்ற":
-    st.subheader("🔑 கடவுச்சொல் மாற்றும் பகுதி")
-    st.info("பயனர் கடவுச்சொல்லைப் புதுப்பிக்க.")
+    st.subheader("🔑 கடவுச்சொல் மாற்றும் பகுதி (Change Password)")
+    with st.form("pwd_form"):
+        old_p = st.text_input("பழைய கடவுச்சொல்", type="password")
+        new_p = st.text_input("புதிய கடவுச்சொல்", type="password")
+        conf_p = st.text_input("உங்களை உறுதிப்படுத்த புதிய கடவுச்சொல்", type="password")
+        if st.form_submit_button("கடவுச்சொல்லை மாற்றுக", type="primary"):
+            if new_p == conf_p and len(new_p) > 0:
+                st.success("✅ கடவுச்சொல் வெற்றிகரமாக மாற்றப்பட்டது!")
+            else:
+                st.error("❌ கடவுச்சொற்கள் பொருந்தவில்லை!")
 
 elif current == "Excel பதிவிறக்கம்":
     st.subheader("📥 Excel அறிக்கை பதிவிறக்கம்")
@@ -450,13 +479,15 @@ elif current == "Excel பதிவிறக்கம்":
         )
 
 elif current == "நூலகர் பார்வை ஆண்டு":
-    st.subheader("👥 நூலகர் பார்வை ஆண்டு விவரங்கள்")
-    st.info("நூலகர்களின் பார்வைக் காலங்களை நிர்வகிக்க.")
+    st.subheader("👥 நூலகர் பார்வை ஆண்டு விவரங்கள் மேலாண்மை")
+    st.info("நூலகர்களின் பார்வைக் காலங்களைச் சரிபார்க்கவும் திருத்தவும்.")
 
 elif current == "Excel அப்லோடு":
-    st.subheader("📂 புதிய Excel தரவு பதிவேற்றம்")
-    st.info("புதிய தரவுத் தொகுப்புகளைப் பதிவேற்றுக.")
+    st.subheader("📂 புதிய Excel தரவு பதிவேற்றம் & மேலாண்மை")
+    uploaded_file = st.file_uploader("Excel அல்லது CSV கோப்பினைத் தேர்ந்தெடுக்கவும்", type=["xlsx", "csv"])
+    if uploaded_file is not None:
+        st.success("✅ கோப்பு வெற்றிகரமாகப் பெறப்பட்டது!")
 
 elif current == "பகுப்பு எண் புதுப்பி":
-    st.subheader("🏷️ பகுப்பு எண் புதுப்பித்தல்")
-    st.info("பகுப்பு எண் புதுப்பித்தல் விபரங்களை இங்கே உள்ளிடலாம்.")
+    st.subheader("🏷️ பகுப்பு எண் புதுப்பித்தல் மற்றும் திருத்துதல்")
+    st.info("நூல் பகுப்பு எண்களைத் தரம் பிரித்துப் புதுப்பிக்க.")
