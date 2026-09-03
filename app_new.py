@@ -358,31 +358,40 @@ elif current == "தவறான பதிவு நீக்கம்":
     if not st.session_state["submitted_reports"]:
         st.info("ℹ️ நீக்க அல்லது திருத்தச் சமர்ப்பிக்கப்பட்ட தரவுகள் எதுவும் இல்லை.")
     else:
-        st.markdown("⚠️ கீழே உள்ள பட்டியலில் இருந்து தவறாகப் பதிவு செய்யப்பட்ட நூலினைத் தேர்ந்தெடுத்து நீக்கலாம் அல்லது எண்ணிக்கையைத் திருத்தலாம்.")
+        submitted_df = pd.DataFrame(st.session_state["submitted_reports"])
+        submitted_publishers = sorted(submitted_df["Publisher"].dropna().unique().tolist())
         
-        sub_df = pd.DataFrame(st.session_state["submitted_reports"])
+        selected_del_publisher = st.selectbox(
+            "🔍 பதிப்பாளர் பெயரைத் தேர்ந்தெடுக்கவும் (Select Publisher to Edit/Delete):",
+            ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + submitted_publishers,
+            key="del_publisher_dropdown"
+        )
         
-        for idx, row in sub_df.iterrows():
-            with st.container():
-                cols_card = st.columns([5, 2, 2])
-                with cols_card[0]:
-                    st.markdown(f"**பதிப்பகம்:** {row['Publisher']} <br> **தலைப்பு:** {row['Title']} <br> **பெறப்பட்ட எண்ணிக்கை:** {row['Received Qty']}", unsafe_allow_html=True)
-                with cols_card[1]:
-                    new_qty = st.number_input("எண்ணிக்கை திருத்து", min_value=0, value=int(row['Received Qty']), key=f"edit_qty_{idx}")
-                with cols_card[2]:
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    col_del, col_upd = st.columns(2)
-                    with col_del:
-                        if st.button("🗑️ நீக்கு", key=f"del_btn_{idx}", type="secondary"):
-                            st.session_state["submitted_reports"].pop(idx)
-                            st.success("✅ பதிவு வெற்றிகரமாக நீக்கப்பட்டது!")
-                            st.rerun()
-                    with col_upd:
-                        if st.button("💾 புதுப்பி", key=f"upd_btn_{idx}", type="primary"):
-                            st.session_state["submitted_reports"][idx]["Received Qty"] = new_qty
-                            st.success("✅ எண்ணிக்கை வெற்றிகரமாக மாற்றப்பட்டது!")
-                            st.rerun()
-                st.markdown("---")
+        if selected_del_publisher != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+            st.markdown(f"### 🏢 பதிப்பகம்: {selected_del_publisher}")
+            
+            for idx, item in enumerate(st.session_state["submitted_reports"]):
+                if item["Publisher"] == selected_del_publisher:
+                    with st.container():
+                        cols_card = st.columns([5, 2, 2])
+                        with cols_card[0]:
+                            st.markdown(f"**தலைப்பு:** {item['Title']} <br> **பெறப்பட்ட எண்ணிக்கை:** {item['Received Qty']}", unsafe_allow_html=True)
+                        with cols_card[1]:
+                            new_qty = st.number_input("எண்ணிக்கை திருத்து", min_value=0, value=int(item['Received Qty']), key=f"edit_qty_{idx}")
+                        with cols_card[2]:
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            col_del, col_upd = st.columns(2)
+                            with col_del:
+                                if st.button("🗑️ நீக்கு", key=f"del_btn_{idx}", type="secondary"):
+                                    st.session_state["submitted_reports"].pop(idx)
+                                    st.success("✅ பதிவு வெற்றிகரமாக நீக்கப்பட்டது!")
+                                    st.rerun()
+                            with col_upd:
+                                if st.button("💾 புதுப்பி", key=f"upd_btn_{idx}", type="primary"):
+                                    st.session_state["submitted_reports"][idx]["Received Qty"] = new_qty
+                                    st.success("✅ எண்ணிக்கை வெற்றிகரமாக மாற்றப்பட்டது!")
+                                    st.rerun()
+                        st.markdown("---")
 
 elif current == "அனுப்ப":
     st.subheader("📤 நூல்களை அனுப்பும் பகுதி (Dispatch)")
