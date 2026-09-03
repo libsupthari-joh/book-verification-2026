@@ -359,16 +359,17 @@ elif current == "அறிக்கைகள்":
         )
 
 # ==========================================
-# 🗂️ Master Data பகுதி (பணி செய்த பதிப்பகங்கள் மட்டும் Dropdown-ல் வருவது)
+# 🗂️ Master Data பகுதி (பணி செய்த பதிப்பகம் மற்றும் தலைப்பைத் தேர்ந்தெடுக்கும் முறை)
 # ==========================================
 elif current == "Master Data":
-    st.subheader("🗂️ Master Data மேலாண்மை & நூலகங்களின் விவரப் பட்டியல்")
+    st.subheader("🗂️ Master Data மேலாண்மை & தலைப்பு வாரியான விவரப் பட்டியல்")
     
     neon_df = load_neon_database()
     if neon_df.empty:
         st.warning("⚠️ Master Data-வில் தரவுகள் கிடைக்கவில்லை.")
     else:
         pub_col = next((c for c in neon_df.columns if c in ['publication name', 'publication_name', 'publisher_name'] or 'publication' in c), None)
+        title_col_name = next((c for c in neon_df.columns if 'title' in c), None)
         
         # பணி செய்து முடிக்கப்பட்ட பதிப்பகங்களை மட்டும் கண்டறிந்து வடிகட்டுதல்
         completed_publishers = set()
@@ -385,7 +386,7 @@ elif current == "Master Data":
             st.info("ℹ️ இதுவரை எந்தப் பதிப்பகப் பணியும் முடிக்கப்படவில்லை. எனவே Master Data-வில் காட்ட பதிப்பகங்கள் இல்லை.")
         else:
             sel_master_pub = st.selectbox(
-                "🏢 பணி செய்து முடித்த பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:",
+                "🏢 1. பணி செய்து முடித்த பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:",
                 ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + all_master_pubs,
                 key="master_pub_dropdown"
             )
@@ -394,7 +395,6 @@ elif current == "Master Data":
                 pub_master_df = neon_df[neon_df[pub_col] == sel_master_pub].copy()
                 
                 total_books_count = len(pub_master_df)
-                title_col_name = next((c for c in neon_df.columns if 'title' in c), None)
                 total_titles_count = len(pub_master_df[title_col_name].dropna().unique()) if title_col_name else 0
                 
                 st.markdown(f"""
@@ -406,19 +406,17 @@ elif current == "Master Data":
                 </div>
                 """, unsafe_allow_html=True)
                 
-                library_name_col = next((c for c in neon_df.columns if 'library_name' in c or 'library name' in c or c == 'library'), None)
-                
-                if library_name_col and library_name_col in pub_master_df.columns:
-                    library_options = sorted(pub_master_df[library_name_col].dropna().unique().tolist())
-                    sel_library = st.selectbox(
-                        "🏫 நூலகத்தைத் தேர்ந்தெடுக்கவும் (Select Library):",
-                        ["-- அனைத்து நூலகங்களும் --"] + library_options,
-                        key="master_library_dropdown"
+                if title_col_name and title_col_name in pub_master_df.columns:
+                    title_options = sorted(pub_master_df[title_col_name].dropna().unique().tolist())
+                    sel_title = st.selectbox(
+                        "📖 2. தலைப்பைத் தேர்ந்தெடுக்கவும் (Select Book Title):",
+                        ["-- அனைத்துத் தலைப்புகளும் (All Titles) --"] + title_options,
+                        key="master_title_dropdown"
                     )
                     
-                    if sel_library != "-- அனைத்து நூலகங்களும் --":
-                        final_view_df = pub_master_df[pub_master_df[library_name_col] == sel_library]
-                        st.markdown(f"### 📍 நூலகம்: {sel_library} — உரிய விவரங்கள்")
+                    if sel_title != "-- அனைத்துத் தலைப்புகளும் (All Titles) --":
+                        final_view_df = pub_master_df[pub_master_df[title_col_name] == sel_title]
+                        st.markdown(f"### 📍 தலைப்பு: {sel_title} — உரிய விவரங்கள்")
                     else:
                         final_view_df = pub_master_df
                 else:
@@ -462,7 +460,7 @@ elif current == "Excel பதிவிறக்கம்":
             label="📥 முழுமையான தரவுகளை Excel கோப்பாகப் பதிவிறக்குக",
             data=csv_data,
             file_name=f"Master_Verification_Data_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv",
+            mime="text/css",
             type="primary"
         )
 
