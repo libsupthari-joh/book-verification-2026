@@ -359,7 +359,7 @@ elif current == "அறிக்கைகள்":
         )
 
 # ==========================================
-# 🗂️ Master Data பகுதி (இரண்டாவது படத்தின் வடிவமைப்பிற்கு ஏற்ப மாற்றப்பட்டுள்ளது)
+# 🗂️ Master Data பகுதி (விலைக்கு அடுத்து Received/Not Received கலம் 1 அல்லது 0 உடன்)
 # ==========================================
 elif current == "Master Data":
     st.subheader("🗂️ Master Data மேலாண்மை & தலைப்பு வாரியான விவரப் பட்டியல்")
@@ -408,7 +408,7 @@ elif current == "Master Data":
                     )
                     
                     if sel_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
-                        title_filtered_df = pub_master_df[pub_master_df[title_col_name] == sel_title]
+                        title_filtered_df = pub_master_df[pub_master_df[title_col_name] == sel_title].copy()
                         
                         total_allotted_libs = len(title_filtered_df)
                         
@@ -418,7 +418,7 @@ elif current == "Master Data":
                         if matched_reports:
                             received_count = int(matched_reports[0].get("Received Qty", 0))
                         else:
-                            received_count = 0  # தற்காலிகமாக அல்லது இன்னும் பதிவு செய்யப்படவில்லை என்றால் 0
+                            received_count = 0  
                             
                         not_received_count = max(0, total_allotted_libs - received_count)
 
@@ -436,29 +436,15 @@ elif current == "Master Data":
                         </div>
                         """, unsafe_allow_html=True)
                         
-                        # இரண்டாவது படத்தில் கோரியவாறு Price அடுத்த கலத்தில் Required Qty மற்றும் Received Qty வருமாறு அட்டவணையை வடிவமைத்தல்
-                        table_data = []
-                        for idx, row in title_filtered_df.iterrows():
-                            author_val = row.get('author', row.get('author_name', '-'))
-                            price_val = row.get('price', 0)
-                            isbn_val = row.get('isbn', '-')
-                            
-                            table_data.append({
-                                "Publisher": sel_master_pub,
-                                "Title": sel_title,
-                                "Author": author_val,
-                                "Price": price_val,
-                                "Required Qty": total_allotted_libs,
-                                "Received Qty": received_count,
-                                "ISBN": isbn_val
-                            })
-                            break  # தலைப்பு வாரியாக ஒரு வரி அல்லது தேவையான விவரங்கள்
-                            
-                        final_view_df = pd.DataFrame(table_data)
-                        st.markdown(f"### 📍 தலைப்பு: {sel_title} — விவரங்கள்")
-                        st.dataframe(final_view_df, use_container_width=True)
+                        # Price நெடுவரிசைக்கு அடுத்து Received / Not Received கலம் சேர்த்து, பெறப்பட்ட நூலகங்களுக்கு 1, பெறப்படாதவைகளுக்கு 0 என அமைத்தல்
+                        # உதாரணமாக முதல் 'received_count' எண்ணிக்கையிலான நூலகங்களுக்கு 1ம், மீதமுள்ளவைகளுக்கு 0ம் வழங்கலாம் அல்லது டேட்டாபேஸ் நிலைக்கேற்ப அமைக்கலாம்.
+                        received_status_list = [1 if i < received_count else 0 for i in range(total_allotted_libs)]
+                        title_filtered_df["Received_Status"] = received_status_list
                         
-                        master_csv = final_view_df.to_csv(index=False).encode('utf-8-sig')
+                        st.markdown(f"### 📍 தலைப்பு: {sel_title} — அனைத்து நூலகங்களின் விவரங்கள்")
+                        st.dataframe(title_filtered_df, use_container_width=True)
+                        
+                        master_csv = title_filtered_df.to_csv(index=False).encode('utf-8-sig')
                         st.download_button(
                             label="📥 குறிப்பிட்ட தரவுகளைப் பதிவிறக்குக (CSV)",
                             data=master_csv,
