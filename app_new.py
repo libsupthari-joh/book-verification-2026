@@ -444,9 +444,7 @@ elif current == "Master Data":
                 file_name=f"Master_Data_LibraryWise_{datetime.now().strftime('%Y%m%d')}.csv",
                 mime="text/csv",
                 type="primary"
-            )            else:
-                    st.warning("⚠️ நூலகப் பெயர் காலம் (Library Name Column) டேட்டாபேஸில் கிடைக்கவில்லை.")
-elif current == "தவறான பதிவு நீக்கம்":
+            )elif current == "தவறான பதிவு நீக்கம்":
     st.subheader("❌ தவறான பதிவினை நீக்குதல் / திருத்துதல் (Delete / Edit Verified Records)")
     st.info("👆 மேல் உள்ள தேர்வில் ஏதேனும் ஒரு பிரிவைத் தேர்வு செய்தால், அதற்கான திருத்தும் மற்றும் நீக்கும் வசதிகள் உடனே தோன்றும்.")
 
