@@ -86,7 +86,6 @@ html, body, [class*="css"] { font-family: 'Noto Sans Tamil', sans-serif !importa
 def hash_password(password):
     return hashlib.sha256(str(password).encode("utf-8")).hexdigest()
 
-# நூலகர் ஐடிகள் மற்றும் அவற்றுக்கான நூலகப் பெயர்கள்
 USERS_DATABASE = {
     "Admin": {"password_hash": hash_password("Hari@@1979"), "name": "முதன்மை நிர்வாகி (Admin)"},
     "DCL Staff": {"password_hash": hash_password("123456"), "name": "DCL Staff"},
@@ -97,14 +96,12 @@ USERS_DATABASE = {
 def authenticate_user(role_key, password, librarian_id=""):
     if role_key == "Librarian":
         user = USERS_DATABASE.get(librarian_id)
-        if user and hmac.compare_digest(hash_password(password), user["password_hash"]):
-            return user
-        return None
     else:
         user = USERS_DATABASE.get(role_key)
-        if user and hmac.compare_digest(hash_password(password), user["password_hash"]):
-            return user
-        return None
+    
+    if user and hmac.compare_digest(hash_password(password), user["password_hash"]):
+        return user
+    return None
 
 def init_submitted_table():
     try:
@@ -180,7 +177,7 @@ def show_login_page():
         else:
             user = authenticate_user(selected_role, password, lib_id_input)
             if not user:
-                st.error("❌ தவறான Librarian ID அல்லது கடவுச்சொல்!")
+                st.error("❌ தவறான ID அல்லது கடவுச்சொல்!")
             else:
                 display_name = f"{user['name']} ({lib_id_input})" if selected_role == "Librarian" else user["name"]
                 lib_loc = user.get("lib_name", "") if selected_role == "Librarian" else ""
@@ -217,7 +214,6 @@ with col_logout[1]:
         st.session_state["user_role"] = None
         st.rerun()
 
-# பங்கைப் பொறுத்து மெனுக்கள் மாறுதல்
 if st.session_state["user_role"] == "Admin":
     menu_options = [
         ("🔀", "பிரிக்க"), ("📤", "அனுப்ப"), ("📊", "அறிக்கைகள்"), ("⚠️", "கவனிக்க"),
@@ -247,7 +243,7 @@ st.markdown("---")
 total_submitted_count = sum([int(item.get("Received Qty", 0)) for item in st.session_state['submitted_reports']])
 today_str = datetime.now().strftime("%d/%m/%Y")
 
-if st.session_state["user_role"] in ["Admin", "DCLStaff"]:
+if st.session_state["user_role"] in ["Admin", "DCL Staff"]:
     st.markdown(f"""
     <div class="ticker-container">
         <div class="ticker-badge">🔴 Live News</div>
@@ -281,51 +277,51 @@ def load_neon_database():
 if current is None:
     st.info("👆 மேல் உள்ள மெனு பட்டன்களில் ஏதேனும் ஒன்றை தேர்வு செய்யவும்.")
 
-elif current == "நூலகத் தரவுகள்" and st.session_state["user_role"] == "Librarian":
-    st.subheader(f"📚 {st.session_state['librarian_location']} நூலகத்திற்கான ஒதுக்கீடு மற்றும் நூல்கள் விவரங்கள்")
-    neon_df = load_neon_database()
-    if neon_df.empty:
-        st.info("ℹ️ நூலகத் தரவுகள் தற்பொழுது கிடைக்கவில்லை.")
-    else:
-        lib_col_name = next((c for c in neon_df.columns if 'library' in c and ('name' in c or 'tm' in c)), None)
-        if lib_col_name:
-            lib_specific_df = neon_df[neon_df[lib_col_name].astype(str).str.contains(st.session_state["librarian_location"], case=False, na=False)]
-            if not lib_specific_df.empty:
-                st.dataframe(lib_specific_df, use_container_width=True)
-                csv_data = lib_specific_df.to_csv(index=False).encode('utf-8-sig')
-                st.download_button(
-                    label="📥 நூலகத் தரவுகளைப் பதிவிறக்குக (CSV)",
-                    data=csv_data,
-                    file_name=f"Library_Data_{st.session_state['librarian_location']}.csv",
-                    mime="text/csv",
-                    type="primary"
-                )
-            else:
-                st.info(f"ℹ️ {st.session_state['librarian_location']} நூலகத்திற்குரிய தனிப்பட்ட நூல்கள் எதுவும் காணப்படவில்லை.")
+elif st.session_state["user_role"] == "Librarian":
+    if current == "நூலகத் தரவுகள்":
+        st.subheader(f"📚 {st.session_state['librarian_location']} நூலகத்திற்கான ஒதுக்கீடு மற்றும் நூல்கள் விவரங்கள்")
+        neon_df = load_neon_database()
+        if neon_df.empty:
+            st.info("ℹ️ நூலகத் தரவுகள் தற்பொழுது கிடைக்கவில்லை.")
         else:
-            st.warning("⚠️ நூலகப் பெயர் அடையாளம் காணப்படவில்லை.")
-
-elif current == "பதிவிறக்கம்" and st.session_state["user_role"] == "Librarian":
-    st.subheader(f"📥 {st.session_state['librarian_location']} நூலக அறிக்கைப் பதிவிறக்கம்")
-    neon_df = load_neon_database()
-    if not neon_df.empty:
-        lib_col_name = next((c for c in neon_df.columns if 'library' in c and ('name' in c or 'tm' in c)), None)
-        if lib_col_name:
-            lib_specific_df = neon_df[neon_df[lib_col_name].astype(str).str.contains(st.session_state["librarian_location"], case=False, na=False)]
-            if not lib_specific_df.empty:
-                csv_data = lib_specific_df.to_csv(index=False).encode('utf-8-sig')
-                st.download_button(
-                    label="📥 அறிக்கையைப் பதிவிறக்குக (Download CSV)",
-                    data=csv_data,
-                    file_name=f"Report_{st.session_state['librarian_location']}.csv",
-                    mime="text/csv",
-                    type="primary",
-                    use_container_width=True
-                )
+            lib_col_name = next((c for c in neon_df.columns if 'library' in c and ('name' in c or 'tm' in c)), None)
+            if lib_col_name:
+                lib_specific_df = neon_df[neon_df[lib_col_name].astype(str).str.contains(st.session_state["librarian_location"], case=False, na=False)]
+                if not lib_specific_df.empty:
+                    st.dataframe(lib_specific_df, use_container_width=True)
+                    csv_data = lib_specific_df.to_csv(index=False).encode('utf-8-sig')
+                    st.download_button(
+                        label="📥 நூலகத் தரவுகளைப் பதிவிறக்குக (CSV)",
+                        data=csv_data,
+                        file_name=f"Library_Data_{st.session_state['librarian_location']}.csv",
+                        mime="text/csv",
+                        type="primary"
+                    )
+                else:
+                    st.info(f"ℹ️ {st.session_state['librarian_location']} நூலகத்திற்குரிய தனிப்பட்ட நூல்கள் எதுவும் காணப்படவில்லை.")
             else:
-                st.info("ℹ️ பதிவிறக்கம் செய்யத் தரவுகள் எதுவும் இல்லை.")
+                st.warning("⚠️ நூலகப் பெயர் அடையாளம் காணப்படவில்லை.")
+    elif current == "பதிவிறக்கம்":
+        st.subheader(f"📥 {st.session_state['librarian_location']} நூலக அறிக்கைப் பதிவிறக்கம்")
+        neon_df = load_neon_database()
+        if not neon_df.empty:
+            lib_col_name = next((c for c in neon_df.columns if 'library' in c and ('name' in c or 'tm' in c)), None)
+            if lib_col_name:
+                lib_specific_df = neon_df[neon_df[lib_col_name].astype(str).str.contains(st.session_state["librarian_location"], case=False, na=False)]
+                if not lib_specific_df.empty:
+                    csv_data = lib_specific_df.to_csv(index=False).encode('utf-8-sig')
+                    st.download_button(
+                        label="📥 அறிக்கையைப் பதிவிறக்குக (Download CSV)",
+                        data=csv_data,
+                        file_name=f"Report_{st.session_state['librarian_location']}.csv",
+                        mime="text/csv",
+                        type="primary",
+                        use_container_width=True
+                    )
+                else:
+                    st.info("ℹ️ பதிவிறக்கம் செய்யத் தரவுகள் எதுவும் இல்லை.")
 
-elif st.session_state["user_role"] in ["Admin", "DCL Staff"]:
+else: # Admin மற்றும் DCL Staff பகுதிகள்
     if current == "பிரிக்க":
         st.subheader("🔀 நூல்களைப் பிரிக்கும் பகுதி (Publisher-wise Book Distribution)")
         neon_df = load_neon_database()
@@ -453,8 +449,56 @@ elif st.session_state["user_role"] in ["Admin", "DCL Staff"]:
         else:
             full_report_df = pd.DataFrame(st.session_state["submitted_reports"])
             st.dataframe(full_report_df, use_container_width=True)
+
+    elif current == "தவறான பதிவு நீக்கம்":
+        st.subheader("❌ தவறான பதிவினை நீக்குதல் / திருத்துதல் (Delete / Edit Verified Records)")
+        completed_publishers = set(item["Publisher"] for item in st.session_state.get("submitted_reports", []))
+        pub_list = sorted(list(completed_publishers))
+        if not pub_list:
+            st.info("ℹ️ இதுவரை எந்தப் பதிப்பகப் பணியும் முடிக்கப்படவில்லை.")
+        else:
+            sel_pub = st.selectbox("பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + pub_list)
+            if sel_pub != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+                completed_titles = set(item["Title"] for item in st.session_state.get("submitted_reports", []) if item.get("Publisher") == sel_pub)
+                sel_title = st.selectbox("தலைப்பைத் தேர்ந்தெடுக்கவும்:", ["-- தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + sorted(list(completed_titles)))
+                if sel_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
+                    st.success(f"தேர்ந்தெடுக்கப்பட்ட பதிப்பகம்: {sel_pub} | தலைப்பு: {sel_title}")
+
+    elif current == "Master Data":
+        st.subheader("🗂️ Master Data சேமிப்பு & மேலாண்மை பகுதி")
+        neon_df = load_neon_database()
+        if not neon_df.empty:
+            st.dataframe(neon_df, use_container_width=True)
+        else:
+            st.info("ℹ️ தரவுகள் கிடைக்கவில்லை.")
+
+    elif current == "கடவுச்சொல் மாற்ற":
+        st.subheader("🔑 கடவுச்சொல் மாற்றும் பகுதி")
+        with st.form("pwd_form"):
+            old_p = st.text_input("பழைய கடவுச்சொல்", type="password")
+            new_p = st.text_input("புதிய கடவுச்சொல்", type="password")
+            conf_p = st.text_input("உங்களை உறுதிப்படுத்த புதிய கடவுச்சொல்", type="password")
+            if st.form_submit_button("கடவுச்சொல்லை மாற்றுக", type="primary"):
+                if new_p == conf_p and len(new_p) > 0:
+                    st.success("✅ கடவுச்சொல் வெற்றிகரமாக மாற்றப்பட்டது!")
+                else:
+                    st.error("❌ கடவுச்சொற்கள் பொருந்தவில்லை!")
+
+    elif current == "Excel பதிவிறக்கம்":
+        st.subheader("📥 Excel அறிக்கை பதிவிறக்கம்")
+        if st.session_state["submitted_reports"]:
+            report_df = pd.DataFrame(st.session_state["submitted_reports"])
+            csv_data = report_df.to_csv(index=False).encode('utf-8-sig')
+            st.download_button(
+                label="📥 முழுமையான தரவுகளை Excel கோப்பாகப் பதிவிறக்குக",
+                data=csv_data,
+                file_name=f"Master_Verification_Data_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv",
+                type="primary"
+            )
+        else:
+            st.info("ℹ️ பதிவிறக்கம் செய்யத் தரவுகள் எதுவும் இல்லை.")
+
     else:
         st.subheader(f"⚙️ நிர்வாகி பகுதி: {current}")
-        st.info("Admin கணக்கின் கீழ் இப்பகுதியை நீங்கள் நிர்வகிக்கலாம்.")
-else:
-    st.warning("⚠️ இந்தப் பகுதிக்குச் செல்ல உங்களுக்கு அனுமதி இல்லை.")
+        st.info(f"இப்பகுதிக்கான ({current}) செயல்பாடுகள் فعالவாக உள்ளன.")
