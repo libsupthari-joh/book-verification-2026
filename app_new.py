@@ -296,13 +296,11 @@ elif current == "பிரிக்க":
                                     "Publisher": selected_publisher,
                                     "Title": selected_title,
                                     "Author": author_name,
-                                    "Price": book_price,
                                     "Accepted Price": accepted_price,
                                     "ISBN": isbn_val,
                                     "Required Qty": required_qty,
                                     "Received Qty": entered_qty,
-                                    "Date": datetime.now().strftime("%Y-%m-%d %H:%M")
-                                }
+                                    }
                                 if not any(item["Title"] == selected_title for item in st.session_state["temp_distributed_list"]):
                                     st.session_state["temp_distributed_list"].append(entry_data)
                                 st.success(f"✅ '{selected_title}' தற்காலிக பட்டியலில் சேர்க்கப்பட்டது!")
@@ -361,59 +359,101 @@ elif current == "அறிக்கைகள்":
 elif current == "தவறான பதிவு நீக்கம்":
     st.subheader("❌ தவறான பதிவினை நீக்குதல் / திருத்துதல் (Delete / Edit Verified Records)")
     
-    if not st.session_state["submitted_reports"]:
-        st.info("ℹ️ நீக்க அல்லது திருத்தச் சமர்ப்பிக்கப்பட்ட தரவுகள் எதுவும் இல்லை.")
-    else:
+    # 1. முதலில் ஏற்கனவே சமர்ப்பிக்கப்பட்ட அல்லது டேட்டாபேஸில் உள்ள பதிப்பகங்களின் பட்டியலைப் பெறுதல்
+    neon_df = load_neon_database()
+    available_publishers = []
+    
+    if not neon_df.empty:
+        pub_col = next((c for c in neon_df.columns if c in ['publication name', 'publication_name', 'publisher_name'] or 'publication' in c), None)
+        if pub_col:
+            available_publishers = sorted(neon_df[pub_col].dropna().unique().tolist())
+            
+    if not available_publishers and st.session_state["submitted_reports"]:
         submitted_df = pd.DataFrame(st.session_state["submitted_reports"])
-        submitted_publishers = sorted(submitted_df["Publisher"].dropna().unique().tolist())
+        available_publishers = sorted(submitted_df["Publisher"].dropna().unique().tolist())
+
+    if not available_publishers:
+        available_publishers = ["Nava India Pathippagam", "Ainthinai Pathippagam", "Bharathiyar Pathippagam"]
+
+    # முதன்மை மெனு: பதிப்பகத்தைத் தேர்ந்தெடுத்தல்
+    selected_del_publisher = st.selectbox(
+        "🔍 1. பதிப்பாளர் பெயரைத் தேர்ந்தெடுக்கவும் (Select Publisher):",
+        ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + available_publishers,
+        key="main_del_publisher_dropdown"
+    )
+    
+    # பதிப்பகம் தேர்ந்தெடுக்கப்பட்டால் மட்டுமே துணை மெனுக்கள் (Sub-menus) தோன்ற வேண்டும்
+    if selected_del_publisher != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+        st.markdown(f"### 🏢 தேர்ந்தெடுக்கப்பட்ட பதிப்பகம்: {selected_del_publisher}")
         
-        selected_del_publisher = st.selectbox(
-            "🔍 1. பதிப்பாளர் பெயரைத் தேர்ந்தெடுக்கவும்:",
-            ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + submitted_publishers,
-            key="del_publisher_dropdown"
+        # 2. துணை மெனு 1: அந்தப் பதிப்பகத்திற்குரிய தலைப்புகளைப் பெறுதல்
+        pub_titles = []
+        if not neon_df.empty and pub_col:
+            title_col = next((c for c in neon_df.columns if c == 'title' or (('title' in c) and ('book' not in c))), None)
+            if not title_col:
+                title_col = next((c for c in neon_df.columns if 'title' in c), neon_df.columns[2])
+            filtered_titles_df = neon_df[neon_df[pub_col] == selected_del_publisher]
+            pub_titles = sorted(filtered_titles_df[title_col].dropna().unique().tolist())
+            
+        if not pub_titles and st.session_state["submitted_reports"]:
+            pub_titles = sorted(list(set([item["Title"] for item in st.session_state["submitted_reports"] if item["Publisher"] == selected_del_publisher])))
+            
+        if not pub_titles:
+            pub_titles = ["மாதிரி தலைப்பு 1", "மாதிரி தலைப்பு 2"]
+
+        # துணை மெனு தேர்வு பெட்டி
+        selected_del_title = st.selectbox(
+            "📖 2. தலைப்பைத் தேர்ந்தெடுக்கவும் (Select Book Title - Submenu):",
+            ["-- தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + pub_titles,
+            key="sub_menu_del_title_dropdown"
         )
         
-        if selected_del_publisher != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
-            pub_submitted_items = [item for item in st.session_state["submitted_reports"] if item["Publisher"] == selected_del_publisher]
-            pub_submitted_titles = sorted(list(set([item["Title"] for item in pub_submitted_items])))
+        # தலைப்பு தேர்ந்தெடுக்கப்பட்டால் மட்டுமே இறுதி விவரங்களும் திருத்தும் பட்டன்களும் தோன்ற வேண்டும்
+        if selected_del_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
+            st.markdown(f"""
+            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; padding: 15px; border-radius: 10px; margin-top: 10px; margin-bottom: 15px;">
+                <b>🏢 பதிப்பகம்:</b> {selected_del_publisher} <br>
+                <b>📖 தேர்ந்தெடுக்கப்பட்ட தலைப்பு:</b> {selected_del_title}
+            </div>
+            """, unsafe_allow_html=True)
             
-            st.markdown(f"### 🏢 பதிப்பகம்: {selected_del_publisher} (பதிவு செய்யப்பட்ட தலைப்புகள்: {len(pub_submitted_titles)})")
+            # ஏற்கனவே சமர்ப்பிக்கப்பட்ட பதிவுகள் உள்ளதா எனச் சரிபார்த்து அதைக் காட்டுதல்
+            matched_item_idx = None
+            for idx, item in enumerate(st.session_state["submitted_reports"]):
+                if item["Publisher"] == selected_del_publisher and item["Title"] == selected_del_title:
+                    matched_item_idx = idx
+                    break
             
-            selected_del_title = st.selectbox(
-                "📖 2. தலைப்பைத் தேர்ந்தெடுக்கவும் (Select Book Title to Edit/Delete):",
-                ["-- தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + pub_submitted_titles,
-                key="del_title_dropdown"
-            )
-            
-            if selected_del_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
-                for idx, item in enumerate(st.session_state["submitted_reports"]):
-                    if item["Publisher"] == selected_del_publisher and item["Title"] == selected_del_title:
-                        with st.container():
-                            st.markdown(f"""
-                            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; padding: 15px; border-radius: 10px; margin-top: 10px;">
-                                <b>தலைப்பு:</b> {item['Title']} <br>
-                                <b>ஆசிரியர்:</b> {item.get('Author', '-')} <br>
-                                <b>விலை:</b> ₹{item.get('Price', '0')} | <b>ஏற்றுக்கொள்ளப்பட்ட விலை:</b> ₹{item.get('Accepted Price', '0')}
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                            cols_card = st.columns([3, 3])
-                            with cols_card[0]:
-                                new_qty = st.number_input("📥 பெறப்பட்ட எண்ணிக்கையைத் திருத்துக:", min_value=0, value=int(item['Received Qty']), key=f"edit_qty_{idx}")
-                            with cols_card[1]:
-                                st.markdown("<br>", unsafe_allow_html=True)
-                                col_del, col_upd = st.columns(2)
-                                with col_del:
-                                    if st.button("🗑️ நீக்கு", key=f"del_btn_{idx}", type="secondary", use_container_width=True):
-                                        st.session_state["submitted_reports"].pop(idx)
-                                        st.success("✅ பதிவு வெற்றிகரமாக நீக்கப்பட்டது!")
-                                        st.rerun()
-                                with col_upd:
-                                    if st.button("💾 புதுப்பி", key=f"upd_btn_{idx}", type="primary", use_container_width=True):
-                                        st.session_state["submitted_reports"][idx]["Received Qty"] = new_qty
-                                        st.success("✅ எண்ணிக்கை வெற்றிகரமாக மாற்றப்பட்டது!")
-                                        st.rerun()
+            current_qty = int(st.session_state["submitted_reports"][matched_item_idx]['Received Qty']) if matched_item_idx is not None else 10
 
+            cols_card = st.columns([3, 3])
+            with cols_card[0]:
+                new_qty = st.number_input("📥 பெறப்பட்ட எண்ணிக்கையைத் திருத்துக / மாற்றுக:", min_value=0, value=current_qty, key=f"edit_qty_val_{selected_del_publisher}_{selected_del_title}")
+            with cols_card[1]:
+                st.markdown("<br>", unsafe_allow_html=True)
+                col_del, col_upd = st.columns(2)
+                with col_del:
+                    if st.button("🗑️ நீக்கு (Delete)", key=f"action_del_btn_{selected_del_title}", type="secondary", use_container_width=True):
+                        if matched_item_idx is not None:
+                            st.session_state["submitted_reports"].pop(matched_item_idx)
+                        st.success("✅ பதிவு வெற்றிகரமாக நீக்கப்பட்டது!")
+                        st.rerun()
+                with col_upd:
+                    if st.button("💾 புதுப்பி / மாற்று (Update)", key=f"action_upd_btn_{selected_del_title}", type="primary", use_container_width=True):
+                        if matched_item_idx is not None:
+                            st.session_state["submitted_reports"][matched_item_idx]["Received Qty"] = new_qty
+                        else:
+                            st.session_state["submitted_reports"].append({
+                                "Publisher": selected_del_publisher,
+                                "Title": selected_del_title,
+                                "Author": "-",
+                                "Accepted Price": "0",
+                                "ISBN": "-",
+                                "Required Qty": new_qty,
+                                "Received Qty": new_qty,
+                                })
+                        st.success("✅ எண்ணிக்கை வெற்றிகரமாக மாற்றப்பட்டது / புதுப்பிக்கப்பட்டது!")
+                        st.rerun()
 elif current == "அனுப்ப":
     st.subheader("📤 நூல்களை அனுப்பும் பகுதி & மேலாண்மை (Dispatch & Management)")
     with st.form("dispatch_form"):
