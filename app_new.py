@@ -80,6 +80,50 @@ html, body, [class*="css"] { font-family: 'Noto Sans Tamil', sans-serif !importa
     0% { transform: translateX(100%); }
     100% { transform: translateX(-100%); }
 }
+
+/* ---- Beautified menu / general buttons ---- */
+.stButton>button {
+    border-radius: 12px !important;
+    border: 1.5px solid #a7f3d0 !important;
+    background: #ffffff !important;
+    color: #065f46 !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    white-space: pre-line !important;
+    line-height: 1.4 !important;
+    padding: 10px 6px !important;
+    min-height: 62px !important;
+    box-shadow: 0 2px 6px rgba(6,95,70,0.07) !important;
+    transition: all 0.18s ease-in-out !important;
+}
+.stButton>button:hover {
+    background: #ecfdf5 !important;
+    border-color: #10b981 !important;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 16px rgba(6,95,70,0.18) !important;
+    color: #047857 !important;
+}
+.stButton>button:active {
+    transform: translateY(0px);
+}
+.stButton>button[kind="primary"] {
+    background: linear-gradient(135deg, #059669, #047857) !important;
+    border: none !important;
+    color: #ffffff !important;
+    box-shadow: 0 6px 14px rgba(5,150,105,0.35) !important;
+}
+.stButton>button[kind="primary"]:hover {
+    background: linear-gradient(135deg, #047857, #065f46) !important;
+    color: #ffffff !important;
+}
+.menu-row-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 4px 0 6px 2px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -128,7 +172,7 @@ init_submitted_table()
 def load_submitted_reports_from_db():
     try:
         conn = psycopg2.connect(DB_URL)
-        df = pd.read_sql("SELECT publisher as \"Publisher\", title as \"Title\", author as \"Author\", price as \"Price\", accepted_price as \"Accepted Price\", isbn as \"ISBN\", required_qty as \"Required Qty\", received_qty as \"Received Qty\", date as \"Date\" FROM submitted_reports;", con=conn)
+        df = pd.read_sql("SELECT id as \"Id\", publisher as \"Publisher\", title as \"Title\", author as \"Author\", price as \"Price\", accepted_price as \"Accepted Price\", isbn as \"ISBN\", required_qty as \"Required Qty\", received_qty as \"Received Qty\", date as \"Date\" FROM submitted_reports;", con=conn)
         conn.close()
         return df.to_dict(orient="records")
     except Exception as e:
@@ -203,13 +247,18 @@ menu_options = [
     ("📂", "Excel அப்லோடு"), ("🏷️", "பகுப்பு எண் புதுப்பி")
 ]
 
-cols = st.columns(len(menu_options))
-for i, (icon, label) in enumerate(menu_options):
-    with cols[i]:
-        btn_type = "primary" if st.session_state["current_menu"] == label else "secondary"
-        if st.button(f"{icon}\n{label}", key=f"menu_btn_{i}", use_container_width=True, type=btn_type):
-            st.session_state["current_menu"] = label
-            st.rerun()
+# Two neat rows of 6 buttons each — easier to read/tap than one cramped row of 12
+menu_rows = [menu_options[:6], menu_options[6:]]
+btn_counter = 0
+for row in menu_rows:
+    cols = st.columns(len(row))
+    for col, (icon, label) in zip(cols, row):
+        with col:
+            btn_type = "primary" if st.session_state["current_menu"] == label else "secondary"
+            if st.button(f"{icon}\n{label}", key=f"menu_btn_{btn_counter}", use_container_width=True, type=btn_type):
+                st.session_state["current_menu"] = label
+                st.rerun()
+        btn_counter += 1
 
 st.markdown("---")
 
@@ -361,7 +410,7 @@ elif current == "பிரிக்க":
                 if remaining_to_add > 0:
                     st.warning(f"⚠️ எச்சரிக்கை: இந்தப் பதிப்பகத்தில் இன்னும் **{remaining_to_add}** தலைப்புகள் சரிபார்க்கப்படாமல் உள்ளன. அனைத்து தலைப்புகளையும் சேர்த்த பிறகுதான் இறுதியாகச் சமர்ப்பிக்க முடியும்!")
                 else:
-                    if st.button("💾 இறுதியாகச் சேமி & சமர்பிக்க", type="primary", key="final_submit_btn"):
+                    if st.button("💾 இறுதியாகச் சேமி & சமர்ப்பிக்க", type="primary", key="final_submit_btn"):
                         try:
                             conn = psycopg2.connect(DB_URL)
                             cur = conn.cursor()
@@ -385,6 +434,138 @@ elif current == "பிரிக்க":
                             st.rerun()
                         except Exception as e:
                             st.error(f"❌ Database save error: {e}")
+
+elif current == "அனுப்ப":
+    st.subheader("📤 நூல்கள் அனுப்பும் பகுதி (Dispatch to Libraries)")
+
+    if not st.session_state["submitted_reports"]:
+        st.info("ℹ️ முதலில் '🔀 பிரிக்க' பகுதியில் நூல்களைப் பிரித்துச் சமர்ப்பிக்கவும். அதன் பிறகே அனுப்பும் பதிவு செய்ய முடியும்.")
+    else:
+        rep_df = pd.DataFrame(st.session_state["submitted_reports"])
+        pub_list = sorted(rep_df["Publisher"].dropna().unique().tolist())
+        sel_pub = st.selectbox("🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + pub_list, key="dispatch_pub_sel")
+
+        if sel_pub != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+            title_list = sorted(rep_df[rep_df["Publisher"] == sel_pub]["Title"].dropna().unique().tolist())
+            sel_title = st.selectbox("📖 தலைப்பைத் தேர்ந்தெடுக்கவும்:", ["-- தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + title_list, key="dispatch_title_sel")
+
+            if sel_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
+                row = rep_df[(rep_df["Publisher"] == sel_pub) & (rep_df["Title"] == sel_title)].iloc[0]
+                st.markdown(f"""
+                <div style="background:#f8fafc; border:1.5px solid #cbd5e1; padding:12px; border-radius:8px; margin-bottom:15px;">
+                    <b>📖 நூல் தலைப்பு:</b> {sel_title}<br>
+                    <b>📥 பெறப்பட்ட எண்ணிக்கை:</b> {int(row.get('Received Qty', 0))}
+                </div>
+                """, unsafe_allow_html=True)
+
+                with st.form("dispatch_form"):
+                    library_name = st.text_input("🏛️ நூலகத்தின் பெயர்")
+                    dispatch_qty = st.number_input("📦 அனுப்பப்படும் எண்ணிக்கை", min_value=0, max_value=int(row.get("Received Qty", 0)), value=0, step=1)
+                    submitted_dispatch = st.form_submit_button("📤 அனுப்புதலைப் பதிவு செய்", type="primary")
+
+                    if submitted_dispatch:
+                        if not library_name.strip():
+                            st.error("❌ நூலகத்தின் பெயரை உள்ளிடவும்!")
+                        else:
+                            st.session_state["dispatch_records"].append({
+                                "Publisher": sel_pub, "Title": sel_title, "Library": library_name.strip(),
+                                "Dispatched Qty": dispatch_qty, "Date": datetime.now().strftime("%Y-%m-%d %H:%M")
+                            })
+                            st.success(f"✅ '{sel_title}' — {dispatch_qty} பிரதிகள் '{library_name}' நூலகத்திற்கு அனுப்பியதாகப் பதிவு செய்யப்பட்டது!")
+                            st.rerun()
+
+    if st.session_state["dispatch_records"]:
+        st.markdown("---")
+        st.markdown("#### 📋 இதுவரை அனுப்பப்பட்ட பதிவுகள்")
+        st.dataframe(pd.DataFrame(st.session_state["dispatch_records"]), use_container_width=True)
+
+elif current == "கவனிக்க":
+    st.subheader("⚠️ கவனிக்க வேண்டிய பதிவுகள் (Price Conflicts & Review)")
+
+    neon_df = load_neon_database()
+    if neon_df.empty:
+        st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
+    else:
+        price_col = next((c for c in neon_df.columns if c == 'price'), None)
+        accepted_price_col = next((c for c in neon_df.columns if 'accept' in c or 'rate' in c or 'offer' in c), None)
+        pub_col = next((c for c in neon_df.columns if 'publication' in c or c == 'publisher_name'), None)
+        title_col = next((c for c in neon_df.columns if c == 'title' or (('title' in c) and ('book' not in c))), None)
+        if not title_col:
+            title_col = next((c for c in neon_df.columns if 'title' in c), neon_df.columns[2])
+
+        if not price_col or not accepted_price_col:
+            st.info("ℹ️ விலை (Price) மற்றும் ஏற்றுக்கொள்ளப்பட்ட விலை (Accepted Price) நெடுவரிசைகள் தரவுத்தளத்தில் கிடைக்கவில்லை.")
+        else:
+            temp_df = neon_df.copy()
+            temp_df["_price_num"] = pd.to_numeric(temp_df[price_col], errors="coerce")
+            temp_df["_accepted_num"] = pd.to_numeric(temp_df[accepted_price_col], errors="coerce")
+            conflict_df = temp_df[temp_df["_price_num"] != temp_df["_accepted_num"]].copy()
+
+            if conflict_df.empty:
+                st.success("🎉 விலை முரண்பாடு உள்ள பதிவுகள் எதுவும் இல்லை!")
+            else:
+                st.warning(f"⚠️ மொத்தம் **{len(conflict_df)}** பதிவுகளில் விலை முரண்பாடு (Price Conflict) உள்ளது.")
+                cols_to_show = [c for c in [pub_col, title_col, price_col, accepted_price_col] if c]
+                st.dataframe(conflict_df[cols_to_show], use_container_width=True)
+
+                csv_conflict = conflict_df[cols_to_show].to_csv(index=False).encode('utf-8-sig')
+                st.download_button(
+                    label="📥 முரண்பாடு பட்டியலைப் பதிவிறக்குக (CSV)",
+                    data=csv_conflict,
+                    file_name=f"Price_Conflicts_{datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    type="primary"
+                )
+
+elif current == "பதிவெண் மாற்ற":
+    st.subheader("🔢 பதிவெண் மாற்றும் பகுதி (Accession Number Updates)")
+
+    neon_df = load_neon_database()
+    if neon_df.empty:
+        st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
+    else:
+        acc_col = next((c for c in neon_df.columns if 'accession' in c or c == 'acc_no' or 'reg_no' in c), None)
+        pub_col = next((c for c in neon_df.columns if 'publication' in c or c == 'publisher_name'), None)
+        title_col = next((c for c in neon_df.columns if c == 'title' or (('title' in c) and ('book' not in c))), None)
+        if not title_col:
+            title_col = next((c for c in neon_df.columns if 'title' in c), neon_df.columns[2])
+
+        if not acc_col:
+            st.info("ℹ️ 'Accession Number' நெடுவரிசை தரவுத்தளத்தில் கண்டறியப்படவில்லை. நெடுவரிசைப் பெயரைச் சரிபார்க்கவும்.")
+        else:
+            all_pubs = sorted(neon_df[pub_col].dropna().unique().tolist()) if pub_col else []
+            sel_pub = st.selectbox("🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + all_pubs, key="acc_pub_sel")
+
+            if sel_pub != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+                pub_df = neon_df[neon_df[pub_col] == sel_pub] if pub_col else neon_df
+                title_list = sorted(pub_df[title_col].dropna().unique().tolist())
+                sel_title = st.selectbox("📖 தலைப்பைத் தேர்ந்தெடுக்கவும்:", ["-- தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + title_list, key="acc_title_sel")
+
+                if sel_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
+                    title_df = pub_df[pub_df[title_col] == sel_title].reset_index(drop=True)
+                    st.dataframe(title_df[[c for c in [acc_col, title_col] if c]], use_container_width=True)
+
+                    if not title_df.empty:
+                        row_num = st.number_input("✏️ மாற்ற வேண்டிய வரிசை எண் (Row Index)", min_value=0, max_value=len(title_df) - 1, value=0, step=1, key="acc_row_num")
+                        new_acc_no = st.text_input("🔢 புதிய பதிவெண்", value=str(title_df.iloc[int(row_num)][acc_col]), key="acc_new_val")
+
+                        if st.button("💾 பதிவெண்ணைப் புதுப்பி", type="primary", key="acc_update_btn"):
+                            try:
+                                conn = psycopg2.connect(DB_URL)
+                                cur = conn.cursor()
+                                old_acc_no = title_df.iloc[int(row_num)][acc_col]
+                                cur.execute(
+                                    f"UPDATE books SET {acc_col} = %s WHERE {acc_col} = %s AND {title_col} = %s;",
+                                    (new_acc_no, old_acc_no, sel_title)
+                                )
+                                conn.commit()
+                                cur.close()
+                                conn.close()
+                                st.success(f"✅ பதிவெண் '{old_acc_no}' இலிருந்து '{new_acc_no}' ஆக மாற்றப்பட்டது!")
+                                load_neon_database.clear()
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"❌ Update error: {e}")
 
 elif current == "அறிக்கைகள்":
     st.subheader("📊 அறிக்கைகள் & பதிவுக் சரிபார்ப்பு (Publishers & Title & Books Verification Report)")
@@ -470,12 +651,14 @@ elif current == "தவறான பதிவு நீக்கம்":
                     req_qty = 90
                     rec_qty = 75
                     target_index = None
+                    target_id = None
                     
                     for idx, item in enumerate(st.session_state.get("submitted_reports", [])):
                         if item.get("Publisher") == sel_pub and item.get("Title") == sel_title:
                             req_qty = int(item.get("Required Qty", 90))
                             rec_qty = int(item.get("Received Qty", 75))
                             target_index = idx
+                            target_id = item.get("Id")
                             break
 
                     st.markdown(f"""
@@ -494,27 +677,28 @@ elif current == "தவறான பதிவு நீக்கம்":
                         col_d, col_u = st.columns(2)
                         with col_d:
                             if st.button("🗑️ நீக்கு", key="err_pub_del_btn", use_container_width=True):
-                                if target_index is not None:
-                                    item_to_del = st.session_state["submitted_reports"][target_index]
+                                if target_id is not None:
                                     try:
                                         conn = psycopg2.connect(DB_URL)
                                         cur = conn.cursor()
-                                        cur.execute("DELETE FROM submitted_reports WHERE publisher = %s AND title = %s;", (sel_pub, item_to_del.get('Title')))
+                                        cur.execute("DELETE FROM submitted_reports WHERE id = %s;", (target_id,))
                                         conn.commit()
                                         cur.close()
                                         conn.close()
                                         st.session_state["submitted_reports"] = load_submitted_reports_from_db()
+                                        st.success("✅ பதிவு வெற்றிகரமாக நீக்கப்பட்டது!")
+                                        st.rerun()
                                     except Exception as e:
                                         st.error(f"❌ Delete error: {e}")
-                                st.success("✅ பதிவு வெற்றிகரமாக நீக்கப்பட்டது!")
-                                st.rerun()
+                                else:
+                                    st.warning("⚠️ இந்தப் பதிவு database-ல் கிடைக்கவில்லை (Id காணப்படவில்லை).")
                         with col_u:
                             if st.button("💾 மாற்று/புதுப்பி", key="err_pub_upd_btn", type="primary", use_container_width=True):
                                 try:
                                     conn = psycopg2.connect(DB_URL)
                                     cur = conn.cursor()
-                                    if target_index is not None:
-                                        cur.execute("UPDATE submitted_reports SET received_qty = %s WHERE publisher = %s AND title = %s;", (new_val, sel_pub, sel_title))
+                                    if target_id is not None:
+                                        cur.execute("UPDATE submitted_reports SET received_qty = %s WHERE id = %s;", (new_val, target_id))
                                     else:
                                         cur.execute("""
                                             INSERT INTO submitted_reports (publisher, title, required_qty, received_qty, date)
@@ -528,6 +712,60 @@ elif current == "தவறான பதிவு நீக்கம்":
                                     st.error(f"❌ Update error: {e}")
                                 st.success(f"✅ எண்ணிக்கை வெற்றிகரமாக {new_val} என மாற்றப்பட்டது!")
                                 st.rerun()
+
+    elif edit_action_option == "2. அனுப்பிய விவரங்கள் (Dispatch Records)":
+        st.markdown("### 📤 2. அனுப்பிய விவரங்கள் — திருத்துதல் / நீக்குதல்")
+        if not st.session_state.get("dispatch_records"):
+            st.info("ℹ️ இதுவரை எந்த நூல்களும் அனுப்பப்படவில்லை.")
+        else:
+            disp_df = pd.DataFrame(st.session_state["dispatch_records"])
+            st.dataframe(disp_df, use_container_width=True)
+            row_idx = st.number_input("🗑️ நீக்க வேண்டிய வரிசை எண் (Row Index)", min_value=0, max_value=len(disp_df) - 1, value=0, step=1, key="disp_del_idx")
+            if st.button("🗑️ தேர்ந்தெடுத்த பதிவை நீக்கு", key="disp_del_btn", type="primary"):
+                st.session_state["dispatch_records"].pop(int(row_idx))
+                st.success("✅ அனுப்பிய பதிவு நீக்கப்பட்டது!")
+                st.rerun()
+
+    elif edit_action_option == "3. அறிக்கை தரவுகள் (Submitted Reports)":
+        st.markdown("### 📊 3. அறிக்கை தரவுகள் — முழுப் பட்டியல் (திருத்த/நீக்க பதிப்பகம் வாரியாகச் செல்லவும்)")
+        if not st.session_state.get("submitted_reports"):
+            st.info("ℹ️ இதுவரை சமர்ப்பிக்கப்பட்ட தரவுகள் எதுவும் இல்லை.")
+        else:
+            all_rep_df = pd.DataFrame(st.session_state["submitted_reports"])
+            st.dataframe(all_rep_df, use_container_width=True)
+            st.caption("💡 குறிப்பிட்ட ஒரு பதிவைத் திருத்த அல்லது நீக்க '1. பதிப்பாளர் தேர்வு' பகுதியைப் பயன்படுத்தவும்.")
+
+    elif edit_action_option == "4. கவனிக்க வேண்டியவை (Review / Price Conflicts)":
+        st.markdown("### ⚠️ 4. விலை முரண்பாடு உள்ள பதிவுகள்")
+        neon_df = load_neon_database()
+        if neon_df.empty:
+            st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
+        else:
+            price_col = next((c for c in neon_df.columns if c == 'price'), None)
+            accepted_price_col = next((c for c in neon_df.columns if 'accept' in c or 'rate' in c or 'offer' in c), None)
+            if not price_col or not accepted_price_col:
+                st.info("ℹ️ விலை நெடுவரிசைகள் கண்டறியப்படவில்லை.")
+            else:
+                cmp_df = neon_df.copy()
+                cmp_df["_p"] = pd.to_numeric(cmp_df[price_col], errors="coerce")
+                cmp_df["_a"] = pd.to_numeric(cmp_df[accepted_price_col], errors="coerce")
+                conflicts = cmp_df[cmp_df["_p"] != cmp_df["_a"]]
+                if conflicts.empty:
+                    st.success("🎉 முரண்பாடுகள் எதுவும் இல்லை!")
+                else:
+                    st.dataframe(conflicts.drop(columns=["_p", "_a"]), use_container_width=True)
+
+    elif edit_action_option == "5. பதிவெண் மாற்றங்கள் (Accession Number Updates)":
+        st.markdown("### 🔢 5. பதிவெண் மாற்றத் தேவைப்படும் இடத்திற்குச் செல்ல மேல் மெனுவில் '🔢 பதிவெண் மாற்ற' பட்டனை அழுத்தவும்.")
+        st.info("ℹ️ பதிவெண் புதுப்பிப்பதற்கான முழு வசதி '🔢 பதிவெண் மாற்ற' மெனுவில் உள்ளது.")
+
+    elif edit_action_option == "6. Master Data தரவுகள்":
+        st.markdown("### 🗂️ 6. Master Data — முழு பட்டியலைப் பார்வையிட '🗂️ Master Data' மெனுவைப் பயன்படுத்தவும்.")
+        st.info("ℹ️ Master Data-வைத் திருத்த நேரடியாக Neon Database-ல் மாற்றங்களைச் செய்ய வேண்டும்; இங்கிருந்து நேரடி நீக்கம் ஆதரிக்கப்படவில்லை.")
+
+    elif edit_action_option == "7. பகுப்பு எண் மாற்றங்கள் (Classification Number Updates)":
+        st.markdown("### 🏷️ 7. பகுப்பு எண் புதுப்பிப்பதற்கு மேல் மெனுவில் '🏷️ பகுப்பு எண் புதுப்பி' பட்டனை அழுத்தவும்.")
+        st.info("ℹ️ பகுப்பு எண் புதுப்பிப்பதற்கான முழு வசதி '🏷️ பகுப்பு எண் புதுப்பி' மெனுவில் உள்ளது.")
 
     else:
         st.info("👆 மேல் உள்ள தேர்வில் ஏதேனும் ஒரு பிரிவைத் தேர்வு செய்தால், அதற்கான திருத்தும் மற்றும் நீக்கும் வசதிகள் உடனே தோன்றும்.")
@@ -664,14 +902,126 @@ elif current == "Master Data":
 
 elif current == "நூலகர் பார்வை ஆண்டு":
     st.subheader("👥 நூலகர் பார்வை ஆண்டு விவரங்கள் மேலாண்மை")
-    st.info("நூலகர்களின் பார்வைக் காலங்களைச் சரிபார்க்கவும் திருத்தவும்.")
+    st.info("ℹ️ ஒவ்வொரு நூலகருக்கும் பார்வைக் காலத்தைப் (ஆண்டு) பதிவு செய்யவும், தேவைப்படின் திருத்தவும்.")
+
+    with st.form("librarian_year_form"):
+        lc1, lc2 = st.columns(2)
+        with lc1:
+            librarian_name = st.text_input("👤 நூலகர் பெயர்")
+            library_name = st.text_input("🏛️ நூலகத்தின் பெயர்")
+        with lc2:
+            view_year = st.text_input("📅 பார்வை ஆண்டு (உ.ம். 2026-27)", value="2026-27")
+        add_lib_record = st.form_submit_button("➕ பதிவு சேர்", type="primary")
+
+        if add_lib_record:
+            if not librarian_name.strip() or not library_name.strip():
+                st.error("❌ நூலகர் பெயர் மற்றும் நூலகத்தின் பெயரை உள்ளிடவும்!")
+            else:
+                st.session_state["librarian_records"].append({
+                    "Librarian": librarian_name.strip(), "Library": library_name.strip(),
+                    "View Year": view_year.strip(), "Date": datetime.now().strftime("%Y-%m-%d %H:%M")
+                })
+                st.success(f"✅ '{librarian_name}' — {view_year} பதிவு சேர்க்கப்பட்டது!")
+                st.rerun()
+
+    if st.session_state["librarian_records"]:
+        st.markdown("---")
+        lib_rec_df = pd.DataFrame(st.session_state["librarian_records"])
+        st.dataframe(lib_rec_df, use_container_width=True)
+        del_idx = st.number_input("🗑️ நீக்க வேண்டிய வரிசை எண் (Row Index)", min_value=0, max_value=len(lib_rec_df) - 1, value=0, step=1, key="lib_rec_del_idx")
+        if st.button("🗑️ தேர்ந்தெடுத்த பதிவை நீக்கு", key="lib_rec_del_btn"):
+            st.session_state["librarian_records"].pop(int(del_idx))
+            st.success("✅ பதிவு நீக்கப்பட்டது!")
+            st.rerun()
+    else:
+        st.info("ℹ️ இதுவரை நூலகர் பார்வை ஆண்டு பதிவுகள் எதுவும் சேர்க்கப்படவில்லை.")
 
 elif current == "Excel அப்லோடு":
     st.subheader("📂 புதிய Excel தரவு பதிவேற்றம் & மேலாண்மை")
     uploaded_file = st.file_uploader("Excel அல்லது CSV கோப்பினைத் தேர்ந்தெடுக்கவும்", type=["xlsx", "csv"])
+
     if uploaded_file is not None:
-        st.success("✅ கோப்பு வெற்றிகரமாகப் பெறப்பட்டது!")
+        try:
+            if uploaded_file.name.lower().endswith(".csv"):
+                up_df = pd.read_csv(uploaded_file)
+            else:
+                up_df = pd.read_excel(uploaded_file)
+            st.success(f"✅ கோப்பு வெற்றிகரமாகப் பெறப்பட்டது! ({len(up_df)} வரிசைகள் கண்டறியப்பட்டன)")
+            st.dataframe(up_df.head(50), use_container_width=True)
+
+            up_df.columns = [str(c).strip().lower() for c in up_df.columns]
+            books_columns = set(load_neon_database().columns) if not load_neon_database().empty else set()
+
+            if books_columns and not books_columns.issuperset(up_df.columns):
+                missing = set(up_df.columns) - books_columns
+                st.warning(f"⚠️ கோப்பில் உள்ள சில நெடுவரிசைகள் 'books' அட்டவணையில் இல்லை: {', '.join(missing)}. அப்லோடு செய்யும் முன் நெடுவரிசைப் பெயர்களை உறுதி செய்யவும்.")
+            else:
+                if st.button("💾 இந்தத் தரவை Neon Database-ல் சேமி", type="primary", key="excel_upload_save_btn"):
+                    try:
+                        conn = psycopg2.connect(DB_URL)
+                        cur = conn.cursor()
+                        cols = list(up_df.columns)
+                        placeholders = ", ".join(["%s"] * len(cols))
+                        col_names = ", ".join(cols)
+                        for _, r in up_df.iterrows():
+                            cur.execute(f"INSERT INTO books ({col_names}) VALUES ({placeholders});", tuple(r[c] for c in cols))
+                        conn.commit()
+                        cur.close()
+                        conn.close()
+                        load_neon_database.clear()
+                        st.success(f"✅ {len(up_df)} வரிசைகள் Neon Database-ல் சேமிக்கப்பட்டன!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Upload save error: {e}")
+        except Exception as e:
+            st.error(f"❌ கோப்பைப் படிக்க முடியவில்லை: {e}")
 
 elif current == "பகுப்பு எண் புதுப்பி":
     st.subheader("🏷️ பகுப்பு எண் புதுப்பித்தல் மற்றும் திருத்துதல்")
-    st.info("நூல் பகுப்பு எண்களைத் தரம் பிரித்துப் புதுப்பிக்க.")
+
+    neon_df = load_neon_database()
+    if neon_df.empty:
+        st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
+    else:
+        class_col = next((c for c in neon_df.columns if 'classification' in c or c == 'class_no' or 'call_no' in c or 'call number' in c), None)
+        pub_col = next((c for c in neon_df.columns if 'publication' in c or c == 'publisher_name'), None)
+        title_col = next((c for c in neon_df.columns if c == 'title' or (('title' in c) and ('book' not in c))), None)
+        if not title_col:
+            title_col = next((c for c in neon_df.columns if 'title' in c), neon_df.columns[2])
+
+        if not class_col:
+            st.info("ℹ️ 'Classification Number' நெடுவரிசை தரவுத்தளத்தில் கண்டறியப்படவில்லை. நெடுவரிசைப் பெயரைச் சரிபார்க்கவும்.")
+        else:
+            all_pubs = sorted(neon_df[pub_col].dropna().unique().tolist()) if pub_col else []
+            sel_pub = st.selectbox("🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + all_pubs, key="class_pub_sel")
+
+            if sel_pub != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
+                pub_df = neon_df[neon_df[pub_col] == sel_pub] if pub_col else neon_df
+                title_list = sorted(pub_df[title_col].dropna().unique().tolist())
+                sel_title = st.selectbox("📖 தலைப்பைத் தேர்ந்தெடுக்கவும்:", ["-- தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + title_list, key="class_title_sel")
+
+                if sel_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
+                    title_df = pub_df[pub_df[title_col] == sel_title].reset_index(drop=True)
+                    st.dataframe(title_df[[c for c in [class_col, title_col] if c]], use_container_width=True)
+
+                    if not title_df.empty:
+                        row_num = st.number_input("✏️ மாற்ற வேண்டிய வரிசை எண் (Row Index)", min_value=0, max_value=len(title_df) - 1, value=0, step=1, key="class_row_num")
+                        new_class_no = st.text_input("🏷️ புதிய பகுப்பு எண்", value=str(title_df.iloc[int(row_num)][class_col]), key="class_new_val")
+
+                        if st.button("💾 பகுப்பு எண்ணைப் புதுப்பி", type="primary", key="class_update_btn"):
+                            try:
+                                conn = psycopg2.connect(DB_URL)
+                                cur = conn.cursor()
+                                old_class_no = title_df.iloc[int(row_num)][class_col]
+                                cur.execute(
+                                    f"UPDATE books SET {class_col} = %s WHERE {class_col} = %s AND {title_col} = %s;",
+                                    (new_class_no, old_class_no, sel_title)
+                                )
+                                conn.commit()
+                                cur.close()
+                                conn.close()
+                                st.success(f"✅ பகுப்பு எண் '{old_class_no}' இலிருந்து '{new_class_no}' ஆக மாற்றப்பட்டது!")
+                                load_neon_database.clear()
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"❌ Update error: {e}")
