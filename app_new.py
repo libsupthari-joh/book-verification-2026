@@ -136,6 +136,18 @@ USERS_DATABASE = {
     "Librarian": {"password_hash": hash_password("123456789"), "name": "Librarian"},
 }
 
+# ---------------------------------------------------------------------------
+# ROLE-WISE MENU ACCESS CONTROL
+# Admin -> அனைத்து மெனுக்களும் (full access)
+# DCL Staff -> "பிரிக்க" மற்றும் "அறிக்கைகள்" மட்டும்
+# Librarian -> "நூலகர் பார்வை ஆண்டு" மட்டும்
+# ---------------------------------------------------------------------------
+ROLE_MENU_ACCESS = {
+    "Admin": None,  # None => எல்லா மெனுக்களுக்கும் அனுமதி
+    "DCL Staff": ["பிரிக்க", "அறிக்கைகள்"],
+    "Librarian": ["நூலகர் பார்வை ஆண்டு"],
+}
+
 def authenticate_user(role_key, password):
     user = USERS_DATABASE.get(role_key)
     if user and hmac.compare_digest(hash_password(password), user["password_hash"]):
@@ -213,6 +225,7 @@ def show_login_page():
                 st.error("❌ தவறான கடவுச்சொல்!")
             else:
                 st.session_state.update(logged_in=True, user_role=selected_role, user_name=user["name"])
+                st.session_state["current_menu"] = None
                 st.rerun()
 
 if not st.session_state["logged_in"]:
@@ -238,17 +251,27 @@ with col_logout[1]:
     if st.button("🚪 வெளியேறு", use_container_width=True):
         st.session_state["logged_in"] = False
         st.session_state["user_role"] = None
+        st.session_state["current_menu"] = None
         st.rerun()
 
-menu_options = [
+ALL_MENU_OPTIONS = [
     ("🔀", "பிரிக்க"), ("📤", "அனுப்ப"), ("📊", "அறிக்கைகள்"), ("⚠️", "கவனிக்க"),
     ("🔢", "பதிவெண் மாற்ற"), ("🗂️", "Master Data"), ("❌", "தவறான பதிவு நீக்கம்"),
     ("🔑", "கடவுச்சொல் மாற்ற"), ("📥", "Excel பதிவிறக்கம்"), ("👥", "நூலகர் பார்வை ஆண்டு"),
     ("📂", "Excel அப்லோடு"), ("🏷️", "பகுப்பு எண் புதுப்பி")
 ]
 
-# Two neat rows of 6 buttons each — easier to read/tap than one cramped row of 12
-menu_rows = [menu_options[:6], menu_options[6:]]
+# ---------------------------------------------------------------------------
+# பயனர் பங்கிற்கு ஏற்ப மெனு வடிகட்டுதல் (role-based menu filtering)
+# ---------------------------------------------------------------------------
+allowed_labels = ROLE_MENU_ACCESS.get(st.session_state["user_role"])
+if allowed_labels is None:
+    menu_options = ALL_MENU_OPTIONS
+else:
+    menu_options = [item for item in ALL_MENU_OPTIONS if item[1] in allowed_labels]
+
+# கிடைக்கும் மெனு பட்டன்களை 6-வீதம் வரிசைகளாக அமைத்தல்
+menu_rows = [menu_options[i:i + 6] for i in range(0, len(menu_options), 6)]
 btn_counter = 0
 for row in menu_rows:
     cols = st.columns(len(row))
@@ -259,6 +282,11 @@ for row in menu_rows:
                 st.session_state["current_menu"] = label
                 st.rerun()
         btn_counter += 1
+
+# பாதுகாப்பு சரிபார்ப்பு: பங்கு மாறினாலோ / session state பழையதாக இருந்தாலோ,
+# அனுமதிக்கப்படாத மெனுவில் தங்கிவிடாமல் தடுக்கும் (defence-in-depth)
+if allowed_labels is not None and st.session_state["current_menu"] not in allowed_labels:
+    st.session_state["current_menu"] = None
 
 st.markdown("---")
 
@@ -296,7 +324,7 @@ def load_neon_database():
     return pd.DataFrame()
 
 if current is None:
-    st.info("👆 மேல் உள்ள மெனு பட்டன்களில் ஏதேனும் ஒன்றை (உதாரணமாக **'🔀 பிரிக்க'** அல்லது **'📊 அறிக்கைகள்'**) தேர்வு செய்யவும்.")
+    st.info("👆 மேல் உள்ள மெனு பட்டன்களில் ஏதேனும் ஒன்றைத் தேர்வு செய்யவும்.")
 
 elif current == "பிரிக்க":
     st.subheader("🔀 நூல்களைப் பிரிக்கும் பகுதி (Publisher-wise Book Distribution)")
