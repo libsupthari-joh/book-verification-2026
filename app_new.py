@@ -133,7 +133,7 @@ def db_connection():
     pool = connection_pool()
     if pool is None:
         raise RuntimeError(
-            "DATABASE_URL அமைக்கப்படவில்லை. Replit Secrets-ல் DATABASE_URL-ஐ சேர்க்கவும்."
+            "postgresql://neondb_owner:npg_vA4w9qUFJheu@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
         )
     conn = pool.getconn()
     try:
