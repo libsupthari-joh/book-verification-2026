@@ -361,7 +361,7 @@ elif current == "பிரிக்க":
                 if remaining_to_add > 0:
                     st.warning(f"⚠️ எச்சரிக்கை: இந்தப் பதிப்பகத்தில் இன்னும் **{remaining_to_add}** தலைப்புகள் சரிபார்க்கப்படாமல் உள்ளன. அனைத்து தலைப்புகளையும் சேர்த்த பிறகுதான் இறுதியாகச் சமர்ப்பிக்க முடியும்!")
                 else:
-                    if st.button("💾 இறுதியாகச் சேமி & சமர்ப்பించు", type="primary", key="final_submit_btn"):
+                    if st.button("💾 இறுதியாகச் சேமி & சமர்பிக்க", type="primary", key="final_submit_btn"):
                         try:
                             conn = psycopg2.connect(DB_URL)
                             cur = conn.cursor()
