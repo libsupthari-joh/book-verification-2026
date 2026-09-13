@@ -143,6 +143,10 @@ def authenticate_user(role_key, password):
     return None
 
 # Database Initialization for Submitted Reports
+# @st.cache_resource ensures this CREATE TABLE runs only ONCE per app
+# process lifetime, instead of opening a new DB connection on every
+# single button click / rerun (which was wasting network transfer quota).
+@st.cache_resource
 def init_submitted_table():
     try:
         conn = psycopg2.connect(DB_URL)
@@ -164,11 +168,16 @@ def init_submitted_table():
         conn.commit()
         cur.close()
         conn.close()
+        return True
     except Exception as e:
         st.error(f"❌ Table creation error: {e}")
+        return False
 
 init_submitted_table()
 
+# @st.cache_data caches the result server-side. Call load_submitted_reports_from_db.clear()
+# after any INSERT/UPDATE to this table so the next read picks up fresh data.
+@st.cache_data
 def load_submitted_reports_from_db():
     try:
         conn = psycopg2.connect(DB_URL)
@@ -178,13 +187,19 @@ def load_submitted_reports_from_db():
     except Exception as e:
         return []
 
-for key, default in {
-    "logged_in": False, "user_role": None, "user_name": "",
-    "current_menu": None, "temp_distributed_list": [], 
-    "submitted_reports": load_submitted_reports_from_db(),
-    "dispatch_records": [], "librarian_records": []
+for key, default_fn in {
+    "logged_in": lambda: False,
+    "user_role": lambda: None,
+    "user_name": lambda: "",
+    "current_menu": lambda: None,
+    "temp_distributed_list": lambda: [],
+    # Loaded from DB only ONCE per browser session (not on every rerun).
+    "submitted_reports": load_submitted_reports_from_db,
+    "dispatch_records": lambda: [],
+    "librarian_records": lambda: [],
 }.items():
-    st.session_state.setdefault(key, default)
+    if key not in st.session_state:
+        st.session_state[key] = default_fn()
 
 def show_login_page():
     st.markdown("""
@@ -443,6 +458,7 @@ elif current == "பிரிக்க":
                             cur.close()
                             conn.close()
 
+                            load_submitted_reports_from_db.clear()
                             st.session_state["submitted_reports"] = load_submitted_reports_from_db()
                             st.session_state["temp_distributed_list"] = []
 
@@ -708,6 +724,7 @@ elif current == "தவறான பதிவு நீக்கம்":
                                         conn.commit()
                                         cur.close()
                                         conn.close()
+                                        load_submitted_reports_from_db.clear()
                                         st.session_state["submitted_reports"] = load_submitted_reports_from_db()
                                         st.success("✅ பதிவு வெற்றிகரமாக நீக்கப்பட்டது!")
                                         st.rerun()
@@ -730,6 +747,7 @@ elif current == "தவறான பதிவு நீக்கம்":
                                     conn.commit()
                                     cur.close()
                                     conn.close()
+                                    load_submitted_reports_from_db.clear()
                                     st.session_state["submitted_reports"] = load_submitted_reports_from_db()
                                 except Exception as e:
                                     st.error(f"❌ Update error: {e}")
@@ -984,10 +1002,12 @@ elif current == "Excel அப்லோடு":
                         conn = psycopg2.connect(DB_URL)
                         cur = conn.cursor()
                         cols = list(up_df.columns)
-                        placeholders = ", ".join(["%s"] * len(cols))
                         col_names = ", ".join(cols)
-                        for _, r in up_df.iterrows():
-                            cur.execute(f"INSERT INTO books ({col_names}) VALUES ({placeholders});", tuple(r[c] for c in cols))
+                        # Bulk insert (execute_values) instead of one round-trip per row —
+                        # far fewer network round-trips for large uploads.
+                        from psycopg2.extras import execute_values
+                        rows = [tuple(r[c] for c in cols) for _, r in up_df.iterrows()]
+                        execute_values(cur, f"INSERT INTO books ({col_names}) VALUES %s;", rows)
                         conn.commit()
                         cur.close()
                         conn.close()
