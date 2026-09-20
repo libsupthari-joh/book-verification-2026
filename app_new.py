@@ -814,102 +814,106 @@ elif current == "அறிக்கைகள்":
         full_report_df = pd.DataFrame(st.session_state["submitted_reports"])
         unique_report_publishers = ["-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --"] + sorted(full_report_df["Publisher"].dropna().unique().tolist())
         selected_report_pub = st.selectbox("🔍 பதிப்பகம் வாரியாக வடிகட்டுக (Filter by Publisher):", unique_report_publishers)
-        
-        if selected_report_pub != "-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --":
-            display_df = full_report_df[full_report_df["Publisher"] == selected_report_pub].reset_index(drop=True)
-            st.markdown(f"### 🏢 பதிப்பகம்: {selected_report_pub} (பதிவு செய்யப்பட்ட தலைப்புகள்: {len(display_df)})")
-        else:
-            display_df = full_report_df
-            st.markdown(f"**மொத்தப் பதிவு செய்யப்பட்ட தலைப்புகள்:** {len(display_df)}")
-            
-        st.dataframe(display_df, use_container_width=True)
-        
-        csv_all = full_report_df.to_csv(index=False).encode('utf-8-sig')
-        st.download_button(
-            label="📥 அறிக்கையைப் பதிவிறக்குக (Download CSV)",
-            data=csv_all,
-            file_name=f"Verification_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-            mime="text/csv",
-            type="primary",
-            use_container_width=True
-        )
 
-        # ---------------- நூலக விவரத்துடன் விரிவான அறிக்கை ----------------
-        st.markdown("---")
-        st.markdown("### 🏛️ நூலக விவரத்துடன் விரிவான அறிக்கை (Library-wise Detailed Report)")
+        tab_summary, tab_library = st.tabs(["📋 சுருக்க அறிக்கை (Summary)", "🏛️ நூலக விவரம் (Library Detail)"])
 
-        neon_df = load_neon_database()
-        if neon_df.empty:
-            st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
-        else:
-            pub_col = next((c for c in neon_df.columns if c == 'vendor_name'), None) or next((c for c in neon_df.columns if c in ['publication name', 'publication_name', 'publisher_name'] or 'publication' in c), None)
-            title_col = next((c for c in neon_df.columns if c == 'title' or (('title' in c) and ('book' not in c))), None)
-            if not title_col:
-                title_col = next((c for c in neon_df.columns if 'title' in c), neon_df.columns[2])
-            lib_col_name = next((c for c in neon_df.columns if 'library' in c and ('name' in c or 'tm' in c)), None)
-            book_id_col = next((c for c in neon_df.columns if c == 'book_id'), None)
-            author_col = next((c for c in neon_df.columns if 'author' in c), None)
-            lib_type_col = next((c for c in neon_df.columns if c == 'library_type'), None)
-
-            submitted_pubs_report = sorted([p for p in full_report_df["Publisher"].dropna().unique().tolist() if pub_col and p in neon_df[pub_col].values]) if pub_col else []
-
-            if not submitted_pubs_report or not lib_col_name:
-                st.info("ℹ️ நூலகப் பெயர் நெடுவரிசை கண்டறியப்படவில்லை.")
+        with tab_summary:
+            if selected_report_pub != "-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --":
+                display_df = full_report_df[full_report_df["Publisher"] == selected_report_pub].reset_index(drop=True)
+                st.markdown(f"### 🏢 பதிப்பகம்: {selected_report_pub} (பதிவு செய்யப்பட்ட தலைப்புகள்: {len(display_df)})")
             else:
-                lib_report_df = compute_all_received_rows(submitted_pubs_report, pub_col, title_col)
-                if not lib_report_df.empty:
-                    dispatched_keys_report = load_dispatch_status_keys()
-                    lib_report_df = lib_report_df.copy()
-                    lib_report_df["_key"] = (
-                        lib_report_df[pub_col].astype(str) + "||" +
-                        lib_report_df[title_col].astype(str) + "||" +
-                        lib_report_df[lib_col_name].astype(str) + "||" +
-                        lib_report_df.groupby([pub_col, title_col, lib_col_name]).cumcount().astype(str)
-                    )
-                    lib_report_df["நூலகத்தில் பெறப்பட்டதா"] = lib_report_df["_key"].isin(dispatched_keys_report).map({True: "✅ பெறப்பட்டது", False: "⏳ இன்னும் இல்லை"})
+                display_df = full_report_df
+                st.markdown(f"**மொத்தப் பதிவு செய்யப்பட்ட தலைப்புகள்:** {len(display_df)}")
+                
+            st.dataframe(display_df, use_container_width=True)
+            
+            csv_all = full_report_df.to_csv(index=False).encode('utf-8-sig')
+            st.download_button(
+                label="📥 அறிக்கையைப் பதிவிறக்குக (Download CSV)",
+                data=csv_all,
+                file_name=f"Verification_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                mime="text/csv",
+                type="primary",
+                use_container_width=True,
+                key="dl_summary_csv"
+            )
 
-                    if selected_report_pub != "-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --":
-                        lib_display_df = lib_report_df[lib_report_df[pub_col] == selected_report_pub].reset_index(drop=True)
-                    else:
-                        lib_display_df = lib_report_df
+        with tab_library:
+            neon_df = load_neon_database()
+            if neon_df.empty:
+                st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
+            else:
+                pub_col = next((c for c in neon_df.columns if c == 'vendor_name'), None) or next((c for c in neon_df.columns if c in ['publication name', 'publication_name', 'publisher_name'] or 'publication' in c), None)
+                title_col = next((c for c in neon_df.columns if c == 'title' or (('title' in c) and ('book' not in c))), None)
+                if not title_col:
+                    title_col = next((c for c in neon_df.columns if 'title' in c), neon_df.columns[2])
+                lib_col_name = next((c for c in neon_df.columns if 'library' in c and ('name' in c or 'tm' in c)), None)
+                book_id_col = next((c for c in neon_df.columns if c == 'book_id'), None)
+                author_col = next((c for c in neon_df.columns if 'author' in c), None)
+                lib_type_col = next((c for c in neon_df.columns if c == 'library_type'), None)
 
-                    show_cols = [c for c in [book_id_col, title_col, author_col, pub_col, lib_type_col, lib_col_name, "நூலகத்தில் பெறப்பட்டதா"] if c and c in lib_display_df.columns]
-                    st.caption(f"மொத்த வரிசைகள்: {len(lib_display_df)}")
-                    st.dataframe(lib_display_df[show_cols], use_container_width=True)
+                submitted_pubs_report = sorted([p for p in full_report_df["Publisher"].dropna().unique().tolist() if pub_col and p in neon_df[pub_col].values]) if pub_col else []
 
-                    col_csv, col_pdf = st.columns(2)
-                    with col_csv:
-                        csv_lib_report = lib_display_df[show_cols].to_csv(index=False).encode('utf-8-sig')
-                        st.download_button(
-                            label="📥 நூலக விவர அறிக்கை (CSV)",
-                            data=csv_lib_report,
-                            file_name=f"Library_Detailed_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                            mime="text/csv",
-                            use_container_width=True
+                if not submitted_pubs_report or not lib_col_name:
+                    st.info("ℹ️ நூலகப் பெயர் நெடுவரிசை கண்டறியப்படவில்லை.")
+                else:
+                    lib_report_df = compute_all_received_rows(submitted_pubs_report, pub_col, title_col)
+                    if not lib_report_df.empty:
+                        dispatched_keys_report = load_dispatch_status_keys()
+                        lib_report_df = lib_report_df.copy()
+                        lib_report_df["_key"] = (
+                            lib_report_df[pub_col].astype(str) + "||" +
+                            lib_report_df[title_col].astype(str) + "||" +
+                            lib_report_df[lib_col_name].astype(str) + "||" +
+                            lib_report_df.groupby([pub_col, title_col, lib_col_name]).cumcount().astype(str)
                         )
-                    with col_pdf:
-                        if len(lib_display_df) > 3000:
-                            st.info("ℹ️ PDF-ஆக பதிவிறக்க 3000-க்கும் குறைவான வரிசைகள் இருக்க வேண்டும் — ஒரு குறிப்பிட்ட பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்.")
+                        lib_report_df["நூலகத்தில் பெறப்பட்டதா"] = lib_report_df["_key"].isin(dispatched_keys_report).map({True: "✅ பெறப்பட்டது", False: "⏳ இன்னும் இல்லை"})
+
+                        if selected_report_pub != "-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --":
+                            lib_display_df = lib_report_df[lib_report_df[pub_col] == selected_report_pub].reset_index(drop=True)
+                            st.markdown(f"### 🏢 பதிப்பகம்: {selected_report_pub}")
                         else:
-                            if st.button("📄 PDF உருவாக்கு", key="gen_pdf_lib_report", use_container_width=True):
-                                pdf_headers = [c for c in [book_id_col, title_col, author_col, lib_col_name, "நூலகத்தில் பெறப்பட்டதா"] if c]
-                                pdf_widths = (25, 85, 55, 45, 45)[:len(pdf_headers)]
-                                pdf_bytes = generate_tamil_pdf_table(
-                                    lib_display_df[pdf_headers], pdf_headers, pdf_widths,
-                                    f"நூலக விவர அறிக்கை — {selected_report_pub if selected_report_pub != '-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --' else 'அனைத்து பதிப்பகங்கள்'}"
-                                )
-                                if pdf_bytes is None:
-                                    st.error("❌ Tamil font கோப்பு கிடைக்கவில்லை. 'fonts/NotoSansTamil-Regular.ttf' கோப்பை repo-வில் சேர்க்கவும்.")
-                                else:
-                                    st.download_button(
-                                        label="📥 PDF பதிவிறக்கம்",
-                                        data=pdf_bytes,
-                                        file_name=f"Library_Detailed_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
-                                        mime="application/pdf",
-                                        type="primary",
-                                        use_container_width=True,
-                                        key="dl_pdf_lib_report"
+                            lib_display_df = lib_report_df
+                            st.markdown("### 🌐 அனைத்து பதிப்பகங்களும்")
+
+                        show_cols = [c for c in [book_id_col, title_col, author_col, pub_col, lib_type_col, lib_col_name, "நூலகத்தில் பெறப்பட்டதா"] if c and c in lib_display_df.columns]
+                        st.caption(f"மொத்த வரிசைகள்: {len(lib_display_df)}")
+                        st.dataframe(lib_display_df[show_cols], use_container_width=True)
+
+                        col_csv, col_pdf = st.columns(2)
+                        with col_csv:
+                            csv_lib_report = lib_display_df[show_cols].to_csv(index=False).encode('utf-8-sig')
+                            st.download_button(
+                                label="📥 நூலக விவர அறிக்கை (CSV)",
+                                data=csv_lib_report,
+                                file_name=f"Library_Detailed_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                                mime="text/csv",
+                                use_container_width=True,
+                                key="dl_library_csv"
+                            )
+                        with col_pdf:
+                            if len(lib_display_df) > 3000:
+                                st.info("ℹ️ PDF-ஆக பதிவிறக்க 3000-க்கும் குறைவான வரிசைகள் இருக்க வேண்டும் — ஒரு குறிப்பிட்ட பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்.")
+                            else:
+                                if st.button("📄 PDF உருவாக்கு", key="gen_pdf_lib_report", use_container_width=True):
+                                    pdf_headers = [c for c in [book_id_col, title_col, author_col, lib_col_name, "நூலகத்தில் பெறப்பட்டதா"] if c]
+                                    pdf_widths = (25, 85, 55, 45, 45)[:len(pdf_headers)]
+                                    pdf_bytes = generate_tamil_pdf_table(
+                                        lib_display_df[pdf_headers], pdf_headers, pdf_widths,
+                                        f"நூலக விவர அறிக்கை — {selected_report_pub if selected_report_pub != '-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --' else 'அனைத்து பதிப்பகங்கள்'}"
                                     )
+                                    if pdf_bytes is None:
+                                        st.error("❌ Tamil font கோப்பு கிடைக்கவில்லை.")
+                                    else:
+                                        st.download_button(
+                                            label="📥 PDF பதிவிறக்கம்",
+                                            data=pdf_bytes,
+                                            file_name=f"Library_Detailed_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                                            mime="application/pdf",
+                                            type="primary",
+                                            use_container_width=True,
+                                            key="dl_pdf_lib_report"
+                                        )
 
 elif current == "தவறான பதிவு நீக்கம்":
     st.subheader("❌ தவறான பதிவினை நீக்குதல் / திருத்துதல் (Delete / Edit Verified Records)")
