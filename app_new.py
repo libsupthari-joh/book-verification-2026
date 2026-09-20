@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-DB_URL = "postgresql://neondb_owner:npg_NHoirVqlt23y@ep-lively-union-az0psm1p-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DB_URL = "postgresql://neondb_owner:npg_y1mObIUlc2ox@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 st.markdown("""
 <style>
@@ -367,11 +367,14 @@ def compute_all_received_rows(submitted_pubs, pub_col, title_col):
     return combined
 
 def _find_tamil_font_path():
-    """Looks for the Tamil font in a few likely spots so it works whether the
-    person put it in fonts/ or straight in the repo root."""
+    """Looks for the Tamil font in a few likely spots so it works whichever
+    folder name/case the person actually used in the repo."""
     base_dir = os.path.dirname(os.path.abspath(__file__))
     candidates = [
         os.path.join(base_dir, "fonts", "NotoSansTamil-Regular.ttf"),
+        os.path.join(base_dir, "Font", "NotoSansTamil-Regular.ttf"),
+        os.path.join(base_dir, "Fonts", "NotoSansTamil-Regular.ttf"),
+        os.path.join(base_dir, "font", "NotoSansTamil-Regular.ttf"),
         os.path.join(base_dir, "NotoSansTamil-Regular.ttf"),
     ]
     for path in candidates:
