@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-DB_URL = "postgresql://neondb_owner:npg_y1mObIUlc2ox@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DB_URL = "postgresql://neondb_owner:npg_NHoirVqlt23y@ep-lively-union-az0psm1p-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 st.markdown("""
 <style>
@@ -166,13 +166,14 @@ def init_submitted_table():
             );
         """)
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS dispatch_records (
+            CREATE TABLE IF NOT EXISTS dispatch_status (
                 id SERIAL PRIMARY KEY,
+                dispatch_key TEXT UNIQUE,
+                book_id TEXT,
                 publisher TEXT,
                 title TEXT,
                 library TEXT,
-                dispatched_qty INT,
-                date TEXT
+                dispatched_on TEXT
             );
         """)
         conn.commit()
@@ -197,18 +198,41 @@ def load_submitted_reports_from_db():
     except Exception as e:
         return []
 
-# Same pattern as submitted_reports: cached, cleared + refetched on any write,
-# so dispatch history survives app restarts/redeploys instead of living only
-# in this browser tab's session_state.
+# Dispatch is tracked per exact row (book_id + library), not as an aggregate
+# quantity — a row is either dispatched or not. dispatch_key uniquely
+# identifies each (publisher, title, library) occurrence.
 @st.cache_data
-def load_dispatch_records_from_db():
+def load_dispatch_status_keys():
     try:
         conn = psycopg2.connect(DB_URL)
-        df = pd.read_sql("SELECT id as \"Id\", publisher as \"Publisher\", title as \"Title\", library as \"Library\", dispatched_qty as \"Dispatched Qty\", date as \"Date\" FROM dispatch_records;", con=conn)
+        df = pd.read_sql("SELECT dispatch_key FROM dispatch_status;", con=conn)
         conn.close()
-        return df.to_dict(orient="records")
-    except Exception as e:
-        return []
+        return set(df["dispatch_key"].tolist())
+    except Exception:
+        return set()
+
+@st.cache_data
+def get_dispatch_status_count():
+    try:
+        conn = psycopg2.connect(DB_URL)
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM dispatch_status;")
+        count = cur.fetchone()[0]
+        cur.close()
+        conn.close()
+        return int(count)
+    except Exception:
+        return 0
+
+@st.cache_data
+def load_dispatch_status_full():
+    try:
+        conn = psycopg2.connect(DB_URL)
+        df = pd.read_sql("SELECT id as \"Id\", dispatch_key as \"Key\", book_id as \"Book Id\", publisher as \"Publisher\", title as \"Title\", library as \"Library\", dispatched_on as \"Date\" FROM dispatch_status ORDER BY id DESC;", con=conn)
+        conn.close()
+        return df
+    except Exception:
+        return pd.DataFrame()
 
 for key, default_fn in {
     "logged_in": lambda: False,
@@ -218,7 +242,6 @@ for key, default_fn in {
     "temp_distributed_list": lambda: [],
     # Loaded from DB only ONCE per browser session (not on every rerun).
     "submitted_reports": load_submitted_reports_from_db,
-    "dispatch_records": load_dispatch_records_from_db,
     "librarian_records": lambda: [],
 }.items():
     if key not in st.session_state:
@@ -313,9 +336,38 @@ def load_neon_database():
         st.error(f"❌ டேட்டாபேஸ் இணைப்பில் பிழை: {e}")
     return pd.DataFrame()
 
+def build_pub_stats_df(pub_name, source_neon_df, source_rep_df, pub_col, title_col):
+    """For one publisher: mark the first N rows per title as 'received' (received_stats=1),
+    where N = Received Qty submitted for that title. Shared by Master Data and அனுப்ப pages."""
+    p_neon_df = source_neon_df[source_neon_df[pub_col] == pub_name].copy()
+    p_rep = source_rep_df[source_rep_df["Publisher"] == pub_name] if not source_rep_df.empty else pd.DataFrame()
+    t_map = dict(zip(p_rep["Title"], p_rep["Received Qty"])) if not p_rep.empty else {}
+
+    rows = []
+    for title_val, group_df in p_neon_df.groupby(title_col):
+        req_qty = len(group_df)
+        rec_qty = int(t_map.get(title_val, 0))
+        group_df = group_df.copy()
+        group_df["received_stats"] = [1 if i < rec_qty else 0 for i in range(req_qty)]
+        rows.append(group_df)
+
+    return pd.concat(rows, ignore_index=True) if rows else p_neon_df
+
+def compute_all_received_rows(submitted_pubs, pub_col, title_col):
+    """Combines build_pub_stats_df across every submitted publisher and keeps only
+    the rows actually marked as received (received_stats == 1) — these are the
+    rows eligible for dispatch."""
+    neon_df_local = load_neon_database()
+    rep_df_local = pd.DataFrame(st.session_state["submitted_reports"])
+    frames = [build_pub_stats_df(p, neon_df_local, rep_df_local, pub_col, title_col) for p in submitted_pubs]
+    combined = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+    if not combined.empty and "received_stats" in combined.columns:
+        combined = combined[combined["received_stats"] == 1].reset_index(drop=True)
+    return combined
+
 total_books_in_db = len(load_neon_database())
 total_submitted_count = sum([int(item.get("Received Qty", 0)) for item in st.session_state['submitted_reports']])
-total_dispatched_count = sum([int(item.get("Dispatched Qty", 0)) for item in st.session_state['dispatch_records']])
+total_dispatched_count = get_dispatch_status_count()
 today_str = datetime.now().strftime("%d/%m/%Y")
 
 st.markdown(f"""
@@ -502,74 +554,131 @@ elif current == "பிரிக்க":
 elif current == "அனுப்ப":
     st.subheader("📤 நூல்கள் அனுப்பும் பகுதி (Dispatch to Libraries)")
 
-    if not st.session_state["submitted_reports"]:
+    neon_df = load_neon_database()
+    if neon_df.empty:
+        st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
+    elif not st.session_state["submitted_reports"]:
         st.info("ℹ️ முதலில் '🔀 பிரிக்க' பகுதியில் நூல்களைப் பிரித்துச் சமர்ப்பிக்கவும். அதன் பிறகே அனுப்பும் பதிவு செய்ய முடியும்.")
     else:
+        pub_col = next((c for c in neon_df.columns if c == 'vendor_name'), None) or next((c for c in neon_df.columns if c in ['publication name', 'publication_name', 'publisher_name'] or 'publication' in c), None)
+        title_col = next((c for c in neon_df.columns if c == 'title' or (('title' in c) and ('book' not in c))), None)
+        if not title_col:
+            title_col = next((c for c in neon_df.columns if 'title' in c), neon_df.columns[2])
+        lib_col_name = next((c for c in neon_df.columns if 'library' in c and ('name' in c or 'tm' in c)), None)
+        book_id_col = next((c for c in neon_df.columns if c == 'book_id'), None)
+        author_col = next((c for c in neon_df.columns if 'author' in c), None)
+        lib_type_col = next((c for c in neon_df.columns if c == 'library_type'), None)
+
         rep_df = pd.DataFrame(st.session_state["submitted_reports"])
-        pub_list = sorted(rep_df["Publisher"].dropna().unique().tolist())
-        sel_pub = st.selectbox("🏢 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + pub_list, key="dispatch_pub_sel")
+        submitted_pubs = sorted([p for p in rep_df["Publisher"].dropna().unique().tolist() if pub_col and p in neon_df[pub_col].values]) if pub_col else []
 
-        if sel_pub != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
-            title_list = sorted(rep_df[rep_df["Publisher"] == sel_pub]["Title"].dropna().unique().tolist())
-            sel_title = st.selectbox("📖 தலைப்பைத் தேர்ந்தெடுக்கவும்:", ["-- தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + title_list, key="dispatch_title_sel")
+        if not submitted_pubs or not lib_col_name:
+            st.info("ℹ️ பிரிக்கப்பட்ட தரவு இன்னும் இல்லை, அல்லது நூலகப் பெயர் நெடுவரிசை கண்டறியப்படவில்லை.")
+        else:
+            received_df = compute_all_received_rows(submitted_pubs, pub_col, title_col)
 
-            if sel_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
-                row = rep_df[(rep_df["Publisher"] == sel_pub) & (rep_df["Title"] == sel_title)].iloc[0]
-                received_qty_total = int(row.get('Received Qty', 0))
+            if received_df.empty:
+                st.info("ℹ️ பெறப்பட்ட நூல்கள் எதுவும் இல்லை.")
+            else:
+                received_df = received_df.copy()
+                # Unique key per (publisher, title, library) occurrence — since one
+                # book_id can appear for several libraries, and rarely a library can
+                # receive the same title twice, cumcount disambiguates exact duplicates.
+                received_df["dispatch_key"] = (
+                    received_df[pub_col].astype(str) + "||" +
+                    received_df[title_col].astype(str) + "||" +
+                    received_df[lib_col_name].astype(str) + "||" +
+                    received_df.groupby([pub_col, title_col, lib_col_name]).cumcount().astype(str)
+                )
 
-                disp_df_check = pd.DataFrame(st.session_state["dispatch_records"])
-                already_dispatched = 0
-                if not disp_df_check.empty:
-                    match = disp_df_check[(disp_df_check["Publisher"] == sel_pub) & (disp_df_check["Title"] == sel_title)]
-                    already_dispatched = int(match["Dispatched Qty"].sum()) if not match.empty else 0
+                dispatched_keys = load_dispatch_status_keys()
+                received_df["📤 அனுப்பப்பட்டதா"] = received_df["dispatch_key"].isin(dispatched_keys)
 
-                remaining_qty = max(0, received_qty_total - already_dispatched)
+                view_mode = st.radio(
+                    "🔎 பார்வை முறையைத் தேர்ந்தெடுக்கவும்:",
+                    ["🏢 பதிப்பகம் வாரியாக (Publisher-wise)", "🏛️ நூலகம் வாரியாக (Library-wise)"],
+                    key="dispatch_view_mode", horizontal=True
+                )
+                st.markdown("---")
 
-                st.markdown(f"""
-                <div style="background:#f8fafc; border:1.5px solid #cbd5e1; padding:12px; border-radius:8px; margin-bottom:15px;">
-                    <b>📖 நூல் தலைப்பு:</b> {sel_title}<br>
-                    <b>📥 பெறப்பட்ட எண்ணிக்கை:</b> {received_qty_total}<br>
-                    <b>📤 ஏற்கனவே அனுப்பப்பட்டது:</b> {already_dispatched}<br>
-                    <b>📦 மீதம் அனுப்ப வேண்டியது:</b> {remaining_qty}
-                </div>
-                """, unsafe_allow_html=True)
+                display_cols = [c for c in [book_id_col, title_col, author_col, pub_col, lib_type_col, lib_col_name] if c and c in received_df.columns]
+                sel_value = None
 
-                if remaining_qty <= 0:
-                    st.info("ℹ️ இந்தத் தலைப்பின் பெறப்பட்ட அனைத்து பிரதிகளும் ஏற்கனவே அனுப்பப்பட்டுவிட்டன.")
+                if view_mode.startswith("🏢"):
+                    sel_value = st.selectbox("🔍 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + submitted_pubs, key="dispatch_pub_sel2")
+                    view_df = received_df[received_df[pub_col] == sel_value].reset_index(drop=True) if sel_value and sel_value != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --" else pd.DataFrame()
                 else:
-                    with st.form("dispatch_form"):
-                        library_name = st.text_input("🏛️ நூலகத்தின் பெயர்")
-                        dispatch_qty = st.number_input("📦 அனுப்பப்படும் எண்ணிக்கை", min_value=0, max_value=remaining_qty, value=0, step=1)
-                        submitted_dispatch = st.form_submit_button("📤 அனுப்புதலைப் பதிவு செய்", type="primary")
+                    all_libs = sorted(received_df[lib_col_name].dropna().unique().tolist())
+                    sel_value = st.selectbox("🔍 நூலகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --"] + all_libs, key="dispatch_lib_sel2")
+                    view_df = received_df[received_df[lib_col_name] == sel_value].reset_index(drop=True) if sel_value and sel_value != "-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --" else pd.DataFrame()
 
-                        if submitted_dispatch:
-                            if not library_name.strip():
-                                st.error("❌ நூலகத்தின் பெயரை உள்ளிடவும்!")
-                            elif dispatch_qty <= 0:
-                                st.error("❌ அனுப்பப்படும் எண்ணிக்கையை 0-க்கு மேல் உள்ளிடவும்!")
-                            else:
-                                try:
-                                    conn = psycopg2.connect(DB_URL)
-                                    cur = conn.cursor()
-                                    dispatch_date = datetime.now().strftime("%Y-%m-%d %H:%M")
-                                    cur.execute(
-                                        "INSERT INTO dispatch_records (publisher, title, library, dispatched_qty, date) VALUES (%s, %s, %s, %s, %s);",
-                                        (sel_pub, sel_title, library_name.strip(), int(dispatch_qty), dispatch_date)
-                                    )
-                                    conn.commit()
-                                    cur.close()
-                                    conn.close()
-                                    load_dispatch_records_from_db.clear()
-                                    st.session_state["dispatch_records"] = load_dispatch_records_from_db()
-                                    st.success(f"✅ '{sel_title}' — {dispatch_qty} பிரதிகள் '{library_name}' நூலகத்திற்கு அனுப்பியதாகப் பதிவு செய்யப்பட்டது!")
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"❌ Dispatch save error: {e}")
+                if not view_df.empty:
+                    total_rows = len(view_df)
+                    already_n = int(view_df["📤 அனுப்பப்பட்டதா"].sum())
 
-    if st.session_state["dispatch_records"]:
-        st.markdown("---")
-        st.markdown("#### 📋 இதுவரை அனுப்பப்பட்ட பதிவுகள்")
-        st.dataframe(pd.DataFrame(st.session_state["dispatch_records"]), use_container_width=True)
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("📚 மொத்த நூல்கள்", total_rows)
+                    with col2:
+                        st.metric("✅ அனுப்பப்பட்டவை", already_n)
+                    with col3:
+                        st.metric("⏳ அனுப்ப வேண்டியவை", total_rows - already_n)
+
+                    st.markdown(f"### 📦 {sel_value} — நூல்கள் பட்டியல் (அனுப்பப்பட்டதை ✔️ செய்யவும்)")
+
+                    edit_cols = display_cols + ["📤 அனுப்பப்பட்டதா", "dispatch_key"]
+                    edited_df = st.data_editor(
+                        view_df[edit_cols],
+                        column_config={
+                            "dispatch_key": None,
+                            "📤 அனுப்பப்பட்டதா": st.column_config.CheckboxColumn("📤 அனுப்பப்பட்டதா"),
+                        },
+                        disabled=display_cols,
+                        hide_index=True,
+                        use_container_width=True,
+                        key=f"dispatch_editor_{view_mode}_{sel_value}"
+                    )
+
+                    if st.button("💾 அனுப்பு நிலையைச் சேமி", type="primary", key="dispatch_save_btn"):
+                        try:
+                            conn = psycopg2.connect(DB_URL)
+                            cur = conn.cursor()
+                            to_insert, to_delete = [], []
+                            now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+                            for _, r in edited_df.iterrows():
+                                key = r["dispatch_key"]
+                                was_before = key in dispatched_keys
+                                now_checked = bool(r["📤 அனுப்பப்பட்டதா"])
+                                if now_checked and not was_before:
+                                    orig_row = view_df[view_df["dispatch_key"] == key].iloc[0]
+                                    to_insert.append((
+                                        key, str(orig_row.get(book_id_col, "")), orig_row[pub_col],
+                                        orig_row[title_col], orig_row[lib_col_name], now_str
+                                    ))
+                                elif not now_checked and was_before:
+                                    to_delete.append(key)
+
+                            if to_insert:
+                                from psycopg2.extras import execute_values
+                                execute_values(
+                                    cur,
+                                    "INSERT INTO dispatch_status (dispatch_key, book_id, publisher, title, library, dispatched_on) VALUES %s ON CONFLICT (dispatch_key) DO NOTHING;",
+                                    to_insert
+                                )
+                            if to_delete:
+                                cur.execute("DELETE FROM dispatch_status WHERE dispatch_key = ANY(%s);", (to_delete,))
+
+                            conn.commit()
+                            cur.close()
+                            conn.close()
+                            load_dispatch_status_keys.clear()
+                            get_dispatch_status_count.clear()
+                            load_dispatch_status_full.clear()
+                            st.success(f"✅ புதுப்பிக்கப்பட்டது — புதிதாக அனுப்பப்பட்டவை: {len(to_insert)}, திரும்பப் பெறப்பட்டவை: {len(to_delete)}")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Save error: {e}")
 
 elif current == "கவனிக்க":
     st.subheader("⚠️ கவனிக்க வேண்டிய பதிவுகள் (Price Conflicts & Review)")
@@ -809,30 +918,25 @@ elif current == "தவறான பதிவு நீக்கம்":
 
     elif edit_action_option == "2. அனுப்பிய விவரங்கள் (Dispatch Records)":
         st.markdown("### 📤 2. அனுப்பிய விவரங்கள் — திருத்துதல் / நீக்குதல்")
-        if not st.session_state.get("dispatch_records"):
+        disp_df = load_dispatch_status_full()
+        if disp_df.empty:
             st.info("ℹ️ இதுவரை எந்த நூல்களும் அனுப்பப்படவில்லை.")
         else:
-            disp_df = pd.DataFrame(st.session_state["dispatch_records"])
             st.dataframe(disp_df, use_container_width=True)
             row_idx = st.number_input("🗑️ நீக்க வேண்டிய வரிசை எண் (Row Index)", min_value=0, max_value=len(disp_df) - 1, value=0, step=1, key="disp_del_idx")
-            if st.button("🗑️ தேர்ந்தெடுத்த பதிவை நீக்கு", key="disp_del_btn", type="primary"):
+            if st.button("🗑️ தேர்ந்தெடுத்த பதிவை நீக்கு (அனுப்பப்படாதது என மாற்று)", key="disp_del_btn", type="primary"):
                 try:
                     row_to_delete = disp_df.iloc[int(row_idx)]
                     conn = psycopg2.connect(DB_URL)
                     cur = conn.cursor()
-                    if "Id" in disp_df.columns and pd.notna(row_to_delete.get("Id")):
-                        cur.execute("DELETE FROM dispatch_records WHERE id = %s;", (int(row_to_delete["Id"]),))
-                    else:
-                        cur.execute(
-                            "DELETE FROM dispatch_records WHERE publisher = %s AND title = %s AND library = %s AND dispatched_qty = %s AND date = %s;",
-                            (row_to_delete["Publisher"], row_to_delete["Title"], row_to_delete["Library"], int(row_to_delete["Dispatched Qty"]), row_to_delete["Date"])
-                        )
+                    cur.execute("DELETE FROM dispatch_status WHERE id = %s;", (int(row_to_delete["Id"]),))
                     conn.commit()
                     cur.close()
                     conn.close()
-                    load_dispatch_records_from_db.clear()
-                    st.session_state["dispatch_records"] = load_dispatch_records_from_db()
-                    st.success("✅ அனுப்பிய பதிவு நீக்கப்பட்டது!")
+                    load_dispatch_status_keys.clear()
+                    get_dispatch_status_count.clear()
+                    load_dispatch_status_full.clear()
+                    st.success("✅ அனுப்பிய பதிவு நீக்கப்பட்டது (மீண்டும் 'அனுப்பப்படாதது' நிலைக்கு மாற்றப்பட்டது)!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"❌ Delete error: {e}")
