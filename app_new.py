@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-DB_URL = "postgresql://neondb_owner:npg_y1mObIUlc2ox@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DB_URL = "postgresql://neondb_owner:npg_vA4w9qUFJheu@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 st.markdown("""
 <style>
@@ -277,26 +277,6 @@ for row in menu_rows:
 
 st.markdown("---")
 
-total_submitted_count = sum([int(item.get("Received Qty", 0)) for item in st.session_state['submitted_reports']])
-today_str = datetime.now().strftime("%d/%m/%Y")
-
-st.markdown(f"""
-<div class="ticker-container">
-    <div class="ticker-badge">🔴 Live News</div>
-    <div style="overflow: hidden; width: 100%;">
-        <div class="marquee-text">
-            📚 பெறப்பட்ட நூல்கள் : <b>45,305</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-            ✅ பிரிக்கப்பட்டது : <b>{total_submitted_count}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-            ⏳ மீதம் பிரிக்க வேண்டியது : <b>{45305 - total_submitted_count}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-            📤 அனுப்பப்பட்டது : <b>0</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-            🗓️ இன்று ({today_str}) பிரிக்கப்பட்டது : <b>{total_submitted_count}</b>
-        </div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-current = st.session_state["current_menu"]
-
 @st.cache_data
 def load_neon_database():
     try:
@@ -309,6 +289,27 @@ def load_neon_database():
     except Exception as e:
         st.error(f"❌ டேட்டாபேஸ் இணைப்பில் பிழை: {e}")
     return pd.DataFrame()
+
+total_books_in_db = len(load_neon_database())
+total_submitted_count = sum([int(item.get("Received Qty", 0)) for item in st.session_state['submitted_reports']])
+today_str = datetime.now().strftime("%d/%m/%Y")
+
+st.markdown(f"""
+<div class="ticker-container">
+    <div class="ticker-badge">🔴 Live News</div>
+    <div style="overflow: hidden; width: 100%;">
+        <div class="marquee-text">
+            📚 பெறப்பட்ட நூல்கள் : <b>{total_books_in_db:,}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+            ✅ பிரிக்கப்பட்டது : <b>{total_submitted_count}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+            ⏳ மீதம் பிரிக்க வேண்டியது : <b>{total_books_in_db - total_submitted_count}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+            📤 அனுப்பப்பட்டது : <b>0</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+            🗓️ இன்று ({today_str}) பிரிக்கப்பட்டது : <b>{total_submitted_count}</b>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+current = st.session_state["current_menu"]
 
 if current is None:
     st.info("👆 மேல் உள்ள மெனு பட்டன்களில் ஏதேனும் ஒன்றை (உதாரணமாக **'🔀 பிரிக்க'** அல்லது **'📊 அறிக்கைகள்'**) தேர்வு செய்யவும்.")
