@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-DB_URL = "postgresql://neondb_owner:npg_vA4w9qUFJheu@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DB_URL = "postgresql://neondb_owner:npg_NHoirVqlt23y@ep-lively-union-az0psm1p-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 st.markdown("""
 <style>
@@ -366,14 +366,27 @@ def compute_all_received_rows(submitted_pubs, pub_col, title_col):
         combined = combined[combined["received_stats"] == 1].reset_index(drop=True)
     return combined
 
-TAMIL_FONT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts", "NotoSansTamil-Regular.ttf")
+def _find_tamil_font_path():
+    """Looks for the Tamil font in a few likely spots so it works whether the
+    person put it in fonts/ or straight in the repo root."""
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(base_dir, "fonts", "NotoSansTamil-Regular.ttf"),
+        os.path.join(base_dir, "NotoSansTamil-Regular.ttf"),
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return None
+
+TAMIL_FONT_PATH = _find_tamil_font_path()
 
 def generate_tamil_pdf_table(df, headers, col_widths, report_title, orientation="L"):
     """Builds a PDF with correctly-shaped Tamil text (pre-base vowel signs like
     ை/ொ/ோ need HarfBuzz re-ordering — reportlab/plain fpdf2 render them wrong,
     so text_shaping must stay on). Returns PDF bytes, or None if the font file
     is missing (caller should show a friendly message pointing at fonts/ folder)."""
-    if not os.path.exists(TAMIL_FONT_PATH):
+    if not TAMIL_FONT_PATH:
         return None
     from fpdf import FPDF
     pdf = FPDF(orientation=orientation, format="A4")
