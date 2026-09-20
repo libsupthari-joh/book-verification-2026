@@ -302,7 +302,7 @@ with col_logout[1]:
         st.rerun()
 
 menu_options = [
-    ("🔀", "பிரிக்க"), ("📤", "அனுப்ப"), ("📊", "அறிக்கைகள்"), ("⚠️", "கவனிக்க"),
+    ("🔀", "பிரிக்க"), ("✅", "அனுப்ப"), ("📊", "அறிக்கைகள்"), ("⚠️", "கவனிக்க"),
     ("🔢", "பதிவெண் மாற்ற"), ("🗂️", "Master Data"), ("❌", "தவறான பதிவு நீக்கம்"),
     ("🔑", "கடவுச்சொல் மாற்ற"), ("📥", "Excel பதிவிறக்கம்"), ("👥", "நூலகர் பார்வை ஆண்டு"),
     ("📂", "Excel அப்லோடு"), ("🏷️", "பகுப்பு எண் புதுப்பி")
@@ -552,13 +552,14 @@ elif current == "பிரிக்க":
                             st.error(f"❌ Database save error: {e}")
 
 elif current == "அனுப்ப":
-    st.subheader("📤 நூல்கள் அனுப்பும் பகுதி (Dispatch to Libraries)")
+    st.subheader("✅ நூலகத்தில் பெறப்பட்டதை சரிபார்த்தல் (Library Receipt Verification)")
+    st.caption("சம்பந்தப்பட்ட நூலகர்கள் தங்கள் நூலகத்தைத் தேர்ந்தெடுத்து, மாவட்ட மைய நூலகத்திலிருந்து பெற்ற நூல்களைச் சரிபார்த்து டிக் செய்யவும்.")
 
     neon_df = load_neon_database()
     if neon_df.empty:
         st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
     elif not st.session_state["submitted_reports"]:
-        st.info("ℹ️ முதலில் '🔀 பிரிக்க' பகுதியில் நூல்களைப் பிரித்துச் சமர்ப்பிக்கவும். அதன் பிறகே அனுப்பும் பதிவு செய்ய முடியும்.")
+        st.info("ℹ️ முதலில் '🔀 பிரிக்க' பகுதியில் நூல்களைப் பிரித்துச் சமர்ப்பிக்கவும். அதன் பிறகே இங்கு சரிபார்க்க முடியும்.")
     else:
         pub_col = next((c for c in neon_df.columns if c == 'vendor_name'), None) or next((c for c in neon_df.columns if c in ['publication name', 'publication_name', 'publisher_name'] or 'publication' in c), None)
         title_col = next((c for c in neon_df.columns if c == 'title' or (('title' in c) and ('book' not in c))), None)
@@ -592,54 +593,42 @@ elif current == "அனுப்ப":
                 )
 
                 dispatched_keys = load_dispatch_status_keys()
-                received_df["📤 அனுப்பப்பட்டதா"] = received_df["dispatch_key"].isin(dispatched_keys)
+                received_df["✅ நூலகத்தில் பெறப்பட்டதா"] = received_df["dispatch_key"].isin(dispatched_keys)
 
-                view_mode = st.radio(
-                    "🔎 பார்வை முறையைத் தேர்ந்தெடுக்கவும்:",
-                    ["🏢 பதிப்பகம் வாரியாக (Publisher-wise)", "🏛️ நூலகம் வாரியாக (Library-wise)"],
-                    key="dispatch_view_mode", horizontal=True
-                )
-                st.markdown("---")
+                display_cols = [c for c in [book_id_col, title_col, author_col, pub_col, lib_type_col] if c and c in received_df.columns]
 
-                display_cols = [c for c in [book_id_col, title_col, author_col, pub_col, lib_type_col, lib_col_name] if c and c in received_df.columns]
-                sel_value = None
-
-                if view_mode.startswith("🏢"):
-                    sel_value = st.selectbox("🔍 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + submitted_pubs, key="dispatch_pub_sel2")
-                    view_df = received_df[received_df[pub_col] == sel_value].reset_index(drop=True) if sel_value and sel_value != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --" else pd.DataFrame()
-                else:
-                    all_libs = sorted(received_df[lib_col_name].dropna().unique().tolist())
-                    sel_value = st.selectbox("🔍 நூலகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --"] + all_libs, key="dispatch_lib_sel2")
-                    view_df = received_df[received_df[lib_col_name] == sel_value].reset_index(drop=True) if sel_value and sel_value != "-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --" else pd.DataFrame()
+                all_libs = sorted(received_df[lib_col_name].dropna().unique().tolist())
+                sel_value = st.selectbox("🏛️ உங்கள் நூலகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --"] + all_libs, key="dispatch_lib_sel2")
+                view_df = received_df[received_df[lib_col_name] == sel_value].reset_index(drop=True) if sel_value and sel_value != "-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --" else pd.DataFrame()
 
                 if not view_df.empty:
                     total_rows = len(view_df)
-                    already_n = int(view_df["📤 அனுப்பப்பட்டதா"].sum())
+                    already_n = int(view_df["✅ நூலகத்தில் பெறப்பட்டதா"].sum())
 
                     col1, col2, col3 = st.columns(3)
                     with col1:
                         st.metric("📚 மொத்த நூல்கள்", total_rows)
                     with col2:
-                        st.metric("✅ அனுப்பப்பட்டவை", already_n)
+                        st.metric("✅ பெறப்பட்டதாக சரிபார்க்கப்பட்டவை", already_n)
                     with col3:
-                        st.metric("⏳ அனுப்ப வேண்டியவை", total_rows - already_n)
+                        st.metric("⏳ சரிபார்க்க வேண்டியவை", total_rows - already_n)
 
-                    st.markdown(f"### 📦 {sel_value} — நூல்கள் பட்டியல் (அனுப்பப்பட்டதை ✔️ செய்யவும்)")
+                    st.markdown(f"### 🏛️ {sel_value} — நூல்கள் பட்டியல் (பெற்றதை ✔️ டிக் செய்யவும்)")
 
-                    edit_cols = display_cols + ["📤 அனுப்பப்பட்டதா", "dispatch_key"]
+                    edit_cols = display_cols + ["✅ நூலகத்தில் பெறப்பட்டதா", "dispatch_key"]
                     edited_df = st.data_editor(
                         view_df[edit_cols],
                         column_config={
                             "dispatch_key": None,
-                            "📤 அனுப்பப்பட்டதா": st.column_config.CheckboxColumn("📤 அனுப்பப்பட்டதா"),
+                            "✅ நூலகத்தில் பெறப்பட்டதா": st.column_config.CheckboxColumn("✅ நூலகத்தில் பெறப்பட்டதா"),
                         },
                         disabled=display_cols,
                         hide_index=True,
                         use_container_width=True,
-                        key=f"dispatch_editor_{view_mode}_{sel_value}"
+                        key=f"dispatch_editor_{sel_value}"
                     )
 
-                    if st.button("💾 அனுப்பு நிலையைச் சேமி", type="primary", key="dispatch_save_btn"):
+                    if st.button("💾 சரிபார்ப்பு நிலையைச் சேமி", type="primary", key="dispatch_save_btn"):
                         try:
                             conn = psycopg2.connect(DB_URL)
                             cur = conn.cursor()
@@ -649,7 +638,7 @@ elif current == "அனுப்ப":
                             for _, r in edited_df.iterrows():
                                 key = r["dispatch_key"]
                                 was_before = key in dispatched_keys
-                                now_checked = bool(r["📤 அனுப்பப்பட்டதா"])
+                                now_checked = bool(r["✅ நூலகத்தில் பெறப்பட்டதா"])
                                 if now_checked and not was_before:
                                     orig_row = view_df[view_df["dispatch_key"] == key].iloc[0]
                                     to_insert.append((
@@ -675,7 +664,7 @@ elif current == "அனுப்ப":
                             load_dispatch_status_keys.clear()
                             get_dispatch_status_count.clear()
                             load_dispatch_status_full.clear()
-                            st.success(f"✅ புதுப்பிக்கப்பட்டது — புதிதாக அனுப்பப்பட்டவை: {len(to_insert)}, திரும்பப் பெறப்பட்டவை: {len(to_delete)}")
+                            st.success(f"✅ புதுப்பிக்கப்பட்டது — புதிதாக பெறப்பட்டதாக குறிக்கப்பட்டவை: {len(to_insert)}, திரும்பப் பெறப்படாதது என மாற்றப்பட்டவை: {len(to_delete)}")
                             st.rerun()
                         except Exception as e:
                             st.error(f"❌ Save error: {e}")
