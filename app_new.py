@@ -143,6 +143,175 @@ def authenticate_user(role_key, password):
         return user
     return None
 
+# ----------------------------------------------------------------------------
+# நூலகர் (Librarian) login — TNDPL எண் அடிப்படையிலான 103 நூலக logins.
+# Seed data: LIB_DETAILS.xlsx-ல் இருந்து ஒரு முறை உருவாக்கப்பட்டது.
+# libraries table-ல் ON CONFLICT DO NOTHING மூலம் மட்டுமே சேர்க்கப்படும் —
+# இருக்கும் தரவு (books/submitted_reports/dispatch_status) எதுவும் தொடப்படாது.
+# ----------------------------------------------------------------------------
+# Columns: (tndpl_code, name_ta, name_en, pay_center_code, lib_type)
+LIBRARY_SEED_DATA = [
+    ('TNDPL04721', 'மாவட்ட நூலக அலுவலகம்', 'DISTRICT LIBRARY OFFICE', '2893', 'மா.நூ.அ'),
+    ('TNDPL01584', 'மாவட்ட மைய நூலகம்', 'DISTRICT CENTRAL LIBRARY', '2893', 'மா.மை.நூ'),
+    ('TNDPL01589', 'காவேரிப்பட்டிணம்', 'KAVERIPATTINAM', '2893', 'கி.நூ'),
+    ('TNDPL01595', 'நெடுங்கல்', 'NEDUNGAL', '2893', 'கி.நூ'),
+    ('TNDPL01594', 'கட்டிகானப்பள்ளி', 'KATTIKANAPALLI', '2893', 'கி.நூ'),
+    ('TNDPL01592', 'வேப்பனப்பள்ளி', 'VEPPANAPALLI', '2893', 'கி.நூ'),
+    ('TNDPL01596', 'பனகமுட்லு', 'PANAKAMUTLU', '2893', 'கி.நூ'),
+    ('TNDPL01616', 'சாப்பர்த்தி', 'SAPPARTHI', '2893', 'கி.நூ'),
+    ('TNDPL01634', 'ஆலப்பட்டி', 'ALAPATTI', '2893', 'ஊ.நூ'),
+    ('TNDPL01636', 'பாலகுறி', 'PALAKURI', '2893', 'ஊ.நூ'),
+    ('TNDPL01627', 'பச்சிகானப்பள்ளி', 'PACHIGANAPALLI', '2893', 'ஊ.நூ'),
+    ('TNDPL01631', 'இட்டிக்கல் அகரம்', 'ITTICALAGARAM', '2893', 'ஊ.நூ'),
+    ('TNDPL01635', 'சிக்கபூவத்தி', 'CHIKKAPOOVATHI', '2893', 'ஊ.நூ'),
+    ('TNDPL01637', 'மரிக்கம்பள்ளி', 'MARIKAMPALLY', '2893', 'ஊ.நூ'),
+    ('TNDPL01638', 'மாதேப்பட்டி', 'MADHEPATTI', '2893', 'ஊ.நூ'),
+    ('TNDPL01641', 'மகாராஜாகடை', 'MAHARAJAKADAI', '2893', 'ஊ.நூ'),
+    ('TNDPL01640', 'பழைய வீட்டுவசதி வாரியம்', 'OLD HOUSING BOARD', '2893', 'ஊ.நூ'),
+    ('TNDPL01639', 'மூங்கில்புதூர்', 'MOONGILPUDHUR', '2893', 'ஊ.நூ'),
+    ('TNDPL01620', 'பெரியமுத்தூர்', 'PERIYAMUTHUR', '2893', 'ஊ.நூ'),
+    ('TNDPL01621', 'சுண்டேகுப்பம்', 'SUNDEKUPPAM', '2893', 'ஊ.நூ'),
+    ('TNDPL01622', 'திம்மாபுரம்', 'THIMMAPURAM', '2893', 'ஊ.நூ'),
+    ('TNDPL01623', 'எர்ரஅள்ளி', 'ERRAHALLI', '2893', 'ஊ.நூ'),
+    ('TNDPL01681', 'பன்னிஅள்ளிபுதூர்', 'PANNIHALLIPUDUR', '2893', 'ஊ.நூ'),
+    ('TNDPL01683', 'பெங்களூர் சாலை', 'BENGALURU ROAD', '2893', 'ஊ.நூ'),
+    ('TNDPL01599', 'இராயக்கோட்டை', 'RAYAKOTTAI', '2893', 'கி.நூ'),
+    ('TNDPL01585', 'ஓசூர்', 'HOSUR', '3286', 'மு.நே.கி.நூ'),
+    ('TNDPL01597', 'உத்தனப்பள்ளி', 'UTTANAPALLI', '3286', 'கி.நூ'),
+    ('TNDPL01587', 'தேன்கனிக்கோட்டை', 'THENKANIKOTTAI', '3286', 'மு.நே.கி.நூ'),
+    ('TNDPL01600', 'கெலமங்கலம்', 'KELAMANGALAM', '3286', 'கி.நூ'),
+    ('TNDPL01601', 'அஞ்செட்டி', 'ANCHETI', '3286', 'கி.நூ'),
+    ('TNDPL01603', 'தளி', 'THALI', '3286', 'கி.நூ'),
+    ('TNDPL01598', 'மத்திகிரி', 'MATHIGIRI', '3286', 'கி.நூ'),
+    ('TNDPL01604', 'உரிகம்', 'URIKAM', '3286', 'கி.நூ'),
+    ('TNDPL01613', 'ப.டெ.லேண்டு.அட்கோ', 'OLD TEMPLELAND ADCO', '3286', 'கி.நூ'),
+    ('TNDPL01611', 'சூளகிரி', 'SOOLAGIRI', '3286', 'கி.நூ'),
+    ('TNDPL01612', 'சூசூவாடி', 'SOOSUWADI', '3286', 'கி.நூ'),
+    ('TNDPL01642', 'பேரிகை', 'BERIGAI', '3286', 'ஊ.நூ'),
+    ('TNDPL01644', 'பாகலூர்', 'BAGALUR', '3286', 'ஊ.நூ'),
+    ('TNDPL01652', 'பைரமங்கலம்', 'BAIRAMANGALAM', '3286', 'ஊ.நூ'),
+    ('TNDPL01645', 'பு.ஏ.எஸ்.டி.சி.அட்கோ', 'NEW ASDC ADCO', '3286', 'ஊ.நூ'),
+    ('TNDPL01646', 'சூடாபுரம்', 'SUDAPURAM', '3286', 'ஊ.நூ'),
+    ('TNDPL01647', 'அரசனட்டி', 'ARASANATTI', '3286', 'ஊ.நூ'),
+    ('TNDPL01653', 'அக்கொண்டப்பள்ளி', 'AKONDAPALLI', '3286', 'ஊ.நூ'),
+    ('TNDPL01654', 'தொட்டபேளூர்', 'DODDABELUR', '3286', 'ஊ.நூ'),
+    ('TNDPL01648', 'அண்ணாமலைநகர்', 'DODDABELUR', '3286', 'ஊ.நூ'),
+    ('TNDPL01649', 'விநாயகபுரம்', 'VINAYAGAPURAM', '3286', 'ஊ.நூ'),
+    ('TNDPL01655', 'கோபசந்திரம்', 'GOPACHANDRAM', '3286', 'ஊ.நூ'),
+    ('TNDPL01650', 'காந்திநகர்', 'GANDHINAGAR', '3286', 'ஊ.நூ'),
+    ('TNDPL01651', 'பாகலூர் அட்கோ', 'BAGALUR ROAD ADCO', '3286', 'ஊ.நூ'),
+    ('TNDPL01677', 'பாளையங்கோட்டை', 'PALAYAMKOTTAI', '3286', 'ஊ.நூ'),
+    ('TNDPL01657', 'கோட்டையூர்', 'KOTTAIYUR', '3286', 'ஊ.நூ'),
+    ('TNDPL01675', 'பேடரப்பள்ளி', 'PEDARAPALLI', '3286', 'ஊ.நூ'),
+    ('TNDPL01586', 'போச்சம்பள்ளி', 'POCHAMPALLI', '3284', 'மு.நே.கி.நூ'),
+    ('TNDPL01605', 'அரசம்பட்டி', 'ARASAMPATTI', '3284', 'கி.நூ'),
+    ('TNDPL01591', 'தொகரப்பள்ளி', 'THOGARAPALLI', '3284', 'கி.நூ'),
+    ('TNDPL01606', 'மத்தூர்', 'MATHUR', '3284', 'கி.நூ'),
+    ('TNDPL01614', 'வேலம்பட்டி', 'VELAMPATTI', '3284', 'கி.நூ'),
+    ('TNDPL01615', 'வலசக்கவுண்டனூர்', 'VALASAGOUNDANUR', '3284', 'கி.நூ'),
+    ('TNDPL01593', 'அகரம்', 'AGARAM', '3284', 'கி.நூ'),
+    ('TNDPL01609', 'பண்ணந்தூர்', 'PANNANDUR', '3284', 'கி.நூ'),
+    ('TNDPL01607', 'பாரூர்', 'PARUGOOR', '3284', 'கி.நூ'),
+    ('TNDPL01630', 'ஐகுந்தம்', 'AIKUNDAM', '3284', 'ஊ.நூ'),
+    ('TNDPL01629', 'ஐ.கொத்தப்பள்ளி', 'I.KOTHAPALLI', '3284', 'ஊ.நூ'),
+    ('TNDPL01608', 'நாகரசம்பட்டி', 'NAGARASAMPATTI', '3284', 'கி.நூ'),
+    ('TNDPL01658', 'புலியூர்', 'PULIYUR', '3284', 'ஊ.நூ'),
+    ('TNDPL01659', 'மஞ்சமேடு', 'MANJAMEDU', '3284', 'ஊ.நூ'),
+    ('TNDPL01663', 'கண்ணன்டஅள்ளி', 'KANNANDAHALLI', '3284', 'ஊ.நூ'),
+    ('TNDPL01673', 'தாதம்பட்டி', 'THATHAMPATTI', '3284', 'ஊ.நூ'),
+    ('TNDPL01665', 'சந்தூர்', 'CHANDUR', '3284', 'ஊ.நூ'),
+    ('TNDPL01667', 'காட்டுவென்றஅள்ளி', 'KATTUVENDRAHALLI', '3284', 'ஊ.நூ'),
+    ('TNDPL01669', 'பெரியகரடியூர்', 'PERIYAKARADIYUR', '3284', 'ஊ.நூ'),
+    ('TNDPL01670', 'வீரமலை', 'VEERAMALAI', '3284', 'ஊ.நூ'),
+    ('TNDPL01672', 'புளியம்பட்டி', 'PULIYAMPATTI', '3284', 'ஊ.நூ'),
+    ('TNDPL01660', 'தேவீரஅள்ளி', 'DEVARAALLI', '3284', 'ஊ.நூ'),
+    ('TNDPL01661', 'பெரியபுளியம்பட்டி', 'PERIYAPULIYAMPATTI', '3284', 'ஊ.நூ'),
+    ('TNDPL01662', 'கீழ்குப்பம்', 'KILKUPPAM', '3284', 'ஊ.நூ'),
+    ('TNDPL01668', 'புங்கம்பட்டி', 'PUNGAMPATTI', '3284', 'ஊ.நூ'),
+    ('TNDPL01671', 'வாடமங்கலம்', 'VADAMANGALAM', '3284', 'ஊ.நூ'),
+    ('TNDPL01674', 'சோபனூர்', 'SHOBANUR', '3284', 'ஊ.நூ'),
+    ('TNDPL01682', 'அத்திகானூர்', 'ATHIKANUR', '3284', 'ஊ.நூ'),
+    ('TNDPL01684', 'ஆவத்துவாடி', 'AWATHUVADI', '3284', 'ஊ.நூ'),
+    ('TNDPL01590', 'பர்கூர்', 'BARGUR', '3287', 'கி.நூ'),
+    ('TNDPL01617', 'சிந்தகம்பள்ளி', 'CHINTHAKAMPALLI', '3287', 'கி.நூ'),
+    ('TNDPL01628', 'மாதேப்பள்ளி', 'MADHEPALLI', '3287', 'ஊ.நூ'),
+    ('TNDPL01618', 'எமக்கல்நத்தம்', 'EMAKKALNATHAM', '3287', 'ஊ.நூ'),
+    ('TNDPL01619', 'கந்திகுப்பம்', 'KANDIKUPPAM', '3287', 'ஊ.நூ'),
+    ('TNDPL01624', 'ஒப்பதவாடி', 'OPPATHAVADI', '3287', 'ஊ.நூ'),
+    ('TNDPL01625', 'எலத்தகிரி', 'ELATHAGIRI', '3287', 'ஊ.நூ'),
+    ('TNDPL01626', 'கோதியழகனூர்', 'KOTHIYAZHAGANUR', '3287', 'ஊ.நூ'),
+    ('TNDPL01632', 'காரகுப்பம்', 'KARAKUPPAM', '3287', 'ஊ.நூ'),
+    ('TNDPL01633', 'கொல்லநாகமங்கலம்', 'KOLLANAGAMANGALAM', '3287', 'ஊ.நூ'),
+    ('TNDPL01643', 'ஒரப்பம்', 'ORAPPAM', '3287', 'ஊ.நூ'),
+    ('TNDPL01664', 'சிகரலப்பள்ளி', 'SIKARALAPALLY', '3287', 'ஊ.நூ'),
+    ('TNDPL01680', 'கொண்டப்பநாயனப்பள்ளி', 'KONDAPANAYANAPALLI', '3287', 'ஊ.நூ'),
+    ('TNDPL01685', 'வரட்டனப்பள்ளி', 'VARATTANAPALLI', '3287', 'ஊ.நூ'),
+    ('TNDPL01588', 'ஊத்தங்கரை', 'UTHANGARAI', '3289', 'மு.நே.கி.நூ'),
+    ('TNDPL01602', 'கல்லாவி', 'KALLAVI', '3289', 'கி.நூ'),
+    ('TNDPL01610', 'சிங்காரப்பேட்டை', 'SINGARAPETTAI', '3289', 'கி.நூ'),
+    ('TNDPL01656', 'கெங்கபிரம்பட்டி', 'GANGABIRAMPATTI', '3289', 'ஊ.நூ'),
+    ('TNDPL01666', 'இராமகிருஷ்ணம்பதி', 'RAMAKRISHNAMPATHY', '3289', 'ஊ.நூ'),
+    ('TNDPL01678', 'எக்கூர்', 'EKUR', '3289', 'ஊ.நூ'),
+    ('TNDPL01679', 'ஆனந்தூர்', 'ANANDUR', '3289', 'ஊ.நூ'),
+    ('TNDPL01676', 'மகனூர்பட்டி', 'MAGANURPATTI', '3289', 'ஊ.நூ'),
+    ('TNDPL01686', 'நொச்சிப்பட்டி', 'NOCHIPATTI', '3289', 'ஊ.நூ'),
+    ('TNDPL00001', 'மருத்துவமனை நூலகம்', 'HOSPITAL', '2893', 'சி.நூ'),
+]
+
+def authenticate_librarian(tndpl_code, password):
+    """TNDPL எண் = username. Password libraries.password_hash-உடன் ஒப்பிடப்படும்
+    (இயல்புநிலையில் TNDPL எண்ணே password — 'கடவுச்சொல் மாற்ற' பகுதி மூலம் மாற்றலாம்)."""
+    tndpl_code = str(tndpl_code).strip().upper()
+    try:
+        conn = psycopg2.connect(DB_URL)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT tndpl_code, name_ta, name_en, lib_type, password_hash, matched_lib_value FROM libraries WHERE tndpl_code = %s;",
+            (tndpl_code,)
+        )
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+        if not row:
+            return None
+        code, name_ta, name_en, lib_type, pw_hash, matched_val = row
+        if hmac.compare_digest(hash_password(password), pw_hash):
+            return {
+                "tndpl_code": code, "name_ta": name_ta, "name_en": name_en,
+                "lib_type": lib_type, "matched_lib_value": matched_val
+            }
+        return None
+    except Exception:
+        return None
+
+def _normalize_lib_text(s):
+    return str(s).strip().lower().replace(" ", "")
+
+def resolve_library_value(lib_col_name, neon_df):
+    """நூலகர் login செய்தவரின் TNDPL பதிவுக்கும், books அட்டவணையின் library-name
+    column-ல் உள்ள உண்மையான மதிப்புகளுக்கும் இடையே பொருத்தம் காண்கிறது.
+    முன்னுரிமை: (1) Admin manually confirm செய்த matched_lib_value,
+    (2) தமிழ்/ஆங்கிலப் பெயர் exact/contains தானியங்கு பொருத்தம்.
+    பொருத்தம் கிடைக்கவில்லை எனில் None திருப்பும்."""
+    matched_val = st.session_state.get("user_library_matched_value")
+    if matched_val:
+        return matched_val
+    if not lib_col_name or neon_df.empty:
+        return None
+    actual_values = neon_df[lib_col_name].dropna().unique().tolist()
+    name_ta = st.session_state.get("user_library_name_ta", "")
+    name_en = st.session_state.get("user_library_name_en", "")
+    norm_ta, norm_en = _normalize_lib_text(name_ta), _normalize_lib_text(name_en)
+    for v in actual_values:
+        nv = _normalize_lib_text(v)
+        if nv == norm_ta or nv == norm_en:
+            return v
+    for v in actual_values:
+        nv = _normalize_lib_text(v)
+        if (norm_ta and norm_ta in nv) or (norm_en and norm_en in nv) or (nv and (nv in norm_ta or nv in norm_en)):
+            return v
+    return None
+
 # Database Initialization for Submitted Reports
 # @st.cache_resource ensures this CREATE TABLE runs only ONCE per app
 # process lifetime, instead of opening a new DB connection on every
@@ -177,6 +346,32 @@ def init_submitted_table():
                 dispatched_on TEXT
             );
         """)
+        # நூலகர் (Librarian) TNDPL logins. matched_lib_value — Admin, "🔗 நூலக
+        # பொருத்தம்" பகுதியில் books அட்டவணையின் உண்மையான நூலகப் பெயருடன் தொடர்பு
+        # படுத்திய பிறகு நிரப்பப்படும் (இல்லையேல் தானியங்கு பொருத்தம் பயன்படும்).
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS libraries (
+                tndpl_code TEXT PRIMARY KEY,
+                name_ta TEXT,
+                name_en TEXT,
+                pay_center_code TEXT,
+                lib_type TEXT,
+                password_hash TEXT,
+                matched_lib_value TEXT
+            );
+        """)
+        # Idempotent seed — ON CONFLICT DO NOTHING என்பதால் ஏற்கனவே இருக்கும்
+        # பதிவுகள் (password மாற்றியவை உட்பட) ஒருபோதும் மேலெழுதப்படாது.
+        from psycopg2.extras import execute_values
+        seed_rows = [
+            (code, ta, en, pay, ltype, hash_password(code), None)
+            for code, ta, en, pay, ltype in LIBRARY_SEED_DATA
+        ]
+        execute_values(
+            cur,
+            "INSERT INTO libraries (tndpl_code, name_ta, name_en, pay_center_code, lib_type, password_hash, matched_lib_value) VALUES %s ON CONFLICT (tndpl_code) DO NOTHING;",
+            seed_rows
+        )
         conn.commit()
         cur.close()
         conn.close()
@@ -235,6 +430,21 @@ def load_dispatch_status_full():
     except Exception:
         return pd.DataFrame()
 
+@st.cache_data
+def load_libraries_df():
+    try:
+        conn = psycopg2.connect(DB_URL)
+        df = pd.read_sql(
+            "SELECT tndpl_code as \"TNDPL Code\", name_ta as \"Name (Tamil)\", name_en as \"Name (English)\", "
+            "pay_center_code as \"Pay Center Code\", lib_type as \"Lib Type\", matched_lib_value as \"Matched Value\" "
+            "FROM libraries ORDER BY name_en;",
+            con=conn
+        )
+        conn.close()
+        return df
+    except Exception:
+        return pd.DataFrame()
+
 for key, default_fn in {
     "logged_in": lambda: False,
     "user_role": lambda: None,
@@ -244,6 +454,10 @@ for key, default_fn in {
     # Loaded from DB only ONCE per browser session (not on every rerun).
     "submitted_reports": load_submitted_reports_from_db,
     "librarian_records": lambda: [],
+    "user_library_tndpl": lambda: None,
+    "user_library_name_ta": lambda: "",
+    "user_library_name_en": lambda: "",
+    "user_library_matched_value": lambda: None,
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default_fn()
@@ -259,23 +473,52 @@ def show_login_page():
             </div>
     """, unsafe_allow_html=True)
     
-    with st.form("secure_login_form"):
-        selected_role = st.selectbox("பயனர் வகை (User)", ["-- தேர்ந்தெடுக்கவும் --", "Admin", "DCL Staff", "Librarian"])
-        password = st.text_input("🔑 கடவுச்சொல்", type="password", placeholder="கடவுச்சொல்லை உள்ளிடவும்")
-        submitted = st.form_submit_button("உள்ளுழை", use_container_width=True)
-        
-    st.markdown("</div></div>", unsafe_allow_html=True)
-    
-    if submitted:
-        if selected_role == "-- தேர்ந்தெடுக்கவும் --":
-            st.warning("⚠️ தயவுசெய்து பயனர் வகையைத் தேர்ந்தெடுக்கவும்!")
-        else:
-            user = authenticate_user(selected_role, password)
-            if not user:
-                st.error("❌ தவறான கடவுச்சொல்!")
+    role_choice = st.selectbox(
+        "பயனர் வகை (User)",
+        ["-- தேர்ந்தெடுக்கவும் --", "Admin", "DCL Staff", "Librarian (நூலகர்)"],
+        key="login_role_choice"
+    )
+
+    if role_choice == "Librarian (நூலகர்)":
+        with st.form("secure_login_form_lib"):
+            tndpl_input = st.text_input("🏛️ TNDPL எண் (உங்கள் நூலகத்தின் TNDPL Code)", placeholder="எ.கா. TNDPL01589")
+            lib_password = st.text_input("🔑 கடவுச்சொல்", type="password", placeholder="இயல்புநிலையில் TNDPL எண்ணே கடவுச்சொல்")
+            submitted_lib = st.form_submit_button("உள்ளுழை", use_container_width=True)
+        st.markdown("</div></div>", unsafe_allow_html=True)
+        if submitted_lib:
+            if not tndpl_input.strip():
+                st.warning("⚠️ TNDPL எண்ணை உள்ளிடவும்!")
             else:
-                st.session_state.update(logged_in=True, user_role=selected_role, user_name=user["name"])
-                st.rerun()
+                lib_user = authenticate_librarian(tndpl_input.strip(), lib_password)
+                if not lib_user:
+                    st.error("❌ தவறான TNDPL எண் அல்லது கடவுச்சொல்!")
+                else:
+                    display_name = f"{lib_user['name_ta']} ({lib_user['name_en']})"
+                    st.session_state.update(
+                        logged_in=True,
+                        user_role="Librarian",
+                        user_name=display_name,
+                        user_library_tndpl=lib_user["tndpl_code"],
+                        user_library_name_ta=lib_user["name_ta"],
+                        user_library_name_en=lib_user["name_en"],
+                        user_library_matched_value=lib_user["matched_lib_value"],
+                    )
+                    st.rerun()
+    else:
+        with st.form("secure_login_form"):
+            password = st.text_input("🔑 கடவுச்சொல்", type="password", placeholder="கடவுச்சொல்லை உள்ளிடவும்")
+            submitted = st.form_submit_button("உள்ளுழை", use_container_width=True)
+        st.markdown("</div></div>", unsafe_allow_html=True)
+        if submitted:
+            if role_choice == "-- தேர்ந்தெடுக்கவும் --":
+                st.warning("⚠️ தயவுசெய்து பயனர் வகையைத் தேர்ந்தெடுக்கவும்!")
+            else:
+                user = authenticate_user(role_choice, password)
+                if not user:
+                    st.error("❌ தவறான கடவுச்சொல்!")
+                else:
+                    st.session_state.update(logged_in=True, user_role=role_choice, user_name=user["name"])
+                    st.rerun()
 
 if not st.session_state["logged_in"]:
     show_login_page()
@@ -300,17 +543,34 @@ with col_logout[1]:
     if st.button("🚪 வெளியேறு", use_container_width=True):
         st.session_state["logged_in"] = False
         st.session_state["user_role"] = None
+        st.session_state["user_library_tndpl"] = None
+        st.session_state["user_library_name_ta"] = ""
+        st.session_state["user_library_name_en"] = ""
+        st.session_state["user_library_matched_value"] = None
+        st.session_state["current_menu"] = None
         st.rerun()
 
-menu_options = [
-    ("🔀", "பிரிக்க"), ("✅", "அனுப்ப"), ("📊", "அறிக்கைகள்"), ("⚠️", "கவனிக்க"),
+ALL_MENU_OPTIONS = [
+    ("🔀", "பிரிக்க"), ("📜", "நூலகர் சான்று"), ("📊", "அறிக்கைகள்"), ("⚠️", "கவனிக்க"),
     ("🔢", "பதிவெண் மாற்ற"), ("🗂️", "Master Data"), ("❌", "தவறான பதிவு நீக்கம்"),
     ("🔑", "கடவுச்சொல் மாற்ற"), ("📥", "Excel பதிவிறக்கம்"), ("👥", "நூலகர் பார்வை ஆண்டு"),
-    ("📂", "Excel அப்லோடு"), ("🏷️", "பகுப்பு எண் புதுப்பி")
+    ("📂", "Excel அப்லோடு"), ("🏷️", "பகுப்பு எண் புதுப்பி"), ("🔗", "நூலக பொருத்தம்")
 ]
 
-# Two neat rows of 6 buttons each — easier to read/tap than one cramped row of 12
-menu_rows = [menu_options[:6], menu_options[6:]]
+# பங்கு அடிப்படையில் மெனு கட்டுப்பாடு:
+#   Admin        → அனைத்தும்
+#   DCL Staff    → பிரிக்க + அறிக்கைகள் மட்டும்
+#   Librarian    → நூலகர் சான்று (அவர் நூலகத்திற்கு மட்டும்) + அறிக்கைகள் (அவர் நூலகத்திற்கு மட்டும்)
+_role = st.session_state["user_role"]
+if _role == "DCL Staff":
+    menu_options = [m for m in ALL_MENU_OPTIONS if m[1] in ("பிரிக்க", "அறிக்கைகள்")]
+elif _role == "Librarian":
+    menu_options = [m for m in ALL_MENU_OPTIONS if m[1] in ("நூலகர் சான்று", "அறிக்கைகள்", "கடவுச்சொல் மாற்ற")]
+else:
+    menu_options = ALL_MENU_OPTIONS
+
+# Rows of up to 6 buttons each — easier to read/tap than one cramped long row
+menu_rows = [menu_options[i:i + 6] for i in range(0, len(menu_options), 6)]
 btn_counter = 0
 for row in menu_rows:
     cols = st.columns(len(row))
@@ -339,7 +599,7 @@ def load_neon_database():
 
 def build_pub_stats_df(pub_name, source_neon_df, source_rep_df, pub_col, title_col):
     """For one publisher: mark the first N rows per title as 'received' (received_stats=1),
-    where N = Received Qty submitted for that title. Shared by Master Data and அனுப்ப pages."""
+    where N = Received Qty submitted for that title. Shared by Master Data and நூலகர் சான்று pages."""
     p_neon_df = source_neon_df[source_neon_df[pub_col] == pub_name].copy()
     p_rep = source_rep_df[source_rep_df["Publisher"] == pub_name] if not source_rep_df.empty else pd.DataFrame()
     t_map = dict(zip(p_rep["Title"], p_rep["Received Qty"])) if not p_rep.empty else {}
@@ -434,6 +694,10 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 current = st.session_state["current_menu"]
+_allowed_labels = {m[1] for m in menu_options}
+if current is not None and current not in _allowed_labels:
+    current = None
+    st.session_state["current_menu"] = None
 
 if current is None:
     st.info("👆 மேல் உள்ள மெனு பட்டன்களில் ஏதேனும் ஒன்றை (உதாரணமாக **'🔀 பிரிக்க'** அல்லது **'📊 அறிக்கைகள்'**) தேர்வு செய்யவும்.")
@@ -599,9 +863,12 @@ elif current == "பிரிக்க":
                         except Exception as e:
                             st.error(f"❌ Database save error: {e}")
 
-elif current == "அனுப்ப":
-    st.subheader("✅ நூலகத்தில் பெறப்பட்டதை சரிபார்த்தல் (Library Receipt Verification)")
-    st.caption("சம்பந்தப்பட்ட நூலகர்கள் தங்கள் நூலகத்தைத் தேர்ந்தெடுத்து, மாவட்ட மைய நூலகத்திலிருந்து பெற்ற நூல்களைச் சரிபார்த்து டிக் செய்யவும்.")
+elif current == "நூலகர் சான்று":
+    st.subheader("📜 நூலகர் சான்று — நூலகத்தில் பெறப்பட்டதை சரிபார்த்தல் (Library Receipt Verification)")
+    if st.session_state["user_role"] == "Librarian":
+        st.caption(f"🏛️ உங்கள் நூலகம்: **{st.session_state['user_library_name_ta']} ({st.session_state['user_library_name_en']})** — மாவட்ட மைய நூலகத்திலிருந்து பெற்ற நூல்களைச் சரிபார்த்து டிக் செய்யவும்.")
+    else:
+        st.caption("சம்பந்தப்பட்ட நூலகர்கள் தங்கள் நூலகத்தைத் தேர்ந்தெடுத்து, மாவட்ட மைய நூலகத்திலிருந்து பெற்ற நூல்களைச் சரிபார்த்து டிக் செய்யவும்.")
 
     neon_df = load_neon_database()
     if neon_df.empty:
@@ -645,9 +912,20 @@ elif current == "அனுப்ப":
 
                 display_cols = [c for c in [book_id_col, title_col, author_col, pub_col, lib_type_col] if c and c in received_df.columns]
 
-                all_libs = sorted(received_df[lib_col_name].dropna().unique().tolist())
-                sel_value = st.selectbox("🏛️ உங்கள் நூலகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --"] + all_libs, key="dispatch_lib_sel2")
-                view_df = received_df[received_df[lib_col_name] == sel_value].reset_index(drop=True) if sel_value and sel_value != "-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --" else pd.DataFrame()
+                if st.session_state["user_role"] == "Librarian":
+                    sel_value = resolve_library_value(lib_col_name, neon_df)
+                    if not sel_value:
+                        st.error(
+                            "❌ உங்கள் நூலகத்திற்கான தரவு Books Database-ல் தானாகக் கண்டறிய முடியவில்லை. "
+                            "Admin-ஐத் தொடர்பு கொள்ளவும் — 'நூலக பொருத்தம்' பகுதியில் இதைச் சரிசெய்யலாம்."
+                        )
+                        view_df = pd.DataFrame()
+                    else:
+                        view_df = received_df[received_df[lib_col_name] == sel_value].reset_index(drop=True)
+                else:
+                    all_libs = sorted(received_df[lib_col_name].dropna().unique().tolist())
+                    sel_value = st.selectbox("🏛️ நூலகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --"] + all_libs, key="dispatch_lib_sel2")
+                    view_df = received_df[received_df[lib_col_name] == sel_value].reset_index(drop=True) if sel_value and sel_value != "-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --" else pd.DataFrame()
 
                 if not view_df.empty:
                     total_rows = len(view_df)
@@ -807,8 +1085,76 @@ elif current == "பதிவெண் மாற்ற":
 
 elif current == "அறிக்கைகள்":
     st.subheader("📊 அறிக்கைகள் & பதிவுக் சரிபார்ப்பு (Publishers & Title & Books Verification Report)")
-    
-    if not st.session_state["submitted_reports"]:
+
+    if st.session_state["user_role"] == "Librarian":
+        # --- நூலகர் பங்கு: தங்கள் நூலகத்திற்குரிய அறிக்கையை மட்டும் பார்க்க முடியும் ---
+        st.caption(f"🏛️ உங்கள் நூலகம்: **{st.session_state['user_library_name_ta']} ({st.session_state['user_library_name_en']})**")
+        if not st.session_state["submitted_reports"]:
+            st.info("ℹ️ இதுவரை சமர்ப்பிக்கப்பட்ட தரவுகள் எதுவும் இல்லை.")
+        else:
+            neon_df = load_neon_database()
+            if neon_df.empty:
+                st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
+            else:
+                pub_col = next((c for c in neon_df.columns if c == 'vendor_name'), None) or next((c for c in neon_df.columns if c in ['publication name', 'publication_name', 'publisher_name'] or 'publication' in c), None)
+                title_col = next((c for c in neon_df.columns if c == 'title' or (('title' in c) and ('book' not in c))), None)
+                if not title_col:
+                    title_col = next((c for c in neon_df.columns if 'title' in c), neon_df.columns[2])
+                lib_col_name = next((c for c in neon_df.columns if 'library' in c and ('name' in c or 'tm' in c)), None)
+                book_id_col = next((c for c in neon_df.columns if c == 'book_id'), None)
+                author_col = next((c for c in neon_df.columns if 'author' in c), None)
+
+                full_report_df = pd.DataFrame(st.session_state["submitted_reports"])
+                submitted_pubs_own = sorted([p for p in full_report_df["Publisher"].dropna().unique().tolist() if pub_col and p in neon_df[pub_col].values]) if pub_col else []
+                sel_value = resolve_library_value(lib_col_name, neon_df) if lib_col_name else None
+
+                if not sel_value:
+                    st.error(
+                        "❌ உங்கள் நூலகத்திற்கான தரவு Books Database-ல் தானாகக் கண்டறிய முடியவில்லை. "
+                        "Admin-ஐத் தொடர்பு கொள்ளவும் — 'நூலக பொருத்தம்' பகுதியில் இதைச் சரிசெய்யலாம்."
+                    )
+                elif not submitted_pubs_own:
+                    st.info("ℹ️ இதுவரை உங்கள் நூலகத்திற்கான பதிப்பகங்கள் எதுவும் பிரிக்கப்பட்டு சமர்ப்பிக்கப்படவில்லை.")
+                else:
+                    own_report_df = compute_all_received_rows(submitted_pubs_own, pub_col, title_col)
+                    own_report_df = own_report_df[own_report_df[lib_col_name] == sel_value].reset_index(drop=True) if not own_report_df.empty else own_report_df
+                    if own_report_df.empty:
+                        st.info("ℹ️ உங்கள் நூலகத்திற்குரிய நூல்கள் எதுவும் இன்னும் பெறப்படவில்லை.")
+                    else:
+                        dispatched_keys_own = load_dispatch_status_keys()
+                        own_report_df["_key"] = (
+                            own_report_df[pub_col].astype(str) + "||" +
+                            own_report_df[title_col].astype(str) + "||" +
+                            own_report_df[lib_col_name].astype(str) + "||" +
+                            own_report_df.groupby([pub_col, title_col, lib_col_name]).cumcount().astype(str)
+                        )
+                        own_report_df["நூலகத்தில் பெறப்பட்டதா"] = own_report_df["_key"].isin(dispatched_keys_own).map({True: "✅ பெறப்பட்டது", False: "⏳ இன்னும் இல்லை"})
+
+                        total_own = len(own_report_df)
+                        recv_own = int((own_report_df["நூலகத்தில் பெறப்பட்டதா"] == "✅ பெறப்பட்டது").sum())
+                        c1, c2, c3 = st.columns(3)
+                        with c1:
+                            st.metric("📚 மொத்த நூல்கள்", total_own)
+                        with c2:
+                            st.metric("✅ பெறப்பட்டவை", recv_own)
+                        with c3:
+                            st.metric("⏳ மீதம்", total_own - recv_own)
+
+                        show_cols_own = [c for c in [book_id_col, title_col, author_col, pub_col, "நூலகத்தில் பெறப்பட்டதா"] if c and c in own_report_df.columns]
+                        st.dataframe(own_report_df[show_cols_own], use_container_width=True)
+
+                        csv_own = own_report_df[show_cols_own].to_csv(index=False).encode('utf-8-sig')
+                        st.download_button(
+                            label="📥 என் நூலக அறிக்கை (CSV)",
+                            data=csv_own,
+                            file_name=f"{st.session_state['user_library_tndpl']}_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                            mime="text/csv",
+                            type="primary",
+                            use_container_width=True,
+                            key="dl_own_lib_csv"
+                        )
+
+    elif not st.session_state["submitted_reports"]:
         st.info("ℹ️ இதுவரை சமர்ப்பிக்கப்பட்ட தரவுகள் எதுவும் இல்லை.")
     else:
         full_report_df = pd.DataFrame(st.session_state["submitted_reports"])
@@ -1110,10 +1456,31 @@ elif current == "கடவுச்சொல் மாற்ற":
         new_p = st.text_input("புதிய கடவுச்சொல்", type="password")
         conf_p = st.text_input("உங்களை உறுதிப்படுத்த புதிய கடவுச்சொல்", type="password")
         if st.form_submit_button("கடவுச்சொல்லை மாற்றுக", type="primary"):
-            if new_p == conf_p and len(new_p) > 0:
-                st.success("✅ கடவுச்சொல் வெற்றிகரமாக மாற்றப்பட்டது!")
-            else:
+            if new_p != conf_p or len(new_p) == 0:
                 st.error("❌ கடவுச்சொற்கள் பொருந்தவில்லை!")
+            elif st.session_state["user_role"] == "Librarian":
+                # நூலகர் passwords libraries.password_hash-ல் real-ஆக சேமிக்கப்படும்.
+                lib_check = authenticate_librarian(st.session_state["user_library_tndpl"], old_p)
+                if not lib_check:
+                    st.error("❌ பழைய கடவுச்சொல் தவறானது!")
+                else:
+                    try:
+                        conn = psycopg2.connect(DB_URL)
+                        cur = conn.cursor()
+                        cur.execute(
+                            "UPDATE libraries SET password_hash = %s WHERE tndpl_code = %s;",
+                            (hash_password(new_p), st.session_state["user_library_tndpl"])
+                        )
+                        conn.commit()
+                        cur.close()
+                        conn.close()
+                        st.success("✅ கடவுச்சொல் வெற்றிகரமாக மாற்றப்பட்டது!")
+                    except Exception as e:
+                        st.error(f"❌ Update error: {e}")
+            else:
+                # Admin / DCL Staff — நிலையான (hardcoded) credentials; இங்கு UI-level
+                # confirmation மட்டும், database-ல் மாற்றம் இல்லை (இதே தற்போதைய நடத்தை).
+                st.success("✅ கடவுச்சொல் வெற்றிகரமாக மாற்றப்பட்டது!")
 
 elif current == "Excel பதிவிறக்கம்":
     st.subheader("📥 Excel அறிக்கை பதிவிறக்கம்")
@@ -1411,3 +1778,115 @@ elif current == "பகுப்பு எண் புதுப்பி":
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"❌ Update error: {e}")
+
+elif current == "நூலக பொருத்தம்":
+    st.subheader("🔗 நூலக பொருத்தம் (Library ↔ TNDPL Matching)")
+    st.caption(
+        "103 நூலகங்களின் TNDPL பட்டியலை, Neon Database-ல் உள்ள 'books' அட்டவணையின் "
+        "நூலகப் பெயர் column-ல் இருக்கும் உண்மையான மதிப்புகளுடன் பொருத்துங்கள். "
+        "இது ஒரு முறை சரிசெய்தால் போதும் — நூலகர் Login/Reports தானாக இதையே பயன்படுத்தும்."
+    )
+
+    neon_df = load_neon_database()
+    libraries_df = load_libraries_df()
+
+    if neon_df.empty:
+        st.warning("⚠️ Neon Database-ல் இருந்து books தரவுகள் கிடைக்கவில்லை.")
+    elif libraries_df.empty:
+        st.warning("⚠️ libraries அட்டவணையில் தரவு இல்லை.")
+    else:
+        lib_col_name = next((c for c in neon_df.columns if 'library' in c and ('name' in c or 'tm' in c)), None)
+        if not lib_col_name:
+            st.error("❌ books அட்டவணையில் நூலகப் பெயர் column கண்டறியப்படவில்லை.")
+        else:
+            actual_lib_values = sorted(neon_df[lib_col_name].dropna().unique().tolist())
+
+            # Auto-match status for every library, for a quick at-a-glance summary.
+            def _norm(s):
+                return str(s).strip().lower().replace(" ", "")
+
+            status_rows = []
+            for _, r in libraries_df.iterrows():
+                if r["Matched Value"] and str(r["Matched Value"]).strip():
+                    status_rows.append("✅ Admin உறுதி செய்தது")
+                else:
+                    nt, ne = _norm(r["Name (Tamil)"]), _norm(r["Name (English)"])
+                    auto = None
+                    for v in actual_lib_values:
+                        nv = _norm(v)
+                        if nv == nt or nv == ne or (nt and nt in nv) or (ne and ne in nv):
+                            auto = v
+                            break
+                    status_rows.append(f"🟡 தானியங்கு பொருத்தம்: {auto}" if auto else "❌ பொருத்தம் இல்லை")
+            libraries_df = libraries_df.copy()
+            libraries_df["நிலை"] = status_rows
+
+            n_unmatched = sum(1 for s in status_rows if s == "❌ பொருத்தம் இல்லை")
+            n_confirmed = sum(1 for s in status_rows if s.startswith("✅"))
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.metric("🏛️ மொத்த நூலகங்கள்", len(libraries_df))
+            with c2:
+                st.metric("✅ Admin உறுதி செய்தவை", n_confirmed)
+            with c3:
+                st.metric("❌ பொருத்தமில்லாதவை", n_unmatched)
+
+            st.dataframe(libraries_df, use_container_width=True)
+
+            st.markdown("---")
+            st.markdown("#### ✏️ ஒரு நூலகத்தை books அட்டவணையின் உண்மையான பெயருடன் தொடர்பு படுத்துக")
+            tndpl_pick = st.selectbox(
+                "TNDPL நூலகத்தைத் தேர்ந்தெடுக்கவும்:",
+                ["-- தேர்ந்தெடுக்கவும் --"] + (libraries_df["TNDPL Code"] + " — " + libraries_df["Name (Tamil)"]).tolist(),
+                key="lib_match_pick"
+            )
+            if tndpl_pick != "-- தேர்ந்தெடுக்கவும் --":
+                tndpl_code_sel = tndpl_pick.split(" — ")[0]
+                value_pick = st.selectbox(
+                    "books அட்டவணையில் உள்ள உண்மையான நூலகப் பெயரைத் தேர்ந்தெடுக்கவும்:",
+                    ["-- தேர்ந்தெடுக்கவும் --"] + actual_lib_values,
+                    key="lib_match_value_pick"
+                )
+                if st.button("💾 பொருத்தத்தைச் சேமி", type="primary", key="lib_match_save_btn"):
+                    if value_pick == "-- தேர்ந்தெடுக்கவும் --":
+                        st.warning("⚠️ books அட்டவணையின் நூலகப் பெயரைத் தேர்ந்தெடுக்கவும்.")
+                    else:
+                        try:
+                            conn = psycopg2.connect(DB_URL)
+                            cur = conn.cursor()
+                            cur.execute(
+                                "UPDATE libraries SET matched_lib_value = %s WHERE tndpl_code = %s;",
+                                (value_pick, tndpl_code_sel)
+                            )
+                            conn.commit()
+                            cur.close()
+                            conn.close()
+                            load_libraries_df.clear()
+                            st.success(f"✅ {tndpl_code_sel} → '{value_pick}' எனப் பொருத்தப்பட்டது!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Save error: {e}")
+
+            st.markdown("---")
+            st.markdown("#### 🔑 நூலகர் கடவுச்சொல்லை மீட்டமை (Reset to TNDPL default)")
+            tndpl_reset_pick = st.selectbox(
+                "எந்த நூலகத்தின் கடவுச்சொல்லை மீட்டமைக்க வேண்டும்:",
+                ["-- தேர்ந்தெடுக்கவும் --"] + (libraries_df["TNDPL Code"] + " — " + libraries_df["Name (Tamil)"]).tolist(),
+                key="lib_pwd_reset_pick"
+            )
+            if tndpl_reset_pick != "-- தேர்ந்தெடுக்கவும் --":
+                if st.button("🔑 கடவுச்சொல்லை TNDPL எண்ணாக மீட்டமை", key="lib_pwd_reset_btn"):
+                    reset_code = tndpl_reset_pick.split(" — ")[0]
+                    try:
+                        conn = psycopg2.connect(DB_URL)
+                        cur = conn.cursor()
+                        cur.execute(
+                            "UPDATE libraries SET password_hash = %s WHERE tndpl_code = %s;",
+                            (hash_password(reset_code), reset_code)
+                        )
+                        conn.commit()
+                        cur.close()
+                        conn.close()
+                        st.success(f"✅ {reset_code}-ன் கடவுச்சொல் TNDPL எண்ணாக மீட்டமைக்கப்பட்டது!")
+                    except Exception as e:
+                        st.error(f"❌ Reset error: {e}")
