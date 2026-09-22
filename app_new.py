@@ -624,7 +624,10 @@ elif current == "அனுப்ப":
         if not submitted_pubs or not lib_col_name:
             st.info("ℹ️ பிரிக்கப்பட்ட தரவு இன்னும் இல்லை, அல்லது நூலகப் பெயர் நெடுவரிசை கண்டறியப்படவில்லை.")
         else:
-            received_df = compute_all_received_rows(submitted_pubs, pub_col, title_col)
+            # Master Data / பிரிக்க பகுதியில் உள்ள அதே தரவு மூலம் — "பணி முடிக்கப்பட்ட"
+            # பதிப்பகங்களுக்கு உரிய அனைத்து நூல்களும் (received_stats வடிகட்டல் இல்லாமல்),
+            # இரண்டு பக்கங்களிலும் எண்ணிக்கை பொருந்தும்படி.
+            received_df = neon_df[neon_df[pub_col].isin(submitted_pubs)].copy()
 
             if received_df.empty:
                 st.info("ℹ️ பெறப்பட்ட நூல்கள் எதுவும் இல்லை.")
