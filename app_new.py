@@ -559,11 +559,11 @@ ALL_MENU_OPTIONS = [
 
 # பங்கு அடிப்படையில் மெனு கட்டுப்பாடு:
 #   Admin        → அனைத்தும்
-#   DCL Staff    → பிரிக்க + அறிக்கைகள் மட்டும்
+#   DCL Staff    → பிரிக்க + அறிக்கைகள் + தவறான பதிவு நீக்கம்
 #   Librarian    → நூலகர் சான்று (அவர் நூலகத்திற்கு மட்டும்) + அறிக்கைகள் (அவர் நூலகத்திற்கு மட்டும்)
 _role = st.session_state["user_role"]
 if _role == "DCL Staff":
-    menu_options = [m for m in ALL_MENU_OPTIONS if m[1] in ("பிரிக்க", "அறிக்கைகள்")]
+    menu_options = [m for m in ALL_MENU_OPTIONS if m[1] in ("பிரிக்க", "அறிக்கைகள்", "தவறான பதிவு நீக்கம்")]
 elif _role == "Librarian":
     menu_options = [m for m in ALL_MENU_OPTIONS if m[1] in ("நூலகர் சான்று", "அறிக்கைகள்", "கடவுச்சொல் மாற்ற")]
 else:
