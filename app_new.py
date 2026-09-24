@@ -1865,6 +1865,27 @@ elif current == "Excel அப்லோடு":
             else:
                 up_df = pd.read_excel(uploaded_file)
             st.success(f"✅ கோப்பு வெற்றிகரமாகப் பெறப்பட்டது! ({len(up_df)} வரிசைகள் கண்டறியப்பட்டன)")
+
+            # --- நகல் Upload தடுப்பு: இந்த கோப்பின் bytes-ஐ hash செய்து, அதே கோப்பு
+            # ஏற்கனவே இந்த session-ல் Database-ல் சேமிக்கப்பட்டுள்ளதா எனச் சரிபார்க்கிறோம்.
+            # (double-click / accidental இரண்டாம் முறை Save அழுத்துவதால் ஏற்படும்
+            # நகல் வரிசைகளைத் தடுக்க.) ---
+            file_bytes = uploaded_file.getvalue()
+            file_hash = hashlib.sha256(file_bytes).hexdigest()
+            st.session_state.setdefault("saved_upload_hashes", set())
+            already_uploaded_before = file_hash in st.session_state["saved_upload_hashes"]
+            confirm_dup = True
+            if already_uploaded_before:
+                st.warning(
+                    f"⚠️ இந்தக் கோப்பு ('{uploaded_file.name}') ஏற்கனவே இந்த session-ல் ஒருமுறை "
+                    "Neon Database-ல் சேமிக்கப்பட்டுள்ளது. அதே தரவை மீண்டும் சேமிக்க வேண்டுமா? "
+                    "(மீண்டும் சேமித்தால் நகல் வரிசைகள் சேரும்.)"
+                )
+                confirm_dup = st.checkbox(
+                    "ஆம், நான் உறுதியாக இதே கோப்பை மீண்டும் பதிவேற்ற விரும்புகிறேன்",
+                    key=f"confirm_dup_upload_{file_hash}"
+                )
+
             if len(up_df) > 50:
                 st.caption(f"ℹ️ கீழே preview-ல் முதல் 50 வரிசைகள் மட்டுமே காட்டப்படுகின்றன — ஆனால் Save செய்யும்போது **அனைத்து {len(up_df)} வரிசைகளும்** சேமிக்கப்படும்.")
             st.dataframe(up_df.head(50), use_container_width=True)
@@ -1969,46 +1990,54 @@ elif current == "Excel அப்லோடு":
                         )
 
                     if st.button("💾 இந்தத் தரவை Neon Database-ல் சேமி", type="primary", key="excel_upload_save_btn_mapped"):
+                        if not confirm_dup:
+                            st.error("❌ மேலே உள்ள உறுதிப்படுத்தல் checkbox-ஐ தேர்ந்தெடுக்காமல் நகலைச் சேமிக்க முடியாது.")
+                        else:
+                            try:
+                                conn = psycopg2.connect(DB_URL)
+                                cur = conn.cursor()
+                                data_cols = [c for c in mapped_up_df.columns if c != "uploaded_at"]  # duplicate uploaded_at தவிர்க்க
+                                cols = data_cols + ["uploaded_at"]
+                                col_names = ", ".join(cols)
+                                upload_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                from psycopg2.extras import execute_values
+                                rows = [tuple(r[c] for c in data_cols) + (upload_ts,) for _, r in mapped_up_df.iterrows()]
+                                execute_values(cur, f"INSERT INTO books ({col_names}) VALUES %s;", rows)
+                                conn.commit()
+                                cur.close()
+                                conn.close()
+                                load_neon_database.clear()
+                                st.session_state["saved_upload_hashes"].add(file_hash)
+                                st.success(f"✅ {len(mapped_up_df)} வரிசைகள் Neon Database-ல் சேமிக்கப்பட்டன! (Upload நேரம்: {upload_ts})")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"❌ Upload save error: {e}")
+            else:
+                if st.button("💾 இந்தத் தரவை Neon Database-ல் சேமி", type="primary", key="excel_upload_save_btn"):
+                    if not confirm_dup:
+                        st.error("❌ மேலே உள்ள உறுதிப்படுத்தல் checkbox-ஐ தேர்ந்தெடுக்காமல் நகலைச் சேமிக்க முடியாது.")
+                    else:
                         try:
                             conn = psycopg2.connect(DB_URL)
                             cur = conn.cursor()
-                            data_cols = [c for c in mapped_up_df.columns if c != "uploaded_at"]  # duplicate uploaded_at தவிர்க்க
+                            # uploaded_at-ஐ இந்த upload batch-ன் timestamp-ஆக சேர்க்கிறோம் —
+                            # இதனால் இந்த batch-ஐ பின்னால் எளிதாக filter செய்து கண்டறியலாம்.
+                            data_cols = [c for c in up_df.columns if c != "uploaded_at"]  # duplicate uploaded_at தவிர்க்க
                             cols = data_cols + ["uploaded_at"]
                             col_names = ", ".join(cols)
                             upload_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             from psycopg2.extras import execute_values
-                            rows = [tuple(r[c] for c in data_cols) + (upload_ts,) for _, r in mapped_up_df.iterrows()]
+                            rows = [tuple(r[c] for c in data_cols) + (upload_ts,) for _, r in up_df.iterrows()]
                             execute_values(cur, f"INSERT INTO books ({col_names}) VALUES %s;", rows)
                             conn.commit()
                             cur.close()
                             conn.close()
                             load_neon_database.clear()
-                            st.success(f"✅ {len(mapped_up_df)} வரிசைகள் Neon Database-ல் சேமிக்கப்பட்டன! (Upload நேரம்: {upload_ts})")
+                            st.session_state["saved_upload_hashes"].add(file_hash)
+                            st.success(f"✅ {len(up_df)} வரிசைகள் Neon Database-ல் சேமிக்கப்பட்டன! (Upload நேரம்: {upload_ts})")
                             st.rerun()
                         except Exception as e:
                             st.error(f"❌ Upload save error: {e}")
-            else:
-                if st.button("💾 இந்தத் தரவை Neon Database-ல் சேமி", type="primary", key="excel_upload_save_btn"):
-                    try:
-                        conn = psycopg2.connect(DB_URL)
-                        cur = conn.cursor()
-                        # uploaded_at-ஐ இந்த upload batch-ன் timestamp-ஆக சேர்க்கிறோம் —
-                        # இதனால் இந்த batch-ஐ பின்னால் எளிதாக filter செய்து கண்டறியலாம்.
-                        data_cols = [c for c in up_df.columns if c != "uploaded_at"]  # duplicate uploaded_at தவிர்க்க
-                        cols = data_cols + ["uploaded_at"]
-                        col_names = ", ".join(cols)
-                        upload_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        from psycopg2.extras import execute_values
-                        rows = [tuple(r[c] for c in data_cols) + (upload_ts,) for _, r in up_df.iterrows()]
-                        execute_values(cur, f"INSERT INTO books ({col_names}) VALUES %s;", rows)
-                        conn.commit()
-                        cur.close()
-                        conn.close()
-                        load_neon_database.clear()
-                        st.success(f"✅ {len(up_df)} வரிசைகள் Neon Database-ல் சேமிக்கப்பட்டன! (Upload நேரம்: {upload_ts})")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Upload save error: {e}")
         except Exception as e:
             st.error(f"❌ கோப்பைப் படிக்க முடியவில்லை: {e}")
 
