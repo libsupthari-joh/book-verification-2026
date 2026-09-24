@@ -1796,6 +1796,54 @@ elif current == "Excel அப்லோடு":
     else:
         st.info("ℹ️ 'uploaded_at' நெடுவரிசை இன்னும் புதிதாக உருவாக்கப்பட்டுள்ளது — புதிதாக ஒரு Excel upload செய்த பிறகு இங்கு தெரியும்.")
 
+    # ---------------- ஏற்கனவே ஏற்றப்பட்ட ஒரு batch-ஐ கண்டறிதல் (Reconciliation) ----------------
+    st.markdown("---")
+    st.markdown("### 🔍 ஏற்கனவே ஏற்றப்பட்ட ஒரு Batch-ஐக் கண்டறிதல்")
+    st.caption(
+        "மேலே உள்ள 'சமீபத்தில் ஏற்றப்பட்டவை' timestamp இல்லாத, **ஏற்கனவே** database-ல் சேர்க்கப்பட்ட "
+        "பழைய batch-ஐ கண்டறிய, அதே மூல (Portal) Excel/CSV கோப்பை இங்கு மீண்டும் upload செய்யவும். "
+        "அதில் உள்ள book_id/isbn எண்களை database-உடன் பொருத்தி, அந்த batch-ஐ மட்டும் காட்டுவோம்."
+    )
+
+    ref_file = st.file_uploader("📤 மூலக் கோப்பை (Portal-லிருந்து பதிவிறக்கியது) மீண்டும் upload செய்யவும்", type=["xlsx", "csv"], key="reconcile_ref_file")
+
+    if ref_file is not None:
+        try:
+            if ref_file.name.lower().endswith(".csv"):
+                ref_df = pd.read_csv(ref_file)
+            else:
+                ref_df = pd.read_excel(ref_file)
+            ref_df.columns = [str(c).strip().lower() for c in ref_df.columns]
+
+            match_col = "book_id" if "book_id" in ref_df.columns else ("isbn" if "isbn" in ref_df.columns else None)
+            if not match_col:
+                st.warning("⚠️ இந்தக் கோப்பில் 'book_id' அல்லது 'isbn' நெடுவரிசை இல்லை — பொருத்த முடியவில்லை.")
+            else:
+                ref_ids = set(ref_df[match_col].dropna().astype(str).str.strip())
+                st.caption(f"'{match_col}' அடிப்படையில் {len(ref_ids)} தனித்துவ மதிப்புகள் இந்தக் கோப்பில் கண்டறியப்பட்டன.")
+
+                main_df = load_neon_database()
+                if match_col not in main_df.columns:
+                    st.warning(f"⚠️ database-ல் '{match_col}' நெடுவரிசை இல்லை.")
+                else:
+                    matched_df = main_df[main_df[match_col].astype(str).str.strip().isin(ref_ids)].reset_index(drop=True)
+                    st.markdown(f"### 📦 பொருந்திய நூல்கள் — database-ல் கிடைத்தவை: {len(matched_df)} / கோப்பில் இருந்தவை: {len(ref_df)}")
+                    if len(matched_df) < len(ref_df):
+                        st.info(f"ℹ️ {len(ref_df) - len(matched_df)} வரிசைகள் database-ல் கண்டறியப்படவில்லை — அவை இன்னும் upload ஆகாமல் இருக்கலாம்.")
+                    st.dataframe(matched_df, use_container_width=True)
+
+                    csv_matched = matched_df.to_csv(index=False).encode('utf-8-sig')
+                    st.download_button(
+                        label="📥 இந்த Batch-ஐ பதிவிறக்குக (CSV)",
+                        data=csv_matched,
+                        file_name=f"Identified_Batch_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                        mime="text/csv",
+                        type="primary",
+                        key="dl_identified_batch_csv"
+                    )
+        except Exception as e:
+            st.error(f"❌ கோப்பைப் படிக்க முடியவில்லை: {e}")
+
 elif current == "பகுப்பு எண் புதுப்பி":
     st.subheader("🏷️ பகுப்பு எண் புதுப்பித்தல் மற்றும் திருத்துதல்")
 
