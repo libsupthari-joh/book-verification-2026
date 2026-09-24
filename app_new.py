@@ -402,6 +402,34 @@ def ensure_books_uploaded_at_column():
 
 ensure_books_uploaded_at_column()
 
+# isbn column சில நேரங்களில் INTEGER-ஆக இருக்கும் (பழைய schema) — ஆனால் 13-இலக்க
+# ISBN-13 எண்கள் (எ.கா. 9789360000000) INTEGER-ன் அதிகபட்ச வரம்பை (~2.1 பில்லியன்)
+# தாண்டிவிடும். இதனால் Excel upload "integer out of range" பிழையுடன் தோல்வியடையும்.
+# இதை TEXT-ஆக மாற்றி, ஒரு முறை மட்டும் பாதுகாப்பாகச் சரிசெய்கிறோம்
+# (already TEXT-ஆக இருந்தால் ஒன்றும் மாறாது).
+@st.cache_resource
+def ensure_isbn_text_column():
+    try:
+        conn = psycopg2.connect(DB_URL)
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT column_name, data_type FROM information_schema.columns
+            WHERE table_name = 'books' AND column_name ILIKE '%isbn%';
+        """)
+        rows = cur.fetchall()
+        for col_name, data_type in rows:
+            if data_type in ("integer", "bigint", "smallint", "numeric"):
+                cur.execute(f'ALTER TABLE books ALTER COLUMN "{col_name}" TYPE TEXT USING "{col_name}"::text;')
+        conn.commit()
+        cur.close()
+        conn.close()
+        return True
+    except Exception as e:
+        st.error(f"❌ isbn column type fix error: {e}")
+        return False
+
+ensure_isbn_text_column()
+
 # @st.cache_data caches the result server-side. Call load_submitted_reports_from_db.clear()
 # after any INSERT/UPDATE to this table so the next read picks up fresh data.
 @st.cache_data
