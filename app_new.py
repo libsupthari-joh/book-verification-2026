@@ -382,6 +382,26 @@ def init_submitted_table():
 
 init_submitted_table()
 
+# 'books' table-ல் ஒரு upload எப்போது நடந்தது என கண்காணிக்க — இனிமேல் ஒவ்வொரு
+# Excel upload-உம் தானாகவே தேதி-நேரத்துடன் குறிக்கப்படும். பழைய வரிசைகள் NULL-ஆகவே
+# இருக்கும் (அவை எப்போது ஏற்றப்பட்டன என்பது இப்போதைக்குத் தெரியாது), ஆனால் இன்று முதல்
+# ஏற்றப்படும் அனைத்தும் தெளிவாக அடையாளம் காணப்படும்.
+@st.cache_resource
+def ensure_books_uploaded_at_column():
+    try:
+        conn = psycopg2.connect(DB_URL)
+        cur = conn.cursor()
+        cur.execute("ALTER TABLE books ADD COLUMN IF NOT EXISTS uploaded_at TIMESTAMP;")
+        conn.commit()
+        cur.close()
+        conn.close()
+        return True
+    except Exception as e:
+        st.error(f"❌ uploaded_at column creation error: {e}")
+        return False
+
+ensure_books_uploaded_at_column()
+
 # @st.cache_data caches the result server-side. Call load_submitted_reports_from_db.clear()
 # after any INSERT/UPDATE to this table so the next read picks up fresh data.
 @st.cache_data
@@ -1713,6 +1733,8 @@ elif current == "Excel அப்லோடு":
             else:
                 up_df = pd.read_excel(uploaded_file)
             st.success(f"✅ கோப்பு வெற்றிகரமாகப் பெறப்பட்டது! ({len(up_df)} வரிசைகள் கண்டறியப்பட்டன)")
+            if len(up_df) > 50:
+                st.caption(f"ℹ️ கீழே preview-ல் முதல் 50 வரிசைகள் மட்டுமே காட்டப்படுகின்றன — ஆனால் Save செய்யும்போது **அனைத்து {len(up_df)} வரிசைகளும்** சேமிக்கப்படும்.")
             st.dataframe(up_df.head(50), use_container_width=True)
 
             up_df.columns = [str(c).strip().lower() for c in up_df.columns]
@@ -1726,23 +1748,53 @@ elif current == "Excel அப்லோடு":
                     try:
                         conn = psycopg2.connect(DB_URL)
                         cur = conn.cursor()
-                        cols = list(up_df.columns)
+                        # uploaded_at-ஐ இந்த upload batch-ன் timestamp-ஆக சேர்க்கிறோம் —
+                        # இதனால் இந்த batch-ஐ பின்னால் எளிதாக filter செய்து கண்டறியலாம்.
+                        cols = list(up_df.columns) + ["uploaded_at"]
                         col_names = ", ".join(cols)
-                        # Bulk insert (execute_values) instead of one round-trip per row —
-                        # far fewer network round-trips for large uploads.
+                        upload_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         from psycopg2.extras import execute_values
-                        rows = [tuple(r[c] for c in cols) for _, r in up_df.iterrows()]
+                        rows = [tuple(r[c] for c in up_df.columns) + (upload_ts,) for _, r in up_df.iterrows()]
                         execute_values(cur, f"INSERT INTO books ({col_names}) VALUES %s;", rows)
                         conn.commit()
                         cur.close()
                         conn.close()
                         load_neon_database.clear()
-                        st.success(f"✅ {len(up_df)} வரிசைகள் Neon Database-ல் சேமிக்கப்பட்டன!")
+                        st.success(f"✅ {len(up_df)} வரிசைகள் Neon Database-ல் சேமிக்கப்பட்டன! (Upload நேரம்: {upload_ts})")
                         st.rerun()
                     except Exception as e:
                         st.error(f"❌ Upload save error: {e}")
         except Exception as e:
             st.error(f"❌ கோப்பைப் படிக்க முடியவில்லை: {e}")
+
+    # ---------------- சமீபத்தில் ஏற்றப்பட்டவற்றைக் கண்டறிதல் ----------------
+    st.markdown("---")
+    st.markdown("### 🕒 சமீபத்தில் ஏற்றப்பட்ட நூல்களைக் கண்டறிதல்")
+    st.caption("இன்று முதல் மேலே சேர்க்கப்படும் ஒவ்வொரு upload-உம் தானாகவே தேதி-நேரத்துடன் பதிவாகும். கீழே அந்த தேதியைத் தேர்ந்தெடுத்து அன்று ஏற்றப்பட்டவை மட்டும் பார்க்கலாம்.")
+
+    recent_neon_df = load_neon_database()
+    if not recent_neon_df.empty and "uploaded_at" in recent_neon_df.columns:
+        tracked_df = recent_neon_df[recent_neon_df["uploaded_at"].notna()].copy()
+        if tracked_df.empty:
+            st.info("ℹ️ இதுவரை 'uploaded_at' தேதியுடன் எதுவும் பதிவாகவில்லை (இந்த fix போடும் முன் ஏற்றப்பட்ட பழைய நூல்களுக்கு இந்தத் தகவல் இல்லை).")
+        else:
+            tracked_df["uploaded_at"] = pd.to_datetime(tracked_df["uploaded_at"])
+            available_dates = sorted(tracked_df["uploaded_at"].dt.date.unique(), reverse=True)
+            sel_date = st.selectbox("📅 தேதியைத் தேர்ந்தெடுக்கவும்:", available_dates, key="recent_upload_date")
+            day_df = tracked_df[tracked_df["uploaded_at"].dt.date == sel_date].reset_index(drop=True)
+            st.markdown(f"**{sel_date} அன்று ஏற்றப்பட்ட நூல்கள்:** {len(day_df)}")
+            st.dataframe(day_df, use_container_width=True)
+            csv_recent = day_df.to_csv(index=False).encode('utf-8-sig')
+            st.download_button(
+                label="📥 இந்த batch-ஐ பதிவிறக்குக (CSV)",
+                data=csv_recent,
+                file_name=f"Newly_Uploaded_{sel_date}.csv",
+                mime="text/csv",
+                type="primary",
+                key="dl_recent_upload_csv"
+            )
+    else:
+        st.info("ℹ️ 'uploaded_at' நெடுவரிசை இன்னும் புதிதாக உருவாக்கப்பட்டுள்ளது — புதிதாக ஒரு Excel upload செய்த பிறகு இங்கு தெரியும்.")
 
 elif current == "பகுப்பு எண் புதுப்பி":
     st.subheader("🏷️ பகுப்பு எண் புதுப்பித்தல் மற்றும் திருத்துதல்")
