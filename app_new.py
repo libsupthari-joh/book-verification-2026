@@ -1233,7 +1233,7 @@ elif current == "அறிக்கைகள்":
             )
 
         with tab_pub_summary:
-            st.caption("ஒரு பதிப்பகத்திற்கு ஒரே ஒரு தொகுப்பு வரி — மொத்த தலைப்புகள் / பெற வேண்டியது / பெற்றது.")
+            st.caption("தேவையான அறிக்கை வகையைத் தேர்ந்தெடுக்கவும் — அதற்கேற்ப அட்டவணையும் பதிவிறக்க பட்டன்களும் கீழே வரும்.")
 
             full_report_df["Required Qty"] = pd.to_numeric(full_report_df["Required Qty"], errors="coerce").fillna(0)
             full_report_df["Received Qty"] = pd.to_numeric(full_report_df["Received Qty"], errors="coerce").fillna(0)
@@ -1254,90 +1254,87 @@ elif current == "அறிக்கைகள்":
 
             completed_pub_df = pub_summary_df[pub_summary_df["நிலை"] == "✅ முடிக்கப்பட்டது"].drop(columns=["நிலை"]).reset_index(drop=True)
             pending_pub_df = pub_summary_df[pub_summary_df["நிலை"] == "⏳ முடிக்கப்படவில்லை"].drop(columns=["நிலை"]).reset_index(drop=True)
+            all_pub_df = pub_summary_df.copy()
 
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                st.metric("🏢 மொத்த பதிப்பகங்கள்", len(pub_summary_df))
-            with c2:
-                st.metric("✅ முடிக்கப்பட்டவை", len(completed_pub_df))
-            with c3:
-                st.metric("⏳ முடிக்கப்படாதவை", len(pending_pub_df))
+            report_choice = st.selectbox(
+                "📑 அறிக்கை வகையைத் தேர்ந்தெடுக்கவும்:",
+                [
+                    "-- அறிக்கை வகையைத் தேர்ந்தெடுக்கவும் --",
+                    "1. மொத்த பதிப்பக தொகுப்பு (அனைத்தும், நிலையுடன்)",
+                    "2. இதுவரை முடிக்கப்பட்ட பதிப்பகங்கள்",
+                    "3. இன்னும் முடிக்கப்படாத பதிப்பகங்கள்",
+                ],
+                key="pub_summary_report_choice"
+            )
 
-            st.markdown("#### ✅ இதுவரை முடிக்கப்பட்ட பதிப்பகங்கள்")
-            st.dataframe(completed_pub_df, use_container_width=True, hide_index=True)
+            chosen_df, chosen_label = None, ""
+            if report_choice.startswith("1."):
+                chosen_df, chosen_label = all_pub_df, "All_Publishers_Summary"
+            elif report_choice.startswith("2."):
+                chosen_df, chosen_label = completed_pub_df, "Completed_Publishers"
+            elif report_choice.startswith("3."):
+                chosen_df, chosen_label = pending_pub_df, "Pending_Publishers"
 
-            st.markdown("#### ⏳ இன்னும் முடிக்கப்படாத பதிப்பகங்கள்")
-            st.dataframe(pending_pub_df, use_container_width=True, hide_index=True)
+            if chosen_df is not None:
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    st.metric("🏢 மொத்த பதிப்பகங்கள்", len(pub_summary_df))
+                with c2:
+                    st.metric("✅ முடிக்கப்பட்டவை", len(completed_pub_df))
+                with c3:
+                    st.metric("⏳ முடிக்கப்படாதவை", len(pending_pub_df))
 
-            # ---- Excel (இரண்டு sheets) ----
-            import io
-            excel_buf = io.BytesIO()
-            with pd.ExcelWriter(excel_buf, engine="openpyxl") as writer:
-                completed_pub_df.to_excel(writer, sheet_name="முடிக்கப்பட்டவை", index=False)
-                pending_pub_df.to_excel(writer, sheet_name="முடிக்கப்படாதவை", index=False)
-            excel_bytes = excel_buf.getvalue()
+                st.markdown(f"#### 📋 {report_choice}")
+                st.dataframe(chosen_df, use_container_width=True, hide_index=True)
 
-            col_xlsx, col_pdf_sum = st.columns(2)
-            with col_xlsx:
-                st.download_button(
-                    label="📥 Excel பதிவிறக்கம் (2 sheets)",
-                    data=excel_bytes,
-                    file_name=f"Publisher_Summary_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    type="primary",
-                    use_container_width=True,
-                    key="dl_pub_summary_xlsx"
-                )
-            with col_pdf_sum:
-                if st.button("📄 PDF உருவாக்கு", key="gen_pdf_pub_summary", use_container_width=True):
-                    if not TAMIL_FONT_PATH:
-                        st.error("❌ Tamil font கோப்பு கிடைக்கவில்லை.")
-                    else:
-                        from fpdf import FPDF
-                        pdf = FPDF(orientation="L", format="A4")
-                        pdf.add_page()
-                        pdf.add_font("Tamil", "", TAMIL_FONT_PATH)
-                        pdf.add_font("Tamil", "B", TAMIL_FONT_PATH)
-                        pdf.set_text_shaping(True)
+                import io
+                excel_buf = io.BytesIO()
+                with pd.ExcelWriter(excel_buf, engine="openpyxl") as writer:
+                    chosen_df.to_excel(writer, sheet_name="Report", index=False)
+                excel_bytes = excel_buf.getvalue()
 
-                        headers_ps = ["பதிப்பகம்", "மொத்த_தலைப்புகள்", "பெற_வேண்டியது", "பெற்றது", "மீதம்"]
-                        widths_ps = (110, 40, 35, 35, 35)
+                csv_bytes_ps = chosen_df.to_csv(index=False).encode('utf-8-sig')
 
-                        pdf.set_font("Tamil", "B", 13)
-                        pdf.cell(0, 10, "✅ இதுவரை முடிக்கப்பட்ட பதிப்பகங்கள்", new_x="LMARGIN", new_y="NEXT")
-                        pdf.set_font("Tamil", "", 9)
-                        with pdf.table(col_widths=widths_ps, text_align="LEFT") as table:
-                            row = table.row()
-                            for h in headers_ps:
-                                row.cell(h)
-                            for _, r in completed_pub_df.iterrows():
-                                row = table.row()
-                                for h in headers_ps:
-                                    row.cell(str(r.get(h, "")))
-
-                        pdf.add_page()
-                        pdf.set_font("Tamil", "B", 13)
-                        pdf.cell(0, 10, "⏳ இன்னும் முடிக்கப்படாத பதிப்பகங்கள்", new_x="LMARGIN", new_y="NEXT")
-                        pdf.set_font("Tamil", "", 9)
-                        with pdf.table(col_widths=widths_ps, text_align="LEFT") as table:
-                            row = table.row()
-                            for h in headers_ps:
-                                row.cell(h)
-                            for _, r in pending_pub_df.iterrows():
-                                row = table.row()
-                                for h in headers_ps:
-                                    row.cell(str(r.get(h, "")))
-
-                        pdf_bytes_ps = bytes(pdf.output())
-                        st.download_button(
-                            label="📥 PDF பதிவிறக்கம்",
-                            data=pdf_bytes_ps,
-                            file_name=f"Publisher_Summary_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
-                            mime="application/pdf",
-                            type="primary",
-                            use_container_width=True,
-                            key="dl_pub_summary_pdf"
-                        )
+                col_xlsx, col_csv_ps, col_pdf_sum = st.columns(3)
+                with col_xlsx:
+                    st.download_button(
+                        label="📥 Excel",
+                        data=excel_bytes,
+                        file_name=f"{chosen_label}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        type="primary",
+                        use_container_width=True,
+                        key="dl_pub_summary_xlsx"
+                    )
+                with col_csv_ps:
+                    st.download_button(
+                        label="📥 CSV",
+                        data=csv_bytes_ps,
+                        file_name=f"{chosen_label}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                        key="dl_pub_summary_csv"
+                    )
+                with col_pdf_sum:
+                    if st.button("📄 PDF உருவாக்கு", key="gen_pdf_pub_summary", use_container_width=True):
+                        if not TAMIL_FONT_PATH:
+                            st.error("❌ Tamil font கோப்பு கிடைக்கவில்லை.")
+                        else:
+                            headers_ps = list(chosen_df.columns)
+                            widths_ps = tuple([max(30, 220 // len(headers_ps))] * len(headers_ps))
+                            pdf_bytes_ps = generate_tamil_pdf_table(chosen_df, headers_ps, widths_ps, report_choice)
+                            if pdf_bytes_ps is None:
+                                st.error("❌ Tamil font கோப்பு கிடைக்கவில்லை.")
+                            else:
+                                st.download_button(
+                                    label="📥 PDF பதிவிறக்கம்",
+                                    data=pdf_bytes_ps,
+                                    file_name=f"{chosen_label}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                                    mime="application/pdf",
+                                    type="primary",
+                                    use_container_width=True,
+                                    key="dl_pub_summary_pdf"
+                                )
 
         with tab_library:
             neon_df = load_neon_database()
