@@ -1842,11 +1842,49 @@ elif current == "Excel அப்லோடு":
             st.dataframe(up_df.head(50), use_container_width=True)
 
             up_df.columns = [str(c).strip().lower() for c in up_df.columns]
-            books_columns = set(load_neon_database().columns) if not load_neon_database().empty else set()
 
-            if books_columns and not books_columns.issuperset(up_df.columns):
-                missing = set(up_df.columns) - books_columns
-                st.warning(f"⚠️ கோப்பில் உள்ள சில நெடுவரிசைகள் 'books' அட்டவணையில் இல்லை: {', '.join(missing)}. அப்லோடு செய்யும் முன் நெடுவரிசைப் பெயர்களை உறுதி செய்யவும்.")
+            # --- Duplicate header columns (Excel-ல் ஒரே பெயர் இரண்டு முறை இருந்தால்
+            # pandas தானாக "xxx.1", "xxx.2" எனப் பெயரிடும் — இவை எப்போதும் books
+            # அட்டவணையில் பொருந்தாது என்பதால், இங்கேயே கண்டறிந்து நீக்கி எச்சரிக்கை காட்டுகிறோம். ---
+            import re as _re
+            dup_pattern = _re.compile(r"^(.*)\.\d+$")
+            dup_cols = [c for c in up_df.columns if dup_pattern.match(c)]
+            if dup_cols:
+                st.warning(
+                    "⚠️ கோப்பில் ஒரே நெடுவரிசைப் பெயர் இரண்டு முறை (duplicate header) இருப்பதால், "
+                    f"பின்வரும் கூடுதல் நகல் நெடுவரிசைகள் தானாக நீக்கப்பட்டன: {', '.join(dup_cols)}. "
+                    "மூலக் கோப்பில் தலைப்புகள் (headers) சரியாக உள்ளதா எனச் சரிபார்க்கவும்."
+                )
+                up_df = up_df.drop(columns=dup_cols)
+
+            # --- நெடுவரிசைப் பெயர் ஒப்பீடு: இடைவெளி (space) / அடிக்கோடு (_) வேறுபாடு
+            # இருந்தாலும் தானாகப் பொருத்தும் (எ.கா. "state accession number" ==
+            # "state_accession_number"). இதனால் சிறு பெயர் வேறுபாடுகளுக்காக Save பட்டன்
+            # மறைந்துவிடாது. ---
+            def _norm_col(c):
+                return _re.sub(r"[\s_]+", "_", str(c).strip().lower())
+
+            books_columns_raw = set(load_neon_database().columns) if not load_neon_database().empty else set()
+            books_norm_map = {_norm_col(c): c for c in books_columns_raw}  # normalized -> actual books column name
+
+            rename_map = {}
+            still_missing = []
+            for c in up_df.columns:
+                nc = _norm_col(c)
+                if nc in books_norm_map:
+                    actual = books_norm_map[nc]
+                    if actual != c:
+                        rename_map[c] = actual
+                else:
+                    still_missing.append(c)
+
+            if rename_map:
+                up_df = up_df.rename(columns=rename_map)
+
+            if books_columns_raw and still_missing:
+                st.warning(f"⚠️ கோப்பில் உள்ள சில நெடுவரிசைகள் 'books' அட்டவணையில் இல்லை: {', '.join(still_missing)}. அப்லோடு செய்யும் முன் நெடுவரிசைப் பெயர்களை உறுதி செய்யவும்.")
+                with st.expander("📋 'books' அட்டவணையில் உள்ள சரியான நெடுவரிசைப் பெயர்களைப் பார்க்க"):
+                    st.write(sorted(books_columns_raw))
             else:
                 if st.button("💾 இந்தத் தரவை Neon Database-ல் சேமி", type="primary", key="excel_upload_save_btn"):
                     try:
