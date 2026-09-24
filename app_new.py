@@ -1910,9 +1910,66 @@ elif current == "Excel அப்லோடு":
                 up_df = up_df.rename(columns=rename_map)
 
             if books_columns_raw and still_missing:
-                st.warning(f"⚠️ கோப்பில் உள்ள சில நெடுவரிசைகள் 'books' அட்டவணையில் இல்லை: {', '.join(still_missing)}. அப்லோடு செய்யும் முன் நெடுவரிசைப் பெயர்களை உறுதி செய்யவும்.")
+                st.warning(f"⚠️ கோப்பில் உள்ள சில நெடுவரிசைகள் 'books' அட்டவணையில் தானாகப் பொருந்தவில்லை: {', '.join(still_missing)}.")
                 with st.expander("📋 'books' அட்டவணையில் உள்ள சரியான நெடுவரிசைப் பெயர்களைப் பார்க்க"):
                     st.write(sorted(books_columns_raw))
+
+                st.markdown("#### 🔗 பொருந்தாத நெடுவரிசைகளை கைமுறையாகப் பொருத்துங்கள்")
+                st.caption("ஒவ்வொரு நெடுவரிசைக்கும், அது 'books' அட்டவணையின் எந்தச் சரியான நெடுவரிசையைக் குறிக்கிறது எனத் தேர்ந்தெடுக்கவும். தேவையில்லாத நெடுவரிசையை 'புறக்கணி' என விடவும்.")
+
+                import difflib as _difflib
+                IGNORE_LABEL = "-- 🚫 புறக்கணி (இந்த நெடுவரிசையை Upload செய்ய வேண்டாம்) --"
+                manual_map = {}
+                for missing_col in still_missing:
+                    suggestion_list = _difflib.get_close_matches(missing_col, sorted(books_columns_raw), n=1, cutoff=0.5)
+                    options = [IGNORE_LABEL] + sorted(books_columns_raw)
+                    default_idx = options.index(suggestion_list[0]) if suggestion_list else 0
+                    chosen = st.selectbox(
+                        f"📄 கோப்பு நெடுவரிசை: **{missing_col}** → ",
+                        options,
+                        index=default_idx,
+                        key=f"manual_map_{missing_col}"
+                    )
+                    manual_map[missing_col] = chosen
+
+                chosen_targets = [v for v in manual_map.values() if v != IGNORE_LABEL]
+                duplicate_targets = {t for t in chosen_targets if chosen_targets.count(t) > 1}
+
+                if duplicate_targets:
+                    st.error(f"❌ ஒன்றுக்கும் மேற்பட்ட நெடுவரிசைகள் ஒரே இலக்குக்கு (target) பொருத்தப்பட்டுள்ளன: {', '.join(duplicate_targets)}. ஒவ்வொரு நெடுவரிசையும் தனித்த இலக்கை மட்டும் கொள்ள வேண்டும் — மேலே சரிசெய்யவும்.")
+                else:
+                    final_rename = {c: t for c, t in manual_map.items() if t != IGNORE_LABEL}
+                    final_ignore = [c for c, t in manual_map.items() if t == IGNORE_LABEL]
+
+                    mapped_up_df = up_df.drop(columns=final_ignore) if final_ignore else up_df.copy()
+                    if final_rename:
+                        mapped_up_df = mapped_up_df.rename(columns=final_rename)
+
+                    if final_rename or final_ignore:
+                        st.success(
+                            "✅ பொருத்தம் தயார்: "
+                            + (f"பொருத்தப்பட்டவை → {final_rename}; " if final_rename else "")
+                            + (f"புறக்கணிக்கப்பட்டவை → {final_ignore}" if final_ignore else "")
+                        )
+
+                    if st.button("💾 இந்தத் தரவை Neon Database-ல் சேமி", type="primary", key="excel_upload_save_btn_mapped"):
+                        try:
+                            conn = psycopg2.connect(DB_URL)
+                            cur = conn.cursor()
+                            cols = list(mapped_up_df.columns) + ["uploaded_at"]
+                            col_names = ", ".join(cols)
+                            upload_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            from psycopg2.extras import execute_values
+                            rows = [tuple(r[c] for c in mapped_up_df.columns) + (upload_ts,) for _, r in mapped_up_df.iterrows()]
+                            execute_values(cur, f"INSERT INTO books ({col_names}) VALUES %s;", rows)
+                            conn.commit()
+                            cur.close()
+                            conn.close()
+                            load_neon_database.clear()
+                            st.success(f"✅ {len(mapped_up_df)} வரிசைகள் Neon Database-ல் சேமிக்கப்பட்டன! (Upload நேரம்: {upload_ts})")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Upload save error: {e}")
             else:
                 if st.button("💾 இந்தத் தரவை Neon Database-ல் சேமி", type="primary", key="excel_upload_save_btn"):
                     try:
