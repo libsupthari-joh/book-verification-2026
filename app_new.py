@@ -14,6 +14,7 @@ st.set_page_config(
 )
 
 DB_URL = "postgresql://neondb_owner:npg_y1mObIUlc2ox@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@400;600;700;800&display=swap');
@@ -1908,6 +1909,21 @@ elif current == "Excel அப்லோடு":
 
             if rename_map:
                 up_df = up_df.rename(columns=rename_map)
+
+            # --- கோப்பில் ஏற்கனவே "id" / "uploaded_at" எனும் நெடுவரிசைகள் இருந்தால்,
+            # அவை system-ஆல் தானாக நிர்வகிக்கப்படும் நெடுவரிசைகள் என்பதால் (id = auto
+            # serial key, uploaded_at = upload timestamp), அவற்றை கைமுறையாகப் பொருத்தச்
+            # சொல்லாமல் இங்கேயே தானாக நீக்கி விடுகிறோம். ---
+            auto_dropped = [c for c in still_missing if _norm_col(c) in RESERVED_COLS]
+            if auto_dropped:
+                up_df = up_df.drop(columns=auto_dropped)
+                still_missing = [c for c in still_missing if c not in auto_dropped]
+                st.info(
+                    "ℹ️ கோப்பில் உள்ள "
+                    f"**{', '.join(auto_dropped)}** நெடுவரிசை(கள்) தானாகப் புறக்கணிக்கப்பட்டன "
+                    "(இவை Database-ஆல் தானாக நிர்வகிக்கப்படும் நெடுவரிசைகள் — 'id' தானாக உருவாகும் "
+                    "எண்; 'uploaded_at' இந்த upload-ன் நேரமாக தானாகச் சேர்க்கப்படும்)."
+                )
 
             if books_columns_raw and still_missing:
                 st.warning(f"⚠️ கோப்பில் உள்ள சில நெடுவரிசைகள் 'books' அட்டவணையில் தானாகப் பொருந்தவில்லை: {', '.join(still_missing)}.")
