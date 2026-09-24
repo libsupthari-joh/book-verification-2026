@@ -14,7 +14,6 @@ st.set_page_config(
 )
 
 DB_URL = "postgresql://neondb_owner:npg_y1mObIUlc2ox@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
-
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@400;600;700;800&display=swap');
@@ -1892,7 +1891,8 @@ elif current == "Excel அப்லோடு":
             def _norm_col(c):
                 return _re.sub(r"[\s_]+", "_", str(c).strip().lower())
 
-            books_columns_raw = set(load_neon_database().columns) if not load_neon_database().empty else set()
+            RESERVED_COLS = {"id", "uploaded_at"}  # இவை system-மேலாண்மை நெடுவரிசைகள் — Excel-ல் இருந்து பொருத்தக் கூடாது
+            books_columns_raw = (set(load_neon_database().columns) - RESERVED_COLS) if not load_neon_database().empty else set()
             books_norm_map = {_norm_col(c): c for c in books_columns_raw}  # normalized -> actual books column name
 
             rename_map = {}
@@ -1956,11 +1956,12 @@ elif current == "Excel அப்லோடு":
                         try:
                             conn = psycopg2.connect(DB_URL)
                             cur = conn.cursor()
-                            cols = list(mapped_up_df.columns) + ["uploaded_at"]
+                            data_cols = [c for c in mapped_up_df.columns if c != "uploaded_at"]  # duplicate uploaded_at தவிர்க்க
+                            cols = data_cols + ["uploaded_at"]
                             col_names = ", ".join(cols)
                             upload_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             from psycopg2.extras import execute_values
-                            rows = [tuple(r[c] for c in mapped_up_df.columns) + (upload_ts,) for _, r in mapped_up_df.iterrows()]
+                            rows = [tuple(r[c] for c in data_cols) + (upload_ts,) for _, r in mapped_up_df.iterrows()]
                             execute_values(cur, f"INSERT INTO books ({col_names}) VALUES %s;", rows)
                             conn.commit()
                             cur.close()
@@ -1977,11 +1978,12 @@ elif current == "Excel அப்லோடு":
                         cur = conn.cursor()
                         # uploaded_at-ஐ இந்த upload batch-ன் timestamp-ஆக சேர்க்கிறோம் —
                         # இதனால் இந்த batch-ஐ பின்னால் எளிதாக filter செய்து கண்டறியலாம்.
-                        cols = list(up_df.columns) + ["uploaded_at"]
+                        data_cols = [c for c in up_df.columns if c != "uploaded_at"]  # duplicate uploaded_at தவிர்க்க
+                        cols = data_cols + ["uploaded_at"]
                         col_names = ", ".join(cols)
                         upload_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         from psycopg2.extras import execute_values
-                        rows = [tuple(r[c] for c in up_df.columns) + (upload_ts,) for _, r in up_df.iterrows()]
+                        rows = [tuple(r[c] for c in data_cols) + (upload_ts,) for _, r in up_df.iterrows()]
                         execute_values(cur, f"INSERT INTO books ({col_names}) VALUES %s;", rows)
                         conn.commit()
                         cur.close()
