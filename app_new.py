@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-DB_URL = "postgresql://neondb_owner:npg_y1mObIUlc2ox@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DB_URL = "postgresql://neondb_owner:npg_y1mObIUlc2ox@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require "
 
 st.markdown("""
 <style>
@@ -602,7 +602,8 @@ ALL_MENU_OPTIONS = [
     ("🔀", "பிரிக்க"), ("📜", "நூலகர் சான்று"), ("📊", "அறிக்கைகள்"), ("⚠️", "கவனிக்க"),
     ("🔢", "பதிவெண் மாற்ற"), ("🗂️", "Master Data"), ("❌", "தவறான பதிவு நீக்கம்"),
     ("🔑", "கடவுச்சொல் மாற்ற"), ("📥", "Excel பதிவிறக்கம்"), ("👥", "நூலகர் பார்வை ஆண்டு"),
-    ("📂", "Excel அப்லோடு"), ("🏷️", "பகுப்பு எண் புதுப்பி"), ("🔗", "நூலக பொருத்தம்")
+    ("📂", "Excel அப்லோடு"), ("🏷️", "பகுப்பு எண் புதுப்பி"), ("🔗", "நூலக பொருத்தம்"),
+    ("🔄", "Books Master புதுப்பிப்பு")
 ]
 
 # பங்கு அடிப்படையில் மெனு கட்டுப்பாடு:
@@ -2115,6 +2116,122 @@ elif current == "Excel அப்லோடு":
                         type="primary",
                         key="dl_identified_batch_csv"
                     )
+        except Exception as e:
+            st.error(f"❌ கோப்பைப் படிக்க முடியவில்லை: {e}")
+
+elif current == "Books Master புதுப்பிப்பு":
+    st.subheader("🔄 Books Master Data முழுமையாக புதுப்பித்தல் (Replace with Revised Data)")
+    st.warning(
+        "⚠️ **மிக முக்கியம்:** இது `books` table-ல் உள்ள **அனைத்து நூல்களையும் நீக்கிவிட்டு**, "
+        "நீங்கள் இங்கு தரும் திருத்தப்பட்ட கோப்பின் தரவை மட்டும் புதிதாக ஏற்றும். "
+        "'பிரிக்க' (submitted_reports) மற்றும் 'நூலகர் சான்று' (dispatch_status) தரவு "
+        "**தனி tables-ல் உள்ளதால் இதனால் நேரடியாக பாதிக்கப்படாது** — ஆனால் நூலக/பதிப்பக "
+        "பெயர்கள் மாறினால் அந்த பணிகள் புதிய தரவுடன் பொருந்தாமல் போகக்கூடும். "
+        "தொடர்வதற்கு முன் கீழே உள்ள ஒப்பீட்டை கவனமாகப் படிக்கவும்."
+    )
+
+    ref_file2 = st.file_uploader("📤 திருத்தப்பட்ட Master Excel/CSV கோப்பை upload செய்யவும்", type=["xlsx", "csv"], key="books_replace_file")
+
+    # Portal/Vendor கோப்பின் column பெயர்களை books table schema-க்கு மாற்றும் வரைபடம்.
+    COLUMN_MAP = {
+        "book id": "book_id", "title": "title", "author name": "author", "isbn": "isbn",
+        "publication name": "publication_name", "vendor name": "vendor_name",
+        "library type": "library_type", "librarianid": "librarian_id",
+        "library name": "library_name", "library tam name": "library_name_tm",
+        "year": "year_of_publication", "original price": "price",
+        "acccepted price": "accepted_price", "accepted price": "accepted_price",
+        "state accession number": "state_accession_number",
+        "central accession number": "central_number",
+        "dcl / ftb / bl / vl accession number": "branch_number",
+    }
+
+    if ref_file2 is not None:
+        try:
+            if ref_file2.name.lower().endswith(".csv"):
+                new_master_df = pd.read_csv(ref_file2)
+            else:
+                new_master_df = pd.read_excel(ref_file2)
+
+            new_master_df.columns = [str(c).strip().lower() for c in new_master_df.columns]
+            rename_map = {c: COLUMN_MAP[c] for c in new_master_df.columns if c in COLUMN_MAP}
+            mapped_df = new_master_df.rename(columns=rename_map)[list(rename_map.values())].copy()
+
+            # ISBN column-ஐ TEXT-ஆக வைத்திருக்க வேண்டும் (13-இலக்க எண்கள் INTEGER வரம்பை
+            # தாண்டும் என்பதால்) — மேலே 'ensure_isbn_text_column' ஏற்கனவே books table-ஐ
+            # சரிசெய்திருக்கும், இங்கு upload செய்யும் தரவையும் அதே வகைக்கு பொருத்துகிறோம்.
+            if "isbn" in mapped_df.columns:
+                mapped_df["isbn"] = mapped_df["isbn"].astype(str).str.strip()
+
+            # நூலக பெயர்களை uppercase ஆக்கி case-duplicate பிரச்சனையை (Agaram vs AGARAM) நீக்குகிறோம்.
+            if "library_name" in mapped_df.columns:
+                mapped_df["library_name"] = mapped_df["library_name"].astype(str).str.strip().str.upper()
+
+            unmapped = [c for c in new_master_df.columns if c not in COLUMN_MAP]
+
+            old_master_df = load_neon_database()
+
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.metric("📚 தற்போதைய books வரிசைகள்", len(old_master_df))
+            with c2:
+                st.metric("📥 புதிய கோப்பில் வரிசைகள்", len(mapped_df))
+            with c3:
+                st.metric("Δ மாற்றம்", len(mapped_df) - len(old_master_df))
+
+            if unmapped:
+                st.caption(f"ℹ️ இந்தக் கோப்பின் நெடுவரிசைகள் books table-க்கு map ஆகாததால் புறக்கணிக்கப்படும்: {', '.join(unmapped)}")
+
+            st.markdown("#### 👀 Preview (முதல் 50 வரிசைகள்)")
+            st.dataframe(mapped_df.head(50), use_container_width=True)
+
+            if "library_name" in old_master_df.columns and "library_name" in mapped_df.columns:
+                old_libs_n = old_master_df["library_name"].dropna().astype(str).str.strip().str.upper().nunique()
+                new_libs_n = mapped_df["library_name"].dropna().nunique()
+                st.caption(f"🏛️ நூலகங்கள்: பழையது (uppercase-ஆக்கினால்) {old_libs_n} | புதியது {new_libs_n}")
+
+            st.markdown("---")
+            st.markdown("#### ✅ உறுதிப்படுத்தல்")
+            confirm1 = st.checkbox("நான் இந்த மாற்றத்தை நன்கு புரிந்துகொண்டு தொடர விரும்புகிறேன்.", key="confirm_replace_1")
+            confirm2 = st.checkbox("'பிரிக்க'/'நூலகர் சான்று' பணிகள் பாதிக்கப்படலாம் என்பதை அறிவேன்.", key="confirm_replace_2")
+
+            if confirm1 and confirm2:
+                if st.button("🔄 books Table-ஐ முழுமையாக மாற்று", type="primary"):
+                    conn = None
+                    try:
+                        conn = psycopg2.connect(DB_URL)
+                        cur = conn.cursor()
+                        upload_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                        # Transaction: இரண்டு படிகளும் (delete + insert) ஒன்றாக வெற்றி பெற வேண்டும்,
+                        # இல்லையெனில் முழுவதுமாக rollback ஆகும் — books table ஒருபோதும் பாதி-நிலையில் இருக்காது.
+                        cur.execute("DELETE FROM books;")
+
+                        cols = list(mapped_df.columns) + ["uploaded_at"]
+                        col_names = ", ".join(cols)
+                        from psycopg2.extras import execute_values
+                        rows = [tuple(r[c] for c in mapped_df.columns) + (upload_ts,) for _, r in mapped_df.iterrows()]
+                        execute_values(cur, f"INSERT INTO books ({col_names}) VALUES %s;", rows)
+
+                        # dispatch_status-ல் ஏற்கனவே சேமிக்கப்பட்ட நூலக பெயர்களையும் uppercase ஆக்கி,
+                        # புதிய தரவுடன் தொடர்ந்து பொருந்தும்படி செய்கிறோம்.
+                        cur.execute("UPDATE dispatch_status SET library = UPPER(TRIM(library)) WHERE library IS NOT NULL;")
+
+                        conn.commit()
+                        cur.close()
+                        conn.close()
+                        load_neon_database.clear()
+                        load_dispatch_status_keys.clear()
+                        get_dispatch_status_count.clear()
+                        load_dispatch_status_full.clear()
+                        st.success(f"✅ books table முழுமையாக புதுப்பிக்கப்பட்டது! ({len(mapped_df)} புதிய வரிசைகள், {upload_ts})")
+                        st.balloons()
+                    except Exception as e:
+                        if conn:
+                            conn.rollback()
+                            conn.close()
+                        st.error(f"❌ Migration தோல்வியடைந்தது, எதுவும் மாற்றப்படவில்லை (rollback செய்யப்பட்டது): {e}")
+            else:
+                st.info("ℹ️ மேலே உள்ள இரண்டு checkbox-களையும் தேர்ந்தெடுத்தால் மட்டுமே 'மாற்று' பட்டன் தெரியும்.")
         except Exception as e:
             st.error(f"❌ கோப்பைப் படிக்க முடியவில்லை: {e}")
 
