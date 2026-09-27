@@ -721,9 +721,60 @@ def generate_tamil_pdf_table(df, headers, col_widths, report_title, orientation=
 
     return bytes(pdf.output())
 
-total_books_in_db = len(load_neon_database())
+neon_df_ticker = load_neon_database()
+total_books_in_db = len(neon_df_ticker)
+
+# --- தமிழ் / ஆங்கிலம் breakdown-க்கான helper மற்றும் lookup-கள் ---
+# submitted_reports, dispatch_status ஆகிய table-களில் 'language' column
+# இல்லை என்பதால், books table-ல் இருந்து ISBN/Book Id வழியாக language-ஐ
+# கண்டுபிடிக்கிறோம்.
+_lang_col_ticker = next((c for c in neon_df_ticker.columns if c == 'language'), None)
+_book_id_col_ticker = next((c for c in neon_df_ticker.columns if c == 'book_id'), None)
+_isbn_col_ticker = next((c for c in neon_df_ticker.columns if c == 'isbn'), None)
+
+def _norm_lang(series):
+    return series.astype(str).str.strip().str.lower()
+
+def _lang_counts_from_df(df, lang_col):
+    """DataFrame ஒன்றில் Tamil/English row எண்ணிக்கையைத் தரும்."""
+    if lang_col is None or df.empty:
+        return 0, 0
+    counts = _norm_lang(df[lang_col]).value_counts()
+    return int(counts.get('tamil', 0)), int(counts.get('english', 0))
+
+def _build_lookup(df, key_col, lang_col):
+    """key_col மதிப்பு → language (lowercase) அகராதியை உருவாக்கும்."""
+    if key_col is None or lang_col is None or df.empty:
+        return {}
+    tmp = df[[key_col, lang_col]].dropna(subset=[key_col]).drop_duplicates(subset=[key_col])
+    return dict(zip(tmp[key_col].astype(str).str.strip(), _norm_lang(tmp[lang_col])))
+
+total_books_ta, total_books_en = _lang_counts_from_df(neon_df_ticker, _lang_col_ticker)
+_isbn_to_lang = _build_lookup(neon_df_ticker, _isbn_col_ticker, _lang_col_ticker)
+_book_id_to_lang = _build_lookup(neon_df_ticker, _book_id_col_ticker, _lang_col_ticker)
+
 total_submitted_count = sum([int(item.get("Received Qty", 0)) for item in st.session_state['submitted_reports']])
+total_submitted_ta = sum(
+    int(item.get("Received Qty", 0)) for item in st.session_state['submitted_reports']
+    if _isbn_to_lang.get(str(item.get("ISBN", "")).strip()) == 'tamil'
+)
+total_submitted_en = sum(
+    int(item.get("Received Qty", 0)) for item in st.session_state['submitted_reports']
+    if _isbn_to_lang.get(str(item.get("ISBN", "")).strip()) == 'english'
+)
+
 total_dispatched_count = get_dispatch_status_count()
+_dispatch_df_ticker = load_dispatch_status_full()
+if not _dispatch_df_ticker.empty and _book_id_to_lang:
+    _dispatch_langs = _dispatch_df_ticker["Book Id"].astype(str).str.strip().map(_book_id_to_lang)
+    total_dispatched_ta = int((_dispatch_langs == 'tamil').sum())
+    total_dispatched_en = int((_dispatch_langs == 'english').sum())
+else:
+    total_dispatched_ta = total_dispatched_en = 0
+
+remaining_ta = max(total_books_ta - total_submitted_ta, 0)
+remaining_en = max(total_books_en - total_submitted_en, 0)
+
 today_str = datetime.now().strftime("%d/%m/%Y")
 
 st.markdown(f"""
@@ -731,11 +782,11 @@ st.markdown(f"""
     <div class="ticker-badge">🔴 Live News</div>
     <div style="overflow: hidden; width: 100%;">
         <div class="marquee-text">
-            📚 பெறப்பட்ட நூல்கள் : <b>{total_books_in_db:,}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-            ✅ பிரிக்கப்பட்டது : <b>{total_submitted_count}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-            ⏳ மீதம் பிரிக்க வேண்டியது : <b>{total_books_in_db - total_submitted_count}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-            📤 அனுப்பப்பட்டது : <b>{total_dispatched_count}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-            🗓️ இன்று ({today_str}) பிரிக்கப்பட்டது : <b>{total_submitted_count}</b>
+            📚 பெறப்பட்ட நூல்கள் : <b>{total_books_in_db:,}</b> <span style="font-size:12px;">(தமிழ்: <b>{total_books_ta:,}</b> / ஆங்கிலம்: <b>{total_books_en:,}</b>)</span> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+            ✅ பிரிக்கப்பட்டது : <b>{total_submitted_count}</b> <span style="font-size:12px;">(தமிழ்: <b>{total_submitted_ta}</b> / ஆங்கிலம்: <b>{total_submitted_en}</b>)</span> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+            ⏳ மீதம் பிரிக்க வேண்டியது : <b>{total_books_in_db - total_submitted_count}</b> <span style="font-size:12px;">(தமிழ்: <b>{remaining_ta}</b> / ஆங்கிலம்: <b>{remaining_en}</b>)</span> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+            📤 அனுப்பப்பட்டது : <b>{total_dispatched_count}</b> <span style="font-size:12px;">(தமிழ்: <b>{total_dispatched_ta}</b> / ஆங்கிலம்: <b>{total_dispatched_en}</b>)</span> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+            🗓️ இன்று ({today_str}) பிரிக்கப்பட்டது : <b>{total_submitted_count}</b> <span style="font-size:12px;">(தமிழ்: <b>{total_submitted_ta}</b> / ஆங்கிலம்: <b>{total_submitted_en}</b>)</span>
         </div>
     </div>
 </div>
@@ -789,16 +840,45 @@ elif current == "பிரிக்க":
             available_filtered_df = pub_filtered_df[~pub_filtered_df[title_col].isin(excluded_titles)]
             all_titles = sorted(available_filtered_df[title_col].dropna().unique().tolist())
 
+            # --- தமிழ் / ஆங்கிலம் breakdown ---
+            _lang_col_pub = next((c for c in pub_filtered_df.columns if c == 'language'), None)
+
+            def _norm_lang_series(series):
+                return series.astype(str).str.strip().str.lower()
+
+            if _lang_col_pub:
+                _title_lang_map = (
+                    pub_filtered_df[[title_col, _lang_col_pub]]
+                    .dropna(subset=[title_col])
+                    .drop_duplicates(subset=[title_col])
+                    .assign(**{_lang_col_pub: lambda d: _norm_lang_series(d[_lang_col_pub])})
+                    .set_index(title_col)[_lang_col_pub]
+                    .to_dict()
+                )
+                _book_lang_counts = _norm_lang_series(pub_filtered_df[_lang_col_pub]).value_counts()
+                books_ta, books_en = int(_book_lang_counts.get('tamil', 0)), int(_book_lang_counts.get('english', 0))
+
+                def _split_titles(title_list):
+                    ta = sum(1 for t in title_list if _title_lang_map.get(t) == 'tamil')
+                    en = sum(1 for t in title_list if _title_lang_map.get(t) == 'english')
+                    return ta, en
+
+                titles_ta, titles_en = _split_titles(pub_filtered_df[title_col].dropna().unique().tolist())
+                submitted_ta, submitted_en = _split_titles(submitted_titles)
+                remaining_pub_ta, remaining_pub_en = _split_titles(all_titles)
+            else:
+                titles_ta = titles_en = books_ta = books_en = submitted_ta = submitted_en = remaining_pub_ta = remaining_pub_en = 0
+
             st.markdown(f"""
             <div style="background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1.5px solid #34d399; padding: 14px 18px; border-radius: 10px; margin: 10px 0 15px 0;">
                 <div style="font-size: 15px; font-weight: 800; color: #064e3b; margin-bottom: 8px;">
                     🏢 பதிப்பகம்: {selected_publisher} — சுருக்க விவரம்
                 </div>
                 <div style="display: flex; flex-wrap: wrap; gap: 20px; font-size: 14px; color: #065f46; font-weight: 600;">
-                    <div>📚 மொத்த தலைப்புகள்: <b>{total_pub_titles_count}</b></div>
-                    <div>📦 மொத்த நூல்கள்: <b>{total_pub_books_count}</b></div>
-                    <div>✅ சமர்ப்பிக்கப்பட்டது: <b>{len(submitted_titles)}</b></div>
-                    <div>⏳ மீதம் உள்ளவை: <b>{len(all_titles)}</b></div>
+                    <div>📚 மொத்த தலைப்புகள்: <b>{total_pub_titles_count}</b> <span style="font-size:12px;">(தமிழ்: <b>{titles_ta}</b> / ஆங்கிலம்: <b>{titles_en}</b>)</span></div>
+                    <div>📦 மொத்த நூல்கள்: <b>{total_pub_books_count}</b> <span style="font-size:12px;">(தமிழ்: <b>{books_ta}</b> / ஆங்கிலம்: <b>{books_en}</b>)</span></div>
+                    <div>✅ சமர்ப்பிக்கப்பட்டது: <b>{len(submitted_titles)}</b> <span style="font-size:12px;">(தமிழ்: <b>{submitted_ta}</b> / ஆங்கிலம்: <b>{submitted_en}</b>)</span></div>
+                    <div>⏳ மீதம் உள்ளவை: <b>{len(all_titles)}</b> <span style="font-size:12px;">(தமிழ்: <b>{remaining_pub_ta}</b> / ஆங்கிலம்: <b>{remaining_pub_en}</b>)</span></div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
