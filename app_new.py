@@ -645,6 +645,67 @@ def load_neon_database():
         st.error(f"❌ டேட்டாபேஸ் இணைப்பில் பிழை: {e}")
     return pd.DataFrame()
 
+# ----------------------------------------------------------------------------
+# Excel Upload செய்யும்போது, ஒரே நூலகத்திற்கு (library_name) ஏற்கனவே Neon-ல்
+# சேமிக்கப்பட்ட அதே புத்தகம் இரண்டாம் முறை சேராமல் தடுக்கும் Helper.
+# விதி: library_name ஒப்பீடு எப்போதும் UPPER/lower வேறுபாடு + முன்/பின் space
+# தவிர்த்து (case-insensitive, trim செய்து) நடக்கும். புத்தகத்தை அடையாளம் காண
+# ISBN இருந்தால் அதைப் பயன்படுத்தும்; ISBN இல்லையெனில் Title + Author இணைந்து
+# பயன்படுத்தப்படும். இதே நகல் தடுப்பு, ஒரே கோப்பினுள் (இதே Excel-ல்) இரண்டு
+# முறை வரும் வரிசைகளுக்கும் பொருந்தும்.
+# ----------------------------------------------------------------------------
+def dedupe_against_existing_books(df, conn):
+    if "library_name" not in df.columns:
+        return df, 0  # library_name இல்லையெனில் ஒப்பிட முடியாது — எதையும் தடுக்க வேண்டாம்
+
+    has_isbn = "isbn" in df.columns
+    has_title = "title" in df.columns
+    has_author = "author" in df.columns
+    if not has_isbn and not (has_title and has_author):
+        return df, 0  # ஒப்பிடுவதற்கு போதிய நெடுவரிசைகள் இல்லை
+
+    def _norm(v):
+        if v is None:
+            return ""
+        try:
+            if pd.isna(v):
+                return ""
+        except (TypeError, ValueError):
+            pass
+        return str(v).strip().lower()
+
+    def _row_key(get):
+        lib = _norm(get("library_name"))
+        isbn_v = _norm(get("isbn")) if has_isbn else ""
+        if isbn_v:
+            return (lib, "isbn", isbn_v)
+        t = _norm(get("title")) if has_title else ""
+        a = _norm(get("author")) if has_author else ""
+        return (lib, "ta", t, a)
+
+    # Neon-ல் இப்போது இருக்கும் வரிசைகளின் key-களை சேகரி
+    select_cols = ["library_name"] + (["isbn"] if has_isbn else []) + \
+                  (["title"] if has_title else []) + (["author"] if has_author else [])
+    cur = conn.cursor()
+    cur.execute(f'SELECT {", ".join(select_cols)} FROM books;')
+    existing_rows = cur.fetchall()
+    cur.close()
+    existing_keys = {
+        _row_key(dict(zip(select_cols, row)).get) for row in existing_rows
+    }
+
+    keep_rows, seen_in_batch, skipped = [], set(), 0
+    for _, r in df.iterrows():
+        key = _row_key(r.get)
+        if key in existing_keys or key in seen_in_batch:
+            skipped += 1
+            continue
+        seen_in_batch.add(key)
+        keep_rows.append(r)
+
+    filtered_df = pd.DataFrame(keep_rows, columns=df.columns).reset_index(drop=True) if keep_rows else df.iloc[0:0]
+    return filtered_df, skipped
+
 def build_pub_stats_df(pub_name, source_neon_df, source_rep_df, pub_col, title_col):
     """For one publisher: mark the first N rows per title as 'received' (received_stats=1),
     where N = Received Qty submitted for that title. Shared by Master Data and நூலகர் சான்று pages."""
@@ -2014,19 +2075,30 @@ elif current == "Excel அப்லோடு":
                                     cur.execute(f'ALTER TABLE books ADD COLUMN IF NOT EXISTS "{safe_col}" TEXT;')
                                 if final_add_new:
                                     conn.commit()
-                                data_cols = [c for c in mapped_up_df.columns if c != "uploaded_at"]  # duplicate uploaded_at தவிர்க்க
-                                cols = data_cols + ["uploaded_at"]
-                                col_names = ", ".join(cols)
-                                upload_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                                from psycopg2.extras import execute_values
-                                rows = [tuple(r[c] for c in data_cols) + (upload_ts,) for _, r in mapped_up_df.iterrows()]
-                                execute_values(cur, f"INSERT INTO books ({col_names}) VALUES %s;", rows)
-                                conn.commit()
-                                cur.close()
-                                conn.close()
-                                load_neon_database.clear()
-                                st.session_state["saved_upload_hashes"].add(file_hash)
-                                st.success(f"✅ {len(mapped_up_df)} வரிசைகள் Neon Database-ல் சேமிக்கப்பட்டன! (Upload நேரம்: {upload_ts})")
+
+                                # ஒரே நூலகத்திற்கு ஏற்கனவே உள்ள அதே புத்தகத்தை (ISBN, இல்லையெனில்
+                                # Title+Author மூலம்) தானாகக் கண்டறிந்து தவிர்த்துவிடுகிறோம்.
+                                dedup_df, n_skipped = dedupe_against_existing_books(mapped_up_df, conn)
+
+                                if dedup_df.empty:
+                                    cur.close()
+                                    conn.close()
+                                    st.warning(f"⚠️ இந்த {len(mapped_up_df)} வரிசைகளும் ஏற்கனவே அந்தந்த நூலகத்தில் பதிவாகியுள்ளன — எதுவும் புதிதாக சேர்க்கப்படவில்லை (நகல் தவிர்க்கப்பட்டது).")
+                                else:
+                                    data_cols = [c for c in dedup_df.columns if c != "uploaded_at"]  # duplicate uploaded_at தவிர்க்க
+                                    cols = data_cols + ["uploaded_at"]
+                                    col_names = ", ".join(cols)
+                                    upload_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                    from psycopg2.extras import execute_values
+                                    rows = [tuple(r[c] for c in data_cols) + (upload_ts,) for _, r in dedup_df.iterrows()]
+                                    execute_values(cur, f"INSERT INTO books ({col_names}) VALUES %s;", rows)
+                                    conn.commit()
+                                    cur.close()
+                                    conn.close()
+                                    load_neon_database.clear()
+                                    st.session_state["saved_upload_hashes"].add(file_hash)
+                                    skip_note = f" ({n_skipped} வரிசைகள் நகலாக இருந்ததால் தவிர்க்கப்பட்டன.)" if n_skipped else ""
+                                    st.success(f"✅ {len(dedup_df)} வரிசைகள் Neon Database-ல் சேமிக்கப்பட்டன!{skip_note} (Upload நேரம்: {upload_ts})")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"❌ Upload save error: {e}")
@@ -2040,19 +2112,30 @@ elif current == "Excel அப்லோடு":
                             cur = conn.cursor()
                             # uploaded_at-ஐ இந்த upload batch-ன் timestamp-ஆக சேர்க்கிறோம் —
                             # இதனால் இந்த batch-ஐ பின்னால் எளிதாக filter செய்து கண்டறியலாம்.
-                            data_cols = [c for c in up_df.columns if c != "uploaded_at"]  # duplicate uploaded_at தவிர்க்க
-                            cols = data_cols + ["uploaded_at"]
-                            col_names = ", ".join(cols)
-                            upload_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            from psycopg2.extras import execute_values
-                            rows = [tuple(r[c] for c in data_cols) + (upload_ts,) for _, r in up_df.iterrows()]
-                            execute_values(cur, f"INSERT INTO books ({col_names}) VALUES %s;", rows)
-                            conn.commit()
-                            cur.close()
-                            conn.close()
-                            load_neon_database.clear()
-                            st.session_state["saved_upload_hashes"].add(file_hash)
-                            st.success(f"✅ {len(up_df)} வரிசைகள் Neon Database-ல் சேமிக்கப்பட்டன! (Upload நேரம்: {upload_ts})")
+
+                            # ஒரே நூலகத்திற்கு ஏற்கனவே உள்ள அதே புத்தகத்தை (ISBN, இல்லையெனில்
+                            # Title+Author மூலம்) தானாகக் கண்டறிந்து தவிர்த்துவிடுகிறோம்.
+                            dedup_df, n_skipped = dedupe_against_existing_books(up_df, conn)
+
+                            if dedup_df.empty:
+                                cur.close()
+                                conn.close()
+                                st.warning(f"⚠️ இந்த {len(up_df)} வரிசைகளும் ஏற்கனவே அந்தந்த நூலகத்தில் பதிவாகியுள்ளன — எதுவும் புதிதாக சேர்க்கப்படவில்லை (நகல் தவிர்க்கப்பட்டது).")
+                            else:
+                                data_cols = [c for c in dedup_df.columns if c != "uploaded_at"]  # duplicate uploaded_at தவிர்க்க
+                                cols = data_cols + ["uploaded_at"]
+                                col_names = ", ".join(cols)
+                                upload_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                from psycopg2.extras import execute_values
+                                rows = [tuple(r[c] for c in data_cols) + (upload_ts,) for _, r in dedup_df.iterrows()]
+                                execute_values(cur, f"INSERT INTO books ({col_names}) VALUES %s;", rows)
+                                conn.commit()
+                                cur.close()
+                                conn.close()
+                                load_neon_database.clear()
+                                st.session_state["saved_upload_hashes"].add(file_hash)
+                                skip_note = f" ({n_skipped} வரிசைகள் நகலாக இருந்ததால் தவிர்க்கப்பட்டன.)" if n_skipped else ""
+                                st.success(f"✅ {len(dedup_df)} வரிசைகள் Neon Database-ல் சேமிக்கப்பட்டன!{skip_note} (Upload நேரம்: {upload_ts})")
                             st.rerun()
                         except Exception as e:
                             st.error(f"❌ Upload save error: {e}")
