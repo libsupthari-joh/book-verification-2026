@@ -1967,12 +1967,33 @@ elif current == "Excel அப்லோடு":
                 )
                 up_df = up_df.drop(columns=dup_cols)
 
-            # --- நெடுவரிசைப் பெயர் ஒப்பீடு: இடைவெளி (space) / அடிக்கோடு (_) வேறுபாடு
-            # இருந்தாலும் தானாகப் பொருத்தும் (எ.கா. "state accession number" ==
-            # "state_accession_number"). இதனால் சிறு பெயர் வேறுபாடுகளுக்காக Save பட்டன்
-            # மறைந்துவிடாது. ---
+            # --- நெடுவரிசைப் பெயர் ஒப்பீடு: இடைவெளி (space) / அடிக்கோடு (_) / சாய்வுக்
+            # கோடு (/) வேறுபாடு இருந்தாலும் தானாகப் பொருத்தும் (எ.கா. "state accession
+            # number" == "state_accession_number", "DCL / FTB / BL / VL Accession
+            # Number" == "dcl_ftb_bl_vl_accession_number"). இதனால் சிறு பெயர்
+            # வேறுபாடுகளுக்காக Save பட்டன் மறைந்துவிடாது. ---
             def _norm_col(c):
-                return _re.sub(r"[\s_]+", "_", str(c).strip().lower())
+                s = _re.sub(r"[\s_/]+", "_", str(c).strip().lower())
+                return s.strip("_")
+
+            # --- அடிக்கடி பயன்படுத்தப்படும் Excel header-பெயர்கள், 'books' அட்டவணையின்
+            # உண்மையான column-பெயருடன் நேரடியாகப் பொருந்தாத நேரங்களில் (எ.கா.
+            # "Author Name" vs "author", "Year" vs "year_of_publication",
+            # "Library Tam Name" vs "library_name_tm") — இவற்றை இங்கேயே சரியாகப்
+            # பொருத்தி விடுகிறோம், இதனால் dropdown-ல் தவறாக ஒரு column-உடன் (எ.கா.
+            # "Library Tam Name" தவறாக "library_name"-உடன்) தானியங்கு பொருந்தும்
+            # ஆபத்து தவிர்க்கப்படும். ---
+            COLUMN_ALIASES = {
+                "author_name": "author",
+                "original_price": "price",
+                "acccepted_price": "accepted_price",   # பொதுவான spelling தவறு (extra 'c')
+                "accpeted_price": "accepted_price",
+                "year": "year_of_publication",
+                "publication_year": "year_of_publication",
+                "librarianid": "librarian_id",
+                "library_tam_name": "library_name_tm",
+                "library_tamil_name": "library_name_tm",
+            }
 
             RESERVED_COLS = {"id", "uploaded_at"}  # இவை system-மேலாண்மை நெடுவரிசைகள் — Excel-ல் இருந்து பொருத்தக் கூடாது
             books_columns_raw = (set(load_neon_database().columns) - RESERVED_COLS) if not load_neon_database().empty else set()
@@ -1982,7 +2003,11 @@ elif current == "Excel அப்லோடு":
             still_missing = []
             for c in up_df.columns:
                 nc = _norm_col(c)
-                if nc in books_norm_map:
+                if nc in COLUMN_ALIASES and COLUMN_ALIASES[nc] in books_columns_raw:
+                    actual = COLUMN_ALIASES[nc]
+                    if actual != c:
+                        rename_map[c] = actual
+                elif nc in books_norm_map:
                     actual = books_norm_map[nc]
                     if actual != c:
                         rename_map[c] = actual
