@@ -1956,10 +1956,13 @@ elif current == "Excel அப்லோடு":
 
                 import difflib as _difflib
                 IGNORE_LABEL = "-- 🚫 புறக்கணி (இந்த நெடுவரிசையை Upload செய்ய வேண்டாம்) --"
+                ADD_NEW_LABEL = "-- ➕ புதிய நெடுவரிசையாக Neon Table-ல் சேர் (கண்டிப்பாக Upload செய்) --"
                 manual_map = {}
                 for missing_col in still_missing:
                     suggestion_list = _difflib.get_close_matches(missing_col, sorted(books_columns_raw), n=1, cutoff=0.5)
-                    options = [IGNORE_LABEL] + sorted(books_columns_raw)
+                    options = [ADD_NEW_LABEL, IGNORE_LABEL] + sorted(books_columns_raw)
+                    # 'books' அட்டவணையில் நெருங்கிய பொருத்தம் கிடைத்தால் அதையே default-ஆக வை;
+                    # இல்லையெனில் "புதிய நெடுவரிசையாகச் சேர்" என்பதையே default-ஆக வை (எதுவும் தவறவிடக்கூடாது என்பதற்காக).
                     default_idx = options.index(suggestion_list[0]) if suggestion_list else 0
                     chosen = st.selectbox(
                         f"📄 கோப்பு நெடுவரிசை: **{missing_col}** → ",
@@ -1969,23 +1972,30 @@ elif current == "Excel அப்லோடு":
                     )
                     manual_map[missing_col] = chosen
 
-                chosen_targets = [v for v in manual_map.values() if v != IGNORE_LABEL]
+                chosen_targets = [v for v in manual_map.values() if v not in (IGNORE_LABEL, ADD_NEW_LABEL)]
                 duplicate_targets = {t for t in chosen_targets if chosen_targets.count(t) > 1}
 
                 if duplicate_targets:
                     st.error(f"❌ ஒன்றுக்கும் மேற்பட்ட நெடுவரிசைகள் ஒரே இலக்குக்கு (target) பொருத்தப்பட்டுள்ளன: {', '.join(duplicate_targets)}. ஒவ்வொரு நெடுவரிசையும் தனித்த இலக்கை மட்டும் கொள்ள வேண்டும் — மேலே சரிசெய்யவும்.")
                 else:
-                    final_rename = {c: t for c, t in manual_map.items() if t != IGNORE_LABEL}
+                    final_rename = {c: t for c, t in manual_map.items() if t not in (IGNORE_LABEL, ADD_NEW_LABEL)}
                     final_ignore = [c for c, t in manual_map.items() if t == IGNORE_LABEL]
+                    # 'புதிய நெடுவரிசையாகச் சேர்' எனத் தேர்ந்தெடுக்கப்பட்டவை — இவை books அட்டவணையில்
+                    # இன்னும் இல்லாத நெடுவரிசைகள்; Upload-க்கு முன் ALTER TABLE மூலம் உருவாக்கப்படும்.
+                    final_add_new = [_norm_col(c) for c, t in manual_map.items() if t == ADD_NEW_LABEL]
+                    add_new_rename = {c: _norm_col(c) for c, t in manual_map.items() if t == ADD_NEW_LABEL}
 
                     mapped_up_df = up_df.drop(columns=final_ignore) if final_ignore else up_df.copy()
                     if final_rename:
                         mapped_up_df = mapped_up_df.rename(columns=final_rename)
+                    if add_new_rename:
+                        mapped_up_df = mapped_up_df.rename(columns=add_new_rename)
 
-                    if final_rename or final_ignore:
+                    if final_rename or final_ignore or final_add_new:
                         st.success(
                             "✅ பொருத்தம் தயார்: "
                             + (f"பொருத்தப்பட்டவை → {final_rename}; " if final_rename else "")
+                            + (f"புதிதாகச் சேர்க்கப்படுபவை → {final_add_new}; " if final_add_new else "")
                             + (f"புறக்கணிக்கப்பட்டவை → {final_ignore}" if final_ignore else "")
                         )
 
@@ -1996,6 +2006,14 @@ elif current == "Excel அப்லோடு":
                             try:
                                 conn = psycopg2.connect(DB_URL)
                                 cur = conn.cursor()
+                                # கண்டிப்பாக பதிவேற்றப்பட வேண்டிய புதிய நெடுவரிசை(கள்) இருந்தால்,
+                                # முதலில் Neon-ல் books அட்டவணையில் அவற்றை உருவாக்குகிறோம் (இல்லாதவை மட்டும்).
+                                import re as _re2
+                                for new_col in final_add_new:
+                                    safe_col = _re2.sub(r"[^a-z0-9_]", "_", new_col)
+                                    cur.execute(f'ALTER TABLE books ADD COLUMN IF NOT EXISTS "{safe_col}" TEXT;')
+                                if final_add_new:
+                                    conn.commit()
                                 data_cols = [c for c in mapped_up_df.columns if c != "uploaded_at"]  # duplicate uploaded_at தவிர்க்க
                                 cols = data_cols + ["uploaded_at"]
                                 col_names = ", ".join(cols)
