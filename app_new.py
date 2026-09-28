@@ -629,8 +629,8 @@ if not st.session_state["logged_in"]:
 st.markdown("""
 <div class="top-header-container">
     <div>
-        <div class="header-title">📚 மாவட்ட மைய நூலகம்</div>
-        <div class="header-subtitle">கிருஷ்ணகிரி — புதிய நூல்கள் பகிர்மானம் 2026-27</div>
+        <div class="header-title">📚 கிருஷ்ணகிரி மாவட்ட நூலக ஆணைக்குழு - 635 002</div>
+        <div class="header-subtitle"> 2026-2027புதிய நூல்கள் பகிர்மானம்</div>
     </div>
     <div style="text-align: right;">
         <span style="background: rgba(255,255,255,0.15); padding: 6px 12px; border-radius: 8px; font-size: 13px;">
