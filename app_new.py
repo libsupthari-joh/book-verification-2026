@@ -1317,7 +1317,7 @@ elif current == "அறிக்கைகள்":
         unique_report_publishers = ["-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --"] + sorted(full_report_df["Publisher"].dropna().unique().tolist())
         selected_report_pub = st.selectbox("🔍 பதிப்பகம் வாரியாக வடிகட்டுக (Filter by Publisher):", unique_report_publishers)
 
-        tab_summary, tab_pub_summary, tab_library = st.tabs(["📋 சுருக்க அறிக்கை (Summary)", "🧾 பதிப்பக தொகுப்பு (Publisher Summary)", "🏛️ நூலக விவரம் (Library Detail)"])
+        tab_summary, tab_pub_summary, tab_library, tab_category = st.tabs(["📋 சுருக்க அறிக்கை (Summary)", "🧾 பதிப்பக தொகுப்பு (Publisher Summary)", "🏛️ நூலக விவரம் (Library Detail)", "📂 வகை வாரியான அறிக்கை (Category Reports)"])
 
         with tab_summary:
             if selected_report_pub != "-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --":
@@ -1507,6 +1507,196 @@ elif current == "அறிக்கைகள்":
                                             use_container_width=True,
                                             key="dl_pdf_lib_report"
                                         )
+
+        # ======================================================================
+        # 📂 வகை வாரியான அறிக்கை — 7 தேர்வுகள் (தவறான பதிவு நீக்கம் பகுதியில் உள்ளவை போலவே)
+        # இங்கு திருத்த/நீக்க வசதிகள் இல்லை; தரவைப் பார்த்து அறிக்கையாகப் பதிவிறக்கலாம்.
+        # ======================================================================
+        with tab_category:
+            def _cat_downloads(df_to_dl, label_prefix, key_prefix):
+                """CSV + Excel பதிவிறக்க பட்டன்கள் (எந்த DataFrame-க்கும்)."""
+                import io as _io
+                _stamp = datetime.now().strftime('%Y%m%d_%H%M')
+                _c1, _c2 = st.columns(2)
+                with _c1:
+                    st.download_button(
+                        label="📥 CSV",
+                        data=df_to_dl.to_csv(index=False).encode('utf-8-sig'),
+                        file_name=f"{label_prefix}_{_stamp}.csv",
+                        mime="text/csv",
+                        type="primary",
+                        use_container_width=True,
+                        key=f"{key_prefix}_csv"
+                    )
+                with _c2:
+                    if len(df_to_dl) <= 60000:
+                        _buf = _io.BytesIO()
+                        with pd.ExcelWriter(_buf, engine="openpyxl") as _w:
+                            df_to_dl.to_excel(_w, sheet_name="Report", index=False)
+                        st.download_button(
+                            label="📥 Excel",
+                            data=_buf.getvalue(),
+                            file_name=f"{label_prefix}_{_stamp}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True,
+                            key=f"{key_prefix}_xlsx"
+                        )
+
+            cat_option = st.selectbox(
+                "📌 எந்தப் பகுதியின் அறிக்கை வேண்டும் என்பதைத் தேர்ந்தெடுக்கவும்:",
+                [
+                    "-- பகுதியைத் தேர்ந்தெடுக்கவும் --",
+                    "1. பதிப்பாளர் தேர்வு (Publisher Records)",
+                    "2. அனுப்பிய விவரங்கள் (Dispatch Records)",
+                    "3. அறிக்கை தரவுகள் (Submitted Reports)",
+                    "4. கவனிக்க வேண்டியவை (Review / Price Conflicts)",
+                    "5. பதிவெண் மாற்றங்கள் (Accession Number Updates)",
+                    "6. Master Data தரவுகள்",
+                    "7. பகுப்பு எண் மாற்றங்கள் (Classification Number Updates)"
+                ],
+                key="report_category_sub_menu"
+            )
+            st.markdown("---")
+
+            if cat_option == "1. பதிப்பாளர் தேர்வு (Publisher Records)":
+                st.markdown("### 🏢 1. பதிப்பாளர் வாரியான பதிவுகள்")
+                _pub_names = sorted(set(
+                    [i["Publisher"] for i in st.session_state.get("submitted_reports", []) if "Publisher" in i] +
+                    [i["Publisher"] for i in st.session_state.get("temp_distributed_list", []) if "Publisher" in i]
+                ))
+                if not _pub_names:
+                    st.info("ℹ️ இதுவரை எந்தப் பதிப்பகப் பணியும் முடிக்கப்படவில்லை.")
+                else:
+                    _sel_pub_cat = st.selectbox("பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- அனைத்துப் பதிப்பகங்களும் --"] + _pub_names, key="cat_pub_sel")
+                    _pub_rep_df = pd.DataFrame(st.session_state["submitted_reports"])
+                    if _sel_pub_cat != "-- அனைத்துப் பதிப்பகங்களும் --":
+                        _pub_rep_df = _pub_rep_df[_pub_rep_df["Publisher"] == _sel_pub_cat]
+                    _pub_rep_df = _pub_rep_df.reset_index(drop=True)
+                    st.markdown(f"**மொத்த தலைப்புகள்:** {len(_pub_rep_df)}")
+                    st.dataframe(_pub_rep_df, use_container_width=True)
+                    if not _pub_rep_df.empty:
+                        _cat_downloads(_pub_rep_df, "Publisher_Records", "dl_cat1")
+
+            elif cat_option == "2. அனுப்பிய விவரங்கள் (Dispatch Records)":
+                st.markdown("### 📤 2. அனுப்பிய விவரங்கள்")
+                _disp_df_cat = load_dispatch_status_full()
+                if _disp_df_cat.empty:
+                    st.info("ℹ️ இதுவரை எந்த நூல்களும் அனுப்பப்படவில்லை.")
+                else:
+                    st.markdown(f"**மொத்த அனுப்பிய பதிவுகள்:** {len(_disp_df_cat)}")
+                    st.dataframe(_disp_df_cat, use_container_width=True)
+                    _cat_downloads(_disp_df_cat, "Dispatch_Records", "dl_cat2")
+
+            elif cat_option == "3. அறிக்கை தரவுகள் (Submitted Reports)":
+                st.markdown("### 📊 3. அறிக்கை தரவுகள் — முழுப் பட்டியல்")
+                _all_rep_cat = pd.DataFrame(st.session_state["submitted_reports"])
+                st.markdown(f"**மொத்தப் பதிவுகள்:** {len(_all_rep_cat)}")
+                st.dataframe(_all_rep_cat, use_container_width=True)
+                _cat_downloads(_all_rep_cat, "Submitted_Reports", "dl_cat3")
+
+            elif cat_option == "4. கவனிக்க வேண்டியவை (Review / Price Conflicts)":
+                st.markdown("### ⚠️ 4. விலை முரண்பாடு உள்ள பதிவுகள்")
+                _neon_cat4 = load_neon_database()
+                if _neon_cat4.empty:
+                    st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
+                else:
+                    _price_col = next((c for c in _neon_cat4.columns if c == 'price'), None)
+                    _acc_price_col = next((c for c in _neon_cat4.columns if 'accept' in c or 'rate' in c or 'offer' in c), None)
+                    if not _price_col or not _acc_price_col:
+                        st.info("ℹ️ விலை நெடுவரிசைகள் கண்டறியப்படவில்லை.")
+                    else:
+                        _cmp = _neon_cat4.copy()
+                        _cmp["_p"] = pd.to_numeric(_cmp[_price_col], errors="coerce")
+                        _cmp["_a"] = pd.to_numeric(_cmp[_acc_price_col], errors="coerce")
+                        _conf = _cmp[_cmp["_p"] != _cmp["_a"]].drop(columns=["_p", "_a"]).reset_index(drop=True)
+                        if _conf.empty:
+                            st.success("🎉 முரண்பாடுகள் எதுவும் இல்லை!")
+                        else:
+                            st.markdown(f"**முரண்பாடு உள்ள பதிவுகள்:** {len(_conf)}")
+                            st.dataframe(_conf, use_container_width=True)
+                            _cat_downloads(_conf, "Price_Conflicts", "dl_cat4")
+
+            elif cat_option == "5. பதிவெண் மாற்றங்கள் (Accession Number Updates)":
+                st.markdown("### 🔢 5. பதிவெண் நிலை அறிக்கை (Accession Number)")
+                _neon_cat5 = load_neon_database()
+                if _neon_cat5.empty:
+                    st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
+                else:
+                    _acc_col = next((c for c in _neon_cat5.columns if c == 'state_acc_number'), None) or next((c for c in _neon_cat5.columns if 'accession' in c or c == 'acc_no' or 'reg_no' in c), None)
+                    if not _acc_col:
+                        st.info("ℹ️ 'Accession Number' நெடுவரிசை கண்டறியப்படவில்லை.")
+                    else:
+                        _acc_series = _neon_cat5[_acc_col].astype(str).str.strip().str.lower()
+                        _missing_mask = _acc_series.isin(["", "nan", "none", "null"])
+                        _c1, _c2, _c3 = st.columns(3)
+                        with _c1:
+                            st.metric("📚 மொத்த நூல்கள்", len(_neon_cat5))
+                        with _c2:
+                            st.metric("✅ பதிவெண் உள்ளவை", int((~_missing_mask).sum()))
+                        with _c3:
+                            st.metric("⏳ பதிவெண் இல்லாதவை", int(_missing_mask.sum()))
+                        _acc_view = st.radio("காண்பிக்க:", ["பதிவெண் உள்ளவை", "பதிவெண் இல்லாதவை"], horizontal=True, key="cat5_view")
+                        _acc_df = (_neon_cat5[~_missing_mask] if _acc_view == "பதிவெண் உள்ளவை" else _neon_cat5[_missing_mask]).reset_index(drop=True)
+                        st.dataframe(_acc_df, use_container_width=True)
+                        if not _acc_df.empty:
+                            _cat_downloads(_acc_df, "Accession_Report", "dl_cat5")
+                st.caption("💡 பதிவெண்ணைத் திருத்த மேல் மெனுவில் '🔢 பதிவெண் மாற்ற' பட்டனைப் பயன்படுத்தவும்.")
+
+            elif cat_option == "6. Master Data தரவுகள்":
+                st.markdown("### 🗂️ 6. Master Data — முழு பட்டியல்")
+                _neon_cat6 = load_neon_database()
+                if _neon_cat6.empty:
+                    st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
+                else:
+                    _pub_col6 = next((c for c in _neon_cat6.columns if c == 'vendor_name'), None)
+                    _lang_col6 = next((c for c in _neon_cat6.columns if c == 'language'), None)
+                    _f1, _f2 = st.columns(2)
+                    _view6 = _neon_cat6
+                    with _f1:
+                        if _pub_col6:
+                            _p6 = st.selectbox("🏢 பதிப்பகம்:", ["-- அனைத்தும் --"] + sorted(_neon_cat6[_pub_col6].dropna().unique().tolist()), key="cat6_pub")
+                            if _p6 != "-- அனைத்தும் --":
+                                _view6 = _view6[_view6[_pub_col6] == _p6]
+                    with _f2:
+                        if _lang_col6:
+                            _l6 = st.selectbox("🌐 மொழி:", ["-- அனைத்தும் --", "Tamil", "English"], key="cat6_lang")
+                            if _l6 != "-- அனைத்தும் --":
+                                _view6 = _view6[_view6[_lang_col6].astype(str).str.strip().str.lower() == _l6.lower()]
+                    _view6 = _view6.reset_index(drop=True)
+                    st.markdown(f"**மொத்த நூல்கள்:** {len(_view6)}")
+                    st.dataframe(_view6.head(2000), use_container_width=True)
+                    if len(_view6) > 2000:
+                        st.caption("ℹ️ திரையில் முதல் 2000 வரிசைகள் மட்டும் காட்டப்படுகின்றன; பதிவிறக்கத்தில் அனைத்தும் இருக்கும்.")
+                    _cat_downloads(_view6, "Master_Data", "dl_cat6")
+
+            elif cat_option == "7. பகுப்பு எண் மாற்றங்கள் (Classification Number Updates)":
+                st.markdown("### 🏷️ 7. பகுப்பு எண் நிலை அறிக்கை (Classification Number)")
+                _neon_cat7 = load_neon_database()
+                if _neon_cat7.empty:
+                    st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
+                else:
+                    _class_col = next((c for c in _neon_cat7.columns if 'classification' in c or c == 'class_no' or 'call_no' in c or 'call number' in c), None)
+                    if not _class_col:
+                        st.info("ℹ️ 'Classification Number' நெடுவரிசை தரவுத்தளத்தில் கண்டறியப்படவில்லை.")
+                    else:
+                        _cls_series = _neon_cat7[_class_col].astype(str).str.strip().str.lower()
+                        _cls_missing = _cls_series.isin(["", "nan", "none", "null"])
+                        _c1, _c2, _c3 = st.columns(3)
+                        with _c1:
+                            st.metric("📚 மொத்த நூல்கள்", len(_neon_cat7))
+                        with _c2:
+                            st.metric("✅ பகுப்பு எண் உள்ளவை", int((~_cls_missing).sum()))
+                        with _c3:
+                            st.metric("⏳ பகுப்பு எண் இல்லாதவை", int(_cls_missing.sum()))
+                        _cls_view = st.radio("காண்பிக்க:", ["பகுப்பு எண் உள்ளவை", "பகுப்பு எண் இல்லாதவை"], horizontal=True, key="cat7_view")
+                        _cls_df = (_neon_cat7[~_cls_missing] if _cls_view == "பகுப்பு எண் உள்ளவை" else _neon_cat7[_cls_missing]).reset_index(drop=True)
+                        st.dataframe(_cls_df, use_container_width=True)
+                        if not _cls_df.empty:
+                            _cat_downloads(_cls_df, "Classification_Report", "dl_cat7")
+                st.caption("💡 பகுப்பு எண்ணைத் திருத்த மேல் மெனுவில் '🏷️ பகுப்பு எண் புதுப்பி' பட்டனைப் பயன்படுத்தவும்.")
+
+            else:
+                st.info("👆 மேல் உள்ள தேர்வில் ஏதேனும் ஒரு பிரிவைத் தேர்வு செய்தால், அதற்கான அறிக்கை உடனே தோன்றும்.")
 
 elif current == "தவறான பதிவு நீக்கம்":
     st.subheader("❌ தவறான பதிவினை நீக்குதல் / திருத்துதல் (Delete / Edit Verified Records)")
