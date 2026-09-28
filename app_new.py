@@ -1,13 +1,15 @@
 import hashlib
 import hmac
 import os
+import re
+import unicodedata
 from datetime import datetime
 import pandas as pd
 import streamlit as st
 import psycopg2
 
 st.set_page_config(
-    page_title="மாவட்ட மைய நூலகம், கிருஷ்ணகிரி",
+    page_title="கிருஷ்ணகிரி மாவட்ட நூலக ஆணைக்குழு - 635 002",
     page_icon="📚",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -432,13 +434,65 @@ ensure_isbn_text_column()
 
 # @st.cache_data caches the result server-side. Call load_submitted_reports_from_db.clear()
 # after any INSERT/UPDATE to this table so the next read picks up fresh data.
+def _norm_name(s):
+    """பெயர் ஒப்பீட்டுக்கான Normalize: பெரிய/சிறிய எழுத்து, இடைவெளி, குறியீடுகள்,
+    Pvt./Private/Ltd./Limited வேறுபாடுகள், மறைந்திருக்கும் (zero-width) எழுத்துகள் ஆகியவற்றை நீக்கும்."""
+    if s is None:
+        return ""
+    s = unicodedata.normalize("NFC", str(s)).lower()
+    s = re.sub(r"[\u200b\u200c\u200d\ufeff\u00a0]", " ", s)
+    s = re.sub(r"[.,;:\-_/()\[\]'\"&]", " ", s)
+    s = re.sub(r"\b(pvt|private|ltd|limited)\b", " ", s)
+    return re.sub(r"\s+", "", s)
+
+@st.cache_data
+def _books_name_maps():
+    """books அட்டவணையில் உள்ள உண்மையான Vendor Name / Title-க்கு,
+    Normalize செய்த பெயரிலிருந்து வரைபடம் (map) உருவாக்குகிறது."""
+    try:
+        conn = psycopg2.connect(DB_URL)
+        df = pd.read_sql("SELECT * FROM books;", con=conn)
+        conn.close()
+    except Exception:
+        return {}, {}
+    if df.empty:
+        return {}, {}
+    df.columns = [str(c).strip().lower() for c in df.columns]
+    pub_c = next((c for c in df.columns if c == 'vendor_name'), None) or next((c for c in df.columns if c in ['publication name', 'publication_name', 'publisher_name'] or 'publication' in c), None)
+    title_c = next((c for c in df.columns if c == 'title' or (('title' in c) and ('book' not in c))), None) or next((c for c in df.columns if 'title' in c), None)
+    if not pub_c or not title_c:
+        return {}, {}
+    pub_map, title_map = {}, {}
+    for p, t in df[[pub_c, title_c]].dropna().drop_duplicates().itertuples(index=False):
+        npub = _norm_name(p)
+        pub_map.setdefault(npub, p)
+        title_map.setdefault((npub, _norm_name(t)), t)
+    return pub_map, title_map
+
+def canonicalize_report_records(records):
+    """Neon books அட்டவணை புதிதாக ஏற்றப்பட்டபின் Vendor Name / Title எழுத்துகள் மாறியிருந்தாலும்,
+    submitted_reports பதிவுகளின் Publisher / Title-ஐ books அட்டவணையின் சரியான பெயருக்கு மாற்றிக் கொடுக்கும்
+    (மெமரியில் மட்டும்; DB-ல் மாற்றம் இல்லை)."""
+    pub_map, title_map = _books_name_maps()
+    if not pub_map:
+        return records
+    out = []
+    for r in records:
+        r = dict(r)
+        npub = _norm_name(r.get("Publisher"))
+        if npub in pub_map:
+            r["Publisher"] = pub_map[npub]
+        r["Title"] = title_map.get((npub, _norm_name(r.get("Title"))), r.get("Title"))
+        out.append(r)
+    return out
+
 @st.cache_data
 def load_submitted_reports_from_db():
     try:
         conn = psycopg2.connect(DB_URL)
         df = pd.read_sql("SELECT id as \"Id\", publisher as \"Publisher\", title as \"Title\", author as \"Author\", price as \"Price\", accepted_price as \"Accepted Price\", isbn as \"ISBN\", required_qty as \"Required Qty\", received_qty as \"Received Qty\", date as \"Date\" FROM submitted_reports;", con=conn)
         conn.close()
-        return df.to_dict(orient="records")
+        return canonicalize_report_records(df.to_dict(orient="records"))
     except Exception as e:
         return []
 
@@ -753,15 +807,67 @@ total_books_ta, total_books_en = _lang_counts_from_df(neon_df_ticker, _lang_col_
 _isbn_to_lang = _build_lookup(neon_df_ticker, _isbn_col_ticker, _lang_col_ticker)
 _book_id_to_lang = _build_lookup(neon_df_ticker, _book_id_col_ticker, _lang_col_ticker)
 
-total_submitted_count = sum([int(item.get("Received Qty", 0)) for item in st.session_state['submitted_reports']])
-total_submitted_ta = sum(
-    int(item.get("Received Qty", 0)) for item in st.session_state['submitted_reports']
-    if _isbn_to_lang.get(str(item.get("ISBN", "")).strip()) == 'tamil'
-)
-total_submitted_en = sum(
-    int(item.get("Received Qty", 0)) for item in st.session_state['submitted_reports']
-    if _isbn_to_lang.get(str(item.get("ISBN", "")).strip()) == 'english'
-)
+# --- பிரிக்கப்பட்ட எண்ணிக்கை: (பதிப்பகம் + தலைப்பு) அடிப்படையில், books அட்டவணையில் உள்ள
+# வரிகளுக்கு மேல் போகாமல் கணக்கிடப்படும் (build_pub_stats_df-ஐப் போலவே). ISBN மாறினாலும் பாதிக்காது.
+_pub_col_ticker = next((c for c in neon_df_ticker.columns if c == 'vendor_name'), None) or next((c for c in neon_df_ticker.columns if c in ['publication name', 'publication_name', 'publisher_name'] or 'publication' in c), None)
+_title_col_ticker = next((c for c in neon_df_ticker.columns if c == 'title' or (('title' in c) and ('book' not in c))), None) or next((c for c in neon_df_ticker.columns if 'title' in c), None)
+
+_group_info = {}
+if _pub_col_ticker and _title_col_ticker and not neon_df_ticker.empty:
+    _tmp = neon_df_ticker[[_pub_col_ticker, _title_col_ticker]].copy()
+    _tmp["_lang"] = _norm_lang(neon_df_ticker[_lang_col_ticker]) if _lang_col_ticker else ""
+    _tmp["_pk"] = _tmp[_pub_col_ticker].map(_norm_name)
+    _tmp["_tk"] = _tmp[_title_col_ticker].map(_norm_name)
+    for (_pk, _tk), _g in _tmp.groupby(["_pk", "_tk"]):
+        _vc = _g["_lang"].value_counts()
+        _group_info[(_pk, _tk)] = {"n": len(_g), "ta": int(_vc.get("tamil", 0)), "en": int(_vc.get("english", 0))}
+
+_sub_qty = {}
+_sub_total_raw = 0
+for _item in st.session_state['submitted_reports']:
+    try:
+        _q = int(float(_item.get("Received Qty", 0) or 0))
+    except Exception:
+        _q = 0
+    _sub_total_raw += _q
+    _k = (_norm_name(_item.get("Publisher")), _norm_name(_item.get("Title")))
+    _sub_qty[_k] = _sub_qty.get(_k, 0) + _q
+
+total_submitted_count = 0
+total_submitted_ta = 0
+total_submitted_en = 0
+for _k, _q in _sub_qty.items():
+    _info = _group_info.get(_k)
+    if not _info:
+        continue
+    _m = min(_q, _info["n"])
+    total_submitted_count += _m
+    if _info["n"]:
+        total_submitted_ta += round(_m * _info["ta"] / _info["n"])
+        total_submitted_en += round(_m * _info["en"] / _info["n"])
+unmatched_submitted_count = max(_sub_total_raw - total_submitted_count, 0)
+
+# இன்றைய தேதியில் பிரிக்கப்பட்டவை (Date நெடுவரிசையின் முதல் 10 எழுத்துகள் YYYY-MM-DD)
+_today_iso = datetime.now().strftime("%Y-%m-%d")
+_today_qty = {}
+for _item in st.session_state['submitted_reports']:
+    if str(_item.get("Date", ""))[:10] != _today_iso:
+        continue
+    try:
+        _q = int(float(_item.get("Received Qty", 0) or 0))
+    except Exception:
+        _q = 0
+    _k = (_norm_name(_item.get("Publisher")), _norm_name(_item.get("Title")))
+    _today_qty[_k] = _today_qty.get(_k, 0) + _q
+today_submitted_count = today_submitted_ta = today_submitted_en = 0
+for _k, _q in _today_qty.items():
+    _info = _group_info.get(_k)
+    if not _info:
+        continue
+    _m = min(_q, _info["n"])
+    today_submitted_count += _m
+    today_submitted_ta += round(_m * _info["ta"] / _info["n"])
+    today_submitted_en += round(_m * _info["en"] / _info["n"])
 
 total_dispatched_count = get_dispatch_status_count()
 _dispatch_df_ticker = load_dispatch_status_full()
@@ -772,10 +878,12 @@ if not _dispatch_df_ticker.empty and _book_id_to_lang:
 else:
     total_dispatched_ta = total_dispatched_en = 0
 
+remaining_total = max(total_books_in_db - total_submitted_count, 0)
 remaining_ta = max(total_books_ta - total_submitted_ta, 0)
 remaining_en = max(total_books_en - total_submitted_en, 0)
 
 today_str = datetime.now().strftime("%d/%m/%Y")
+unmatched_html = (f'⚠️ பொருந்தாதவை : <b>{unmatched_submitted_count}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; ' if unmatched_submitted_count else '')
 
 st.markdown(f"""
 <div class="ticker-container">
@@ -784,9 +892,9 @@ st.markdown(f"""
         <div class="marquee-text">
             📚 பெறப்பட்ட நூல்கள் : <b>{total_books_in_db:,}</b> <span style="font-size:12px;">(தமிழ்: <b>{total_books_ta:,}</b> / ஆங்கிலம்: <b>{total_books_en:,}</b>)</span> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
             ✅ பிரிக்கப்பட்டது : <b>{total_submitted_count}</b> <span style="font-size:12px;">(தமிழ்: <b>{total_submitted_ta}</b> / ஆங்கிலம்: <b>{total_submitted_en}</b>)</span> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-            ⏳ மீதம் பிரிக்க வேண்டியது : <b>{total_books_in_db - total_submitted_count}</b> <span style="font-size:12px;">(தமிழ்: <b>{remaining_ta}</b> / ஆங்கிலம்: <b>{remaining_en}</b>)</span> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+            ⏳ மீதம் பிரிக்க வேண்டியது : <b>{remaining_total:,}</b> <span style="font-size:12px;">(தமிழ்: <b>{remaining_ta}</b> / ஆங்கிலம்: <b>{remaining_en}</b>)</span> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
             📤 அனுப்பப்பட்டது : <b>{total_dispatched_count}</b> <span style="font-size:12px;">(தமிழ்: <b>{total_dispatched_ta}</b> / ஆங்கிலம்: <b>{total_dispatched_en}</b>)</span> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-            🗓️ இன்று ({today_str}) பிரிக்கப்பட்டது : <b>{total_submitted_count}</b> <span style="font-size:12px;">(தமிழ்: <b>{total_submitted_ta}</b> / ஆங்கிலம்: <b>{total_submitted_en}</b>)</span>
+            {unmatched_html}🗓️ இன்று ({today_str}) பிரிக்கப்பட்டது : <b>{today_submitted_count}</b> <span style="font-size:12px;">(தமிழ்: <b>{today_submitted_ta}</b> / ஆங்கிலம்: <b>{today_submitted_en}</b>)</span>
         </div>
     </div>
 </div>
@@ -1207,7 +1315,7 @@ elif current == "பதிவெண் மாற்ற":
                                 cur.close()
                                 conn.close()
                                 st.success(f"✅ பதிவெண் '{old_acc_no}' இலிருந்து '{new_acc_no}' ஆக மாற்றப்பட்டது!")
-                                load_neon_database.clear()
+                                load_neon_database.clear(); _books_name_maps.clear(); load_submitted_reports_from_db.clear(); st.session_state["submitted_reports"] = load_submitted_reports_from_db()
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"❌ Update error: {e}")
@@ -1317,9 +1425,19 @@ elif current == "அறிக்கைகள்":
         unique_report_publishers = ["-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --"] + sorted(full_report_df["Publisher"].dropna().unique().tolist())
         selected_report_pub = st.selectbox("🔍 பதிப்பகம் வாரியாக வடிகட்டுக (Filter by Publisher):", unique_report_publishers)
 
-        tab_summary, tab_pub_summary, tab_library, tab_category = st.tabs(["📋 சுருக்க அறிக்கை (Summary)", "🧾 பதிப்பக தொகுப்பு (Publisher Summary)", "🏛️ நூலக விவரம் (Library Detail)", "📂 வகை வாரியான அறிக்கை (Category Reports)"])
+        _REP_PLACEHOLDER = "-- பகுதியைத் தேர்ந்தெடுக்கவும் --"
+        _REP_SUMMARY = "📋 சுருக்க அறிக்கை (Summary)"
+        _REP_PUB = "🧾 பதிப்பக தொகுப்பு (Publisher Summary)"
+        _REP_LIB = "🏛️ நூலக விவரம் (Library Detail)"
+        _REP_CAT = "📂 வகை வாரியான அறிக்கை (Category Reports)"
+        report_section = st.selectbox(
+            "📌 எந்தப் பகுதியின் அறிக்கை வேண்டும் என்பதைத் தேர்ந்தெடுக்கவும்:",
+            [_REP_PLACEHOLDER, _REP_SUMMARY, _REP_PUB, _REP_LIB, _REP_CAT],
+            key="main_report_section_menu"
+        )
+        st.markdown("---")
 
-        with tab_summary:
+        if report_section == _REP_SUMMARY:
             if selected_report_pub != "-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --":
                 display_df = full_report_df[full_report_df["Publisher"] == selected_report_pub].reset_index(drop=True)
                 st.markdown(f"### 🏢 பதிப்பகம்: {selected_report_pub} (பதிவு செய்யப்பட்ட தலைப்புகள்: {len(display_df)})")
@@ -1340,7 +1458,7 @@ elif current == "அறிக்கைகள்":
                 key="dl_summary_csv"
             )
 
-        with tab_pub_summary:
+        if report_section == _REP_PUB:
             st.caption("தேவையான அறிக்கை வகையைத் தேர்ந்தெடுக்கவும் — அதற்கேற்ப அட்டவணையும் பதிவிறக்க பட்டன்களும் கீழே வரும்.")
 
             full_report_df["Required Qty"] = pd.to_numeric(full_report_df["Required Qty"], errors="coerce").fillna(0)
@@ -1444,7 +1562,7 @@ elif current == "அறிக்கைகள்":
                                     key="dl_pub_summary_pdf"
                                 )
 
-        with tab_library:
+        if report_section == _REP_LIB:
             neon_df = load_neon_database()
             if neon_df.empty:
                 st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
@@ -1512,7 +1630,7 @@ elif current == "அறிக்கைகள்":
         # 📂 வகை வாரியான அறிக்கை — 7 தேர்வுகள் (தவறான பதிவு நீக்கம் பகுதியில் உள்ளவை போலவே)
         # இங்கு திருத்த/நீக்க வசதிகள் இல்லை; தரவைப் பார்த்து அறிக்கையாகப் பதிவிறக்கலாம்.
         # ======================================================================
-        with tab_category:
+        if report_section == _REP_CAT:
             def _cat_downloads(df_to_dl, label_prefix, key_prefix):
                 """CSV + Excel பதிவிறக்க பட்டன்கள் (எந்த DataFrame-க்கும்)."""
                 import io as _io
@@ -1697,6 +1815,9 @@ elif current == "அறிக்கைகள்":
 
             else:
                 st.info("👆 மேல் உள்ள தேர்வில் ஏதேனும் ஒரு பிரிவைத் தேர்வு செய்தால், அதற்கான அறிக்கை உடனே தோன்றும்.")
+
+        if report_section == _REP_PLACEHOLDER:
+            st.info("👆 மேல் உள்ள தேர்வில் ஏதேனும் ஒரு பிரிவைத் தேர்வு செய்தால், அதற்கான அறிக்கை உடனே தோன்றும்.")
 
 elif current == "தவறான பதிவு நீக்கம்":
     st.subheader("❌ தவறான பதிவினை நீக்குதல் / திருத்துதல் (Delete / Edit Verified Records)")
@@ -2276,7 +2397,7 @@ elif current == "Excel அப்லோடு":
                                 conn.commit()
                                 cur.close()
                                 conn.close()
-                                load_neon_database.clear()
+                                load_neon_database.clear(); _books_name_maps.clear(); load_submitted_reports_from_db.clear(); st.session_state["submitted_reports"] = load_submitted_reports_from_db()
                                 st.session_state["saved_upload_hashes"].add(file_hash)
                                 st.success(f"✅ {len(mapped_up_df)} வரிசைகள் Neon Database-ல் சேமிக்கப்பட்டன! (Upload நேரம்: {upload_ts})")
                                 st.rerun()
@@ -2302,7 +2423,7 @@ elif current == "Excel அப்லோடு":
                             conn.commit()
                             cur.close()
                             conn.close()
-                            load_neon_database.clear()
+                            load_neon_database.clear(); _books_name_maps.clear(); load_submitted_reports_from_db.clear(); st.session_state["submitted_reports"] = load_submitted_reports_from_db()
                             st.session_state["saved_upload_hashes"].add(file_hash)
                             st.success(f"✅ {len(up_df)} வரிசைகள் Neon Database-ல் சேமிக்கப்பட்டன! (Upload நேரம்: {upload_ts})")
                             st.rerun()
@@ -2433,7 +2554,7 @@ elif current == "பகுப்பு எண் புதுப்பி":
                                 cur.close()
                                 conn.close()
                                 st.success(f"✅ பகுப்பு எண் '{old_class_no}' இலிருந்து '{new_class_no}' ஆக மாற்றப்பட்டது!")
-                                load_neon_database.clear()
+                                load_neon_database.clear(); _books_name_maps.clear(); load_submitted_reports_from_db.clear(); st.session_state["submitted_reports"] = load_submitted_reports_from_db()
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"❌ Update error: {e}")
