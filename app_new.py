@@ -9,7 +9,7 @@ import streamlit as st
 import psycopg2
 
 st.set_page_config(
-    page_title="கிருஷ்ணகிரி மாவட்ட நூலக ஆணைக்குழு - 635 002",
+    page_title="மாவட்ட மைய நூலகம், கிருஷ்ணகிரி",
     page_icon="📚",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -629,8 +629,8 @@ if not st.session_state["logged_in"]:
 st.markdown("""
 <div class="top-header-container">
     <div>
-        <div class="header-title">📚 கிருஷ்ணகிரி மாவட்ட நூலக ஆணைக்குழு - 635 002</div>
-        <div class="header-subtitle"> 2026-2027புதிய நூல்கள் பகிர்மானம்</div>
+        <div class="header-title">📚 மாவட்ட மைய நூலகம்</div>
+        <div class="header-subtitle">கிருஷ்ணகிரி — புதிய நூல்கள் பகிர்மானம் 2026-27</div>
     </div>
     <div style="text-align: right;">
         <span style="background: rgba(255,255,255,0.15); padding: 6px 12px; border-radius: 8px; font-size: 13px;">
@@ -937,16 +937,53 @@ elif current == "பிரிக்க":
 
         if selected_publisher != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
             pub_filtered_df = neon_df[neon_df[pub_col] == selected_publisher].copy()
-            
+
             total_pub_titles_count = len(pub_filtered_df[title_col].dropna().unique())
             total_pub_books_count = len(pub_filtered_df)
-            
-            submitted_titles = [item["Title"] for item in st.session_state["submitted_reports"] if item["Publisher"] == selected_publisher]
-            temp_added_titles = [item["Title"] for item in st.session_state["temp_distributed_list"] if item["Publisher"] == selected_publisher]
-            
-            excluded_titles = set(submitted_titles + temp_added_titles)
-            available_filtered_df = pub_filtered_df[~pub_filtered_df[title_col].isin(excluded_titles)]
-            all_titles = sorted(available_filtered_df[title_col].dropna().unique().tolist())
+
+            # --- ஒவ்வொரு தலைப்புக்கும் தேவையான (required) எண்ணிக்கை: books அட்டவணையில்
+            # அந்தத் தலைப்புக்கு உள்ள உண்மையான வரிகளின் எண்ணிக்கை ---
+            required_by_title = pub_filtered_df[title_col].dropna().value_counts().to_dict()
+
+            # --- ஒவ்வொரு தலைப்புக்கும் இதுவரை Neon DB-ல் சேமிக்கப்பட்ட received qty (கூட்டுத்தொகை) ---
+            received_by_title = {}
+            for item in st.session_state["submitted_reports"]:
+                if item.get("Publisher") != selected_publisher:
+                    continue
+                try:
+                    _rq = int(float(item.get("Received Qty", 0) or 0))
+                except Exception:
+                    _rq = 0
+                received_by_title[item.get("Title")] = received_by_title.get(item.get("Title"), 0) + _rq
+
+            # --- இந்த session-ல் இன்னும் Neon DB-க்கு அனுப்பாமல் தற்காலிகப் பட்டியலில்
+            # சேமிக்கப்பட்டுள்ள (staged) எண்ணிக்கை — இதையும் "handled" எனக் கருதவும் ---
+            staged_qty_by_title = {}
+            for item in st.session_state["temp_distributed_list"]:
+                if item.get("Publisher") != selected_publisher:
+                    continue
+                try:
+                    _sq = int(float(item.get("Received Qty", 0) or 0))
+                except Exception:
+                    _sq = 0
+                staged_qty_by_title[item.get("Title")] = staged_qty_by_title.get(item.get("Title"), 0) + _sq
+            staged_titles = set(staged_qty_by_title.keys())
+
+            # --- ஒரு தலைப்பு "முழுமையாக முடிந்தது" எனக் கருதப்படுவது, books அட்டவணையில்
+            # உள்ள தேவையான எண்ணிக்கை (required) அளவுக்கு, ஏற்கனவே Neon DB-ல் சேமிக்கப்பட்ட
+            # received qty சென்றடைந்தால் மட்டுமே. ஒரே ஒருமுறை சமர்ப்பித்ததால் மட்டும்
+            # (received குறைவாக இருந்தாலும்) அது "முடிந்தது" எனக் கருதப்படாது. ---
+            remaining_by_title = {}
+            for t, req in required_by_title.items():
+                rem = req - received_by_title.get(t, 0)
+                if rem > 0:
+                    remaining_by_title[t] = rem
+
+            # இந்த session-ல் staged செய்யப்பட்ட தலைப்புகளை தேர்வுப்பட்டியலில் இருந்து மறைக்கவும்
+            all_titles = sorted([t for t in remaining_by_title.keys() if t not in staged_titles])
+
+            fully_completed_titles_count = total_pub_titles_count - len(remaining_by_title)
+            total_shortfall_qty = sum(remaining_by_title.values())
 
             # --- தமிழ் / ஆங்கிலம் breakdown ---
             _lang_col_pub = next((c for c in pub_filtered_df.columns if c == 'language'), None)
@@ -972,10 +1009,10 @@ elif current == "பிரிக்க":
                     return ta, en
 
                 titles_ta, titles_en = _split_titles(pub_filtered_df[title_col].dropna().unique().tolist())
-                submitted_ta, submitted_en = _split_titles(submitted_titles)
+                completed_ta, completed_en = _split_titles([t for t in required_by_title if t not in remaining_by_title])
                 remaining_pub_ta, remaining_pub_en = _split_titles(all_titles)
             else:
-                titles_ta = titles_en = books_ta = books_en = submitted_ta = submitted_en = remaining_pub_ta = remaining_pub_en = 0
+                titles_ta = titles_en = books_ta = books_en = completed_ta = completed_en = remaining_pub_ta = remaining_pub_en = 0
 
             st.markdown(f"""
             <div style="background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1.5px solid #34d399; padding: 14px 18px; border-radius: 10px; margin: 10px 0 15px 0;">
@@ -985,8 +1022,9 @@ elif current == "பிரிக்க":
                 <div style="display: flex; flex-wrap: wrap; gap: 20px; font-size: 14px; color: #065f46; font-weight: 600;">
                     <div>📚 மொத்த தலைப்புகள்: <b>{total_pub_titles_count}</b> <span style="font-size:12px;">(தமிழ்: <b>{titles_ta}</b> / ஆங்கிலம்: <b>{titles_en}</b>)</span></div>
                     <div>📦 மொத்த நூல்கள்: <b>{total_pub_books_count}</b> <span style="font-size:12px;">(தமிழ்: <b>{books_ta}</b> / ஆங்கிலம்: <b>{books_en}</b>)</span></div>
-                    <div>✅ சமர்ப்பிக்கப்பட்டது: <b>{len(submitted_titles)}</b> <span style="font-size:12px;">(தமிழ்: <b>{submitted_ta}</b> / ஆங்கிலம்: <b>{submitted_en}</b>)</span></div>
-                    <div>⏳ மீதம் உள்ளவை: <b>{len(all_titles)}</b> <span style="font-size:12px;">(தமிழ்: <b>{remaining_pub_ta}</b> / ஆங்கிலம்: <b>{remaining_pub_en}</b>)</span></div>
+                    <div>✅ முழுமையாக முடிந்த தலைப்புகள்: <b>{fully_completed_titles_count}</b> <span style="font-size:12px;">(தமிழ்: <b>{completed_ta}</b> / ஆங்கிலம்: <b>{completed_en}</b>)</span></div>
+                    <div>⏳ மீதம் உள்ள தலைப்புகள்: <b>{len(remaining_by_title)}</b> <span style="font-size:12px;">(தமிழ்: <b>{remaining_pub_ta}</b> / ஆங்கிலம்: <b>{remaining_pub_en}</b>)</span></div>
+                    <div>🔢 மீதம் உள்ள நூல்கள் (எண்ணிக்கை): <b>{total_shortfall_qty}</b></div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -1004,21 +1042,26 @@ elif current == "பிரிக்க":
                         title_row = title_row_df.iloc[0]
                         author_name = str(title_row[author_col]) if author_col and author_col in title_row and pd.notna(title_row[author_col]) else "-"
                         book_price = str(title_row[price_col]) if price_col and price_col in title_row and pd.notna(title_row[price_col]) else "0"
-                        
+
                         accepted_price = "0"
                         if accepted_price_col and accepted_price_col in title_row and pd.notna(title_row[accepted_price_col]):
                             accepted_price = str(title_row[accepted_price_col])
 
                         isbn_val = str(title_row[isbn_col]) if isbn_col and isbn_col in title_row and pd.notna(title_row[isbn_col]) else "-"
-                        required_qty = len(title_row_df)
+                        title_required_qty = int(required_by_title.get(selected_title, len(title_row_df)))
+                        already_received_qty = int(received_by_title.get(selected_title, 0))
+                        title_remaining_qty = int(remaining_by_title.get(selected_title, title_required_qty))
+
+                        if already_received_qty > 0:
+                            st.info(f"ℹ️ '{selected_title}' — மொத்தம் தேவை: **{title_required_qty}**, ஏற்கனவே பெறப்பட்டது: **{already_received_qty}**, இன்னும் தேவை: **{title_remaining_qty}**.")
 
                         with st.form(f"distribution_entry_form_{selected_publisher}_{selected_title}"):
                             entered_qty = st.number_input(
-                                "📥 பெறப்பட்ட எண்ணிக்கையை உள்ளீடு செய்யவும்:", 
-                                min_value=0, max_value=500, value=int(required_qty), step=1
+                                "📥 இப்போது புதிதாகப் பெறப்பட்ட எண்ணிக்கையை உள்ளீடு செய்யவும் (Add to existing):",
+                                min_value=0, max_value=int(title_remaining_qty), value=int(title_remaining_qty), step=1
                             )
                             submitted_temp = st.form_submit_button("➕ தற்காலிக பட்டியலில் சேமி", type="primary")
-                            
+
                             if submitted_temp:
                                 entry_data = {
                                     "Publisher": selected_publisher,
@@ -1027,7 +1070,7 @@ elif current == "பிரிக்க":
                                     "Price": book_price,
                                     "Accepted Price": accepted_price,
                                     "ISBN": isbn_val,
-                                    "Required Qty": required_qty,
+                                    "Required Qty": title_required_qty,
                                     "Received Qty": entered_qty,
                                     "Date": datetime.now().strftime("%Y-%m-%d %H:%M")
                                 }
@@ -1036,19 +1079,19 @@ elif current == "பிரிக்க":
                                 st.success(f"✅ '{selected_title}' தற்காலிக பட்டியலில் சேர்க்கப்பட்டது!")
                                 st.rerun()
             else:
-                st.success(f"🎉 '{selected_publisher}' பதிப்பகத்தில் உள்ள அனைத்து நூல்களும் வெற்றிகரமாகச் சரிபார்க்கப்பட்டுவிட்டன!")
+                st.success(f"🎉 '{selected_publisher}' பதிப்பகத்தில் உள்ள அனைத்து நூல்களும் தேவையான முழு எண்ணிக்கையுடன் பெறப்பட்டு வெற்றிகரமாகச் சரிபார்க்கப்பட்டுவிட்டன!")
 
             if st.session_state["temp_distributed_list"]:
                 st.markdown("---")
                 st.markdown("#### 📋 தற்காலிகமாகச் சேமிக்கப்பட்ட தலைப்புகளின் பட்டியல்")
                 temp_df = pd.DataFrame(st.session_state["temp_distributed_list"])
                 st.dataframe(temp_df, use_container_width=True)
-                
+
                 current_pub_temp_count = len([item for item in st.session_state["temp_distributed_list"] if item["Publisher"] == selected_publisher])
-                remaining_to_add = total_pub_titles_count - (len(submitted_titles) + current_pub_temp_count)
-                
+                remaining_to_add = len(remaining_by_title) - current_pub_temp_count
+
                 if remaining_to_add > 0:
-                    st.warning(f"⚠️ எச்சரிக்கை: இந்தப் பதிப்பகத்தில் இன்னும் **{remaining_to_add}** தலைப்புகள் சரிபார்க்கப்படாமல் உள்ளன. அனைத்து தலைப்புகளையும் சேர்த்த பிறகுதான் இறுதியாகச் சமர்ப்பிக்க முடியும்!")
+                    st.warning(f"⚠️ எச்சரிக்கை: இந்தப் பதிப்பகத்தில் இன்னும் **{remaining_to_add}** தலைப்புகள் (நிலுவை) கையாளப்படாமல் உள்ளன. அனைத்து நிலுவைத் தலைப்புகளையும் சேர்த்த பிறகுதான் இறுதியாகச் சமர்ப்பிக்க முடியும்!")
                 else:
                     if st.button("💾 இறுதியாகச் சேமி & சமர்ப்பிக்க", type="primary", key="final_submit_btn"):
                         try:
@@ -1056,6 +1099,7 @@ elif current == "பிரிக்க":
                             cur = conn.cursor()
                             duplicate_items = []
                             saved_count = 0
+                            updated_count = 0
                             for item in st.session_state["temp_distributed_list"]:
                                 # --- Duplicate-proof lock (Flask app-ன் row-locking-க்கு இணையான
                                 # Postgres advisory lock) — 2 பேர் ஒரே publisher+title-ஐ ஒரே
@@ -1064,21 +1108,37 @@ elif current == "பிரிக்க":
                                 lock_key = int(hashlib.md5(f"{item['Publisher']}||{item['Title']}".encode("utf-8")).hexdigest()[:15], 16)
                                 cur.execute("SELECT pg_advisory_xact_lock(%s);", (lock_key,))
                                 cur.execute(
-                                    "SELECT 1 FROM submitted_reports WHERE publisher = %s AND title = %s;",
+                                    "SELECT id, required_qty, received_qty FROM submitted_reports WHERE publisher = %s AND title = %s;",
                                     (item["Publisher"], item["Title"])
                                 )
-                                if cur.fetchone():
-                                    duplicate_items.append(item["Title"])
-                                    continue
-                                cur.execute("""
-                                    INSERT INTO submitted_reports (publisher, title, author, price, accepted_price, isbn, required_qty, received_qty, date)
-                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                """, (
-                                    item["Publisher"], item["Title"], item["Author"], item["Price"],
-                                    item["Accepted Price"], item["ISBN"], item["Required Qty"],
-                                    item["Received Qty"], item["Date"]
-                                ))
-                                saved_count += 1
+                                existing_row = cur.fetchone()
+                                if existing_row:
+                                    # --- ஏற்கனவே இந்தத் தலைப்புக்கு ஒரு பதிவு உள்ளது (பகுதி அளவு
+                                    # ஏற்கனவே சமர்ப்பிக்கப்பட்டிருக்கலாம்). அதை UPDATE செய்து,
+                                    # புதிதாக உள்ளிட்ட எண்ணிக்கையைக் கூட்டி, தேவைக்கு மேல் போகாமல்
+                                    # (required_qty வரை மட்டும்) சேமிக்கவும். ---
+                                    ex_id, ex_req, ex_rec = existing_row
+                                    ex_req = int(ex_req or 0)
+                                    ex_rec = int(ex_rec or 0)
+                                    if ex_rec >= ex_req:
+                                        duplicate_items.append(item["Title"])
+                                        continue
+                                    new_rec = min(ex_req, ex_rec + int(item["Received Qty"]))
+                                    cur.execute(
+                                        "UPDATE submitted_reports SET received_qty = %s, date = %s WHERE id = %s;",
+                                        (new_rec, item["Date"], ex_id)
+                                    )
+                                    updated_count += 1
+                                else:
+                                    cur.execute("""
+                                        INSERT INTO submitted_reports (publisher, title, author, price, accepted_price, isbn, required_qty, received_qty, date)
+                                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                    """, (
+                                        item["Publisher"], item["Title"], item["Author"], item["Price"],
+                                        item["Accepted Price"], item["ISBN"], item["Required Qty"],
+                                        item["Received Qty"], item["Date"]
+                                    ))
+                                    saved_count += 1
                             conn.commit()
                             cur.close()
                             conn.close()
@@ -1089,12 +1149,12 @@ elif current == "பிரிக்க":
 
                             if duplicate_items:
                                 st.warning(
-                                    "⚠️ இந்தத் தலைப்புகள் ஏற்கனவே இன்னொருவரால் சமர்ப்பிக்கப்பட்டுவிட்டதால் மீண்டும் சேமிக்கப்படவில்லை: "
+                                    "⚠️ இந்தத் தலைப்புகள் ஏற்கனவே முழுமையாகப் பெறப்பட்டு இன்னொருவரால் சமர்ப்பிக்கப்பட்டுவிட்டதால் மீண்டும் சேமிக்கப்படவில்லை: "
                                     + ", ".join(duplicate_items)
                                 )
-                            if saved_count:
+                            if saved_count or updated_count:
                                 st.session_state["current_menu"] = "அறிக்கைகள்"
-                                st.success(f"🎉 {saved_count} தலைப்புகள் Neon Database-ல் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
+                                st.success(f"🎉 {saved_count} புதிய தலைப்புகள் சேமிக்கப்பட்டன, {updated_count} தலைப்புகளின் எண்ணிக்கை புதுப்பிக்கப்பட்டது — Neon Database-ல் வெற்றிகரமாகச் சேமிக்கப்பட்டன!")
                             st.rerun()
                         except Exception as e:
                             st.error(f"❌ Database save error: {e}")
