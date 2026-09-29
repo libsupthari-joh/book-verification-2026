@@ -1989,102 +1989,117 @@ elif current == "தவறான பதிவு நீக்கம்":
     
     if edit_action_option == "1. பதிப்பாளர் தேர்வு (Publisher Records)":
         st.markdown("### 🏢 1. பதிப்பாளர் தேர்வு & திருத்துதல் / நீக்குதல்")
-        
-        completed_publishers = set()
-        for item in st.session_state.get("submitted_reports", []):
-            if "Publisher" in item:
-                completed_publishers.add(item["Publisher"])
-        for item in st.session_state.get("temp_distributed_list", []):
-            if "Publisher" in item:
-                completed_publishers.add(item["Publisher"])
-                
-        pub_list = sorted(list(completed_publishers))
-        
+
+        # முந்தைய செயல்பாட்டின் வெற்றி/எச்சரிக்கைச் செய்தி (st.rerun-க்குப் பின்னும் தெரியும்படி)
+        _flash = st.session_state.pop("_err_flash", None)
+        if _flash:
+            st.success(_flash)
+
+        def _blank(v):
+            return v is None or (isinstance(v, float) and pd.isna(v)) or str(v).strip() in ("", "nan", "None", "NaN")
+
+        def _is_defective(r):
+            # குறைபாடுள்ள பதிவு: Author, Price, ISBN மூன்றும் காலி
+            return _blank(r.get("Author")) and _blank(r.get("Price")) and _blank(r.get("ISBN"))
+
+        all_rows = st.session_state.get("submitted_reports", [])
+        pub_list = sorted({r["Publisher"] for r in all_rows if r.get("Publisher")})
+
         if not pub_list:
             st.info("ℹ️ இதுவரை எந்தப் பதிப்பகப் பணியும் முடிக்கப்படவில்லை.")
         else:
             sel_pub = st.selectbox("பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + pub_list, key="err_pub_sel")
-            
+
             if sel_pub != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
-                completed_titles = set()
-                for item in st.session_state.get("submitted_reports", []):
-                    if item.get("Publisher") == sel_pub and "Title" in item:
-                        completed_titles.add(item["Title"])
-                for item in st.session_state.get("temp_distributed_list", []):
-                    if item.get("Publisher") == sel_pub and "Title" in item:
-                        completed_titles.add(item["Title"])
-                        
-                title_list = sorted(list(completed_titles))
-                
-                sel_title = st.selectbox("தலைப்பைத் தேர்ந்தெடுக்கவும்:", ["-- தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + title_list, key="err_title_sel")
-                
-                if sel_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
-                    req_qty = 90
-                    rec_qty = 75
-                    target_index = None
-                    target_id = None
-                    
-                    for idx, item in enumerate(st.session_state.get("submitted_reports", [])):
-                        if item.get("Publisher") == sel_pub and item.get("Title") == sel_title:
-                            req_qty = int(item.get("Required Qty", 90))
-                            rec_qty = int(item.get("Received Qty", 75))
-                            target_index = idx
-                            target_id = item.get("Id")
-                            break
+                # ஒவ்வொரு பதிவும் தனித்தனியாக (Id அடிப்படையில்) — ஒரே தலைப்பில் 2 பதிவுகள்
+                # இருந்தாலும் சரியானதை மட்டும் தேர்ந்தெடுத்து நீக்கலாம்.
+                pub_rows = sorted([r for r in all_rows if r.get("Publisher") == sel_pub and r.get("Id") is not None],
+                                  key=lambda r: int(r["Id"]))
+                row_by_id = {int(r["Id"]): r for r in pub_rows}
+
+                titles_count = {}
+                for r in pub_rows:
+                    titles_count[r.get("Title")] = titles_count.get(r.get("Title"), 0) + 1
+
+                def _row_label(i):
+                    if i is None:
+                        return "-- பதிவைத் தேர்ந்தெடுக்கவும் --"
+                    r = row_by_id[i]
+                    flag = "⚠️ குறைபாடு | " if _is_defective(r) else ""
+                    dup = " (இரட்டிப்பு)" if titles_count.get(r.get("Title"), 0) > 1 else ""
+                    return f"{flag}Id {i} | {r.get('Title')}{dup} | Req {r.get('Required Qty')} / Rec {r.get('Received Qty')}"
+
+                bad_ids = [i for i, r in row_by_id.items() if _is_defective(r)]
+                if bad_ids:
+                    st.warning(f"⚠️ இந்தப் பதிப்பகத்தில் குறைபாடுள்ள (Author / Price / ISBN காலி) பதிவுகள்: Id {', '.join(map(str, bad_ids))}")
+
+                sel_id = st.selectbox("பதிவைத் தேர்ந்தெடுக்கவும்:", [None] + list(row_by_id.keys()),
+                                      format_func=_row_label, key="err_row_sel")
+
+                if sel_id is not None:
+                    row = row_by_id[sel_id]
+                    req_qty = int(row.get("Required Qty") or 0)
+                    rec_qty = int(row.get("Received Qty") or 0)
+
+                    same_title = [i for i, r in row_by_id.items() if r.get("Title") == row.get("Title") and i != sel_id]
+                    extra = f"<br><b>ℹ️ இதே தலைப்புள்ள மற்ற பதிவுகள்:</b> Id {', '.join(map(str, same_title))}" if same_title else ""
 
                     st.markdown(f"""
                     <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
-                        <b>📖 நூல் தலைப்பு:</b> {sel_title}<br>
+                        <b>🆔 Id:</b> {sel_id}<br>
+                        <b>📖 நூல் தலைப்பு:</b> {row.get('Title')}<br>
+                        <b>✍️ ஆசிரியர்:</b> {'—' if _blank(row.get('Author')) else row.get('Author')} &nbsp; | &nbsp;
+                        <b>ISBN:</b> {'—' if _blank(row.get('ISBN')) else row.get('ISBN')}<br>
                         <b>📌 பெறப்பட வேண்டிய மொத்த எண்ணிக்கை (Required):</b> <span style="color: #2563eb; font-weight: bold;">{req_qty}</span><br>
-                        <b>📥 ஏற்கனவே பெறப்பட்ட எண்ணிக்கை (Received):</b> <span style="color: #16a34a; font-weight: bold;">{rec_qty}</span>
+                        <b>📥 ஏற்கனவே பெறப்பட்ட எண்ணிக்கை (Received):</b> <span style="color: #16a34a; font-weight: bold;">{rec_qty}</span>{extra}
                     </div>
                     """, unsafe_allow_html=True)
 
                     c1, c2 = st.columns(2)
                     with c1:
-                        new_val = st.number_input("📥 பெறப்பட்ட எண்ணிக்கையைத் திருத்துக (Update Received Qty):", min_value=0, max_value=req_qty*2, value=rec_qty, key="err_pub_qty")
-                    with c2:
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        col_d, col_u = st.columns(2)
-                        with col_d:
-                            if st.button("🗑️ நீக்கு", key="err_pub_del_btn", use_container_width=True):
-                                if target_id is not None:
-                                    try:
-                                        conn = psycopg2.connect(DB_URL)
-                                        cur = conn.cursor()
-                                        cur.execute("DELETE FROM submitted_reports WHERE id = %s;", (target_id,))
-                                        conn.commit()
-                                        cur.close()
-                                        conn.close()
-                                        load_submitted_reports_from_db.clear()
-                                        st.session_state["submitted_reports"] = load_submitted_reports_from_db()
-                                        st.success("✅ பதிவு வெற்றிகரமாக நீக்கப்பட்டது!")
-                                        st.rerun()
-                                    except Exception as e:
-                                        st.error(f"❌ Delete error: {e}")
+                        new_val = st.number_input("📥 பெறப்பட்ட எண்ணிக்கையைத் திருத்துக (Update Received Qty):",
+                                                  min_value=0, max_value=max(req_qty * 2, rec_qty), value=rec_qty,
+                                                  key=f"err_pub_qty_{sel_id}")
+                        if st.button("💾 மாற்று/புதுப்பி", key=f"err_pub_upd_btn_{sel_id}", type="primary", use_container_width=True):
+                            try:
+                                conn = psycopg2.connect(DB_URL)
+                                cur = conn.cursor()
+                                # Id மூலம் மட்டும் UPDATE — புதிய பதிவு (INSERT) ஒருபோதும் உருவாக்கப்படாது
+                                cur.execute("UPDATE submitted_reports SET received_qty = %s WHERE id = %s;", (int(new_val), int(sel_id)))
+                                changed = cur.rowcount
+                                conn.commit()
+                                cur.close()
+                                conn.close()
+                                load_submitted_reports_from_db.clear()
+                                st.session_state["submitted_reports"] = load_submitted_reports_from_db()
+                                if changed == 1:
+                                    st.session_state["_err_flash"] = f"✅ Id {sel_id}: எண்ணிக்கை {new_val} என மாற்றப்பட்டது!"
+                                    st.rerun()
                                 else:
-                                    st.warning("⚠️ இந்தப் பதிவு database-ல் கிடைக்கவில்லை (Id காணப்படவில்லை).")
-                        with col_u:
-                            if st.button("💾 மாற்று/புதுப்பி", key="err_pub_upd_btn", type="primary", use_container_width=True):
-                                try:
-                                    conn = psycopg2.connect(DB_URL)
-                                    cur = conn.cursor()
-                                    if target_id is not None:
-                                        cur.execute("UPDATE submitted_reports SET received_qty = %s WHERE id = %s;", (new_val, target_id))
-                                    else:
-                                        cur.execute("""
-                                            INSERT INTO submitted_reports (publisher, title, required_qty, received_qty, date)
-                                            VALUES (%s, %s, %s, %s, %s)
-                                        """, (sel_pub, sel_title, req_qty, new_val, datetime.now().strftime("%Y-%m-%d %H:%M")))
-                                    conn.commit()
-                                    cur.close()
-                                    conn.close()
-                                    load_submitted_reports_from_db.clear()
-                                    st.session_state["submitted_reports"] = load_submitted_reports_from_db()
-                                except Exception as e:
-                                    st.error(f"❌ Update error: {e}")
-                                st.success(f"✅ எண்ணிக்கை வெற்றிகரமாக {new_val} என மாற்றப்பட்டது!")
-                                st.rerun()
+                                    st.warning("⚠️ இந்த Id database-ல் கிடைக்கவில்லை; எதுவும் மாற்றப்படவில்லை.")
+                            except Exception as e:
+                                st.error(f"❌ Update error: {e}")
+                    with c2:
+                        confirm_del = st.checkbox(f"✅ Id {sel_id} பதிவை நிரந்தரமாக நீக்க உறுதிப்படுத்துகிறேன்", key=f"err_del_confirm_{sel_id}")
+                        if st.button("🗑️ நீக்கு", key=f"err_pub_del_btn_{sel_id}", use_container_width=True, disabled=not confirm_del):
+                            try:
+                                conn = psycopg2.connect(DB_URL)
+                                cur = conn.cursor()
+                                cur.execute("DELETE FROM submitted_reports WHERE id = %s;", (int(sel_id),))
+                                deleted = cur.rowcount
+                                conn.commit()
+                                cur.close()
+                                conn.close()
+                                load_submitted_reports_from_db.clear()
+                                st.session_state["submitted_reports"] = load_submitted_reports_from_db()
+                                if deleted == 1:
+                                    st.session_state["_err_flash"] = f"✅ Id {sel_id} பதிவு வெற்றிகரமாக நீக்கப்பட்டது!"
+                                    st.session_state.pop("err_row_sel", None)
+                                    st.rerun()
+                                else:
+                                    st.warning("⚠️ இந்தப் பதிவு database-ல் கிடைக்கவில்லை (ஏற்கனவே நீக்கப்பட்டிருக்கலாம்).")
+                            except Exception as e:
+                                st.error(f"❌ Delete error: {e}")
 
     elif edit_action_option == "2. அனுப்பிய விவரங்கள் (Dispatch Records)":
         st.markdown("### 📤 2. அனுப்பிய விவரங்கள் — திருத்துதல் / நீக்குதல்")
