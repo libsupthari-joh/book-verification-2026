@@ -486,6 +486,46 @@ def canonicalize_report_records(records):
         out.append(r)
     return out
 
+
+def _books_cols(df):
+    """books அட்டவணையில் Publisher/Title/Author/Price/Accepted Price/ISBN நெடுவரிசைப் பெயர்கள்."""
+    cols = list(df.columns)
+    pub_c = next((c for c in cols if c == 'vendor_name'), None) or next((c for c in cols if c in ['publication name', 'publication_name', 'publisher_name'] or 'publication' in c), None)
+    title_c = next((c for c in cols if c == 'title' or (('title' in c) and ('book' not in c))), None) or next((c for c in cols if 'title' in c), None)
+    author_c = next((c for c in cols if 'author' in c), None)
+    price_c = next((c for c in cols if c == 'price'), None)
+    acc_c = next((c for c in cols if 'accept' in c or 'rate' in c or 'offer' in c), None)
+    isbn_c = next((c for c in cols if 'isbn' in c), None)
+    return pub_c, title_c, author_c, price_c, acc_c, isbn_c
+
+def _books_index(neon_df):
+    """(Normalize செய்த Publisher, Normalize செய்த Title) -> {count, publisher, title, author, price, accepted, isbn}
+    count = books அட்டவணையில் அந்தத் தலைப்புக்கு உள்ள உண்மையான வரிசைகள் (= Required Qty)."""
+    pub_c, title_c, author_c, price_c, acc_c, isbn_c = _books_cols(neon_df)
+    idx = {}
+    if neon_df.empty or not pub_c or not title_c:
+        return idx
+    def _v(row, c):
+        if not c or c not in row.index or pd.isna(row[c]):
+            return None
+        return str(row[c])
+    sub = neon_df.dropna(subset=[pub_c, title_c])
+    counts = sub.groupby([pub_c, title_c]).size().to_dict()
+    firsts = sub.drop_duplicates(subset=[pub_c, title_c])
+    for _, row in firsts.iterrows():
+        k = (_norm_name(row[pub_c]), _norm_name(row[title_c]))
+        cnt = int(counts.get((row[pub_c], row[title_c]), 1))
+        if k in idx:
+            idx[k]["count"] += cnt
+            continue
+        idx[k] = {"count": cnt, "publisher": row[pub_c], "title": row[title_c],
+                  "author": _v(row, author_c), "price": _v(row, price_c),
+                  "accepted": _v(row, acc_c), "isbn": _v(row, isbn_c)}
+    return idx
+
+def _is_blank(v):
+    return v is None or (isinstance(v, float) and pd.isna(v)) or str(v).strip().lower() in ("", "none", "nan", "null")
+
 @st.cache_data
 def load_submitted_reports_from_db():
     try:
@@ -704,7 +744,7 @@ def build_pub_stats_df(pub_name, source_neon_df, source_rep_df, pub_col, title_c
     where N = Received Qty submitted for that title. Shared by Master Data and நூலகர் சான்று pages."""
     p_neon_df = source_neon_df[source_neon_df[pub_col] == pub_name].copy()
     p_rep = source_rep_df[source_rep_df["Publisher"] == pub_name] if not source_rep_df.empty else pd.DataFrame()
-    t_map = dict(zip(p_rep["Title"], p_rep["Received Qty"])) if not p_rep.empty else {}
+    t_map = (p_rep.groupby("Title")["Received Qty"].apply(lambda x: pd.to_numeric(x, errors="coerce").fillna(0).sum()).to_dict() if not p_rep.empty else {})
 
     rows = []
     for title_val, group_df in p_neon_df.groupby(title_col):
@@ -1107,26 +1147,35 @@ elif current == "பிரிக்க":
                                 # மற்றவருக்கு "ஏற்கனவே சமர்ப்பிக்கப்பட்டது" எனக் காட்டப்படும்.
                                 lock_key = int(hashlib.md5(f"{item['Publisher']}||{item['Title']}".encode("utf-8")).hexdigest()[:15], 16)
                                 cur.execute("SELECT pg_advisory_xact_lock(%s);", (lock_key,))
-                                cur.execute(
-                                    "SELECT id, required_qty, received_qty FROM submitted_reports WHERE publisher = %s AND title = %s;",
-                                    (item["Publisher"], item["Title"])
-                                )
-                                existing_row = cur.fetchone()
+                                # பெயர் எழுத்து வேறுபாடுகள் (Neon புதிய பதிவேற்றத்துக்குப் பின்) இருந்தாலும்
+                                # Normalize செய்த பெயரால் பழைய பதிவைக் கண்டறியும் — புதிய நகல் உருவாகாது.
+                                cur.execute("SELECT id, required_qty, received_qty, publisher, title FROM submitted_reports;")
+                                _np_i, _nt_i = _norm_name(item["Publisher"]), _norm_name(item["Title"])
+                                existing_row = None
+                                for _sr in cur.fetchall():
+                                    if _norm_name(_sr[3]) == _np_i and _norm_name(_sr[4]) == _nt_i:
+                                        existing_row = _sr[:3]
+                                        break
                                 if existing_row:
                                     # --- ஏற்கனவே இந்தத் தலைப்புக்கு ஒரு பதிவு உள்ளது (பகுதி அளவு
                                     # ஏற்கனவே சமர்ப்பிக்கப்பட்டிருக்கலாம்). அதை UPDATE செய்து,
                                     # புதிதாக உள்ளிட்ட எண்ணிக்கையைக் கூட்டி, தேவைக்கு மேல் போகாமல்
                                     # (required_qty வரை மட்டும்) சேமிக்கவும். ---
                                     ex_id, ex_req, ex_rec = existing_row
-                                    ex_req = int(ex_req or 0)
+                                    ex_req = int(item.get("Required Qty") or ex_req or 0)  # books அட்டவணையின் தற்போதைய எண்ணிக்கை
                                     ex_rec = int(ex_rec or 0)
                                     if ex_rec >= ex_req:
                                         duplicate_items.append(item["Title"])
                                         continue
                                     new_rec = min(ex_req, ex_rec + int(item["Received Qty"]))
                                     cur.execute(
-                                        "UPDATE submitted_reports SET received_qty = %s, date = %s WHERE id = %s;",
-                                        (new_rec, item["Date"], ex_id)
+                                        "UPDATE submitted_reports SET received_qty = %s, required_qty = %s, date = %s, "
+                                        "publisher = %s, title = %s, "
+                                        "author = COALESCE(NULLIF(author, ''), %s), price = COALESCE(NULLIF(price::text, ''), %s), "
+                                        "accepted_price = COALESCE(NULLIF(accepted_price::text, ''), %s), isbn = COALESCE(NULLIF(isbn, ''), %s) "
+                                        "WHERE id = %s;",
+                                        (new_rec, ex_req, item["Date"], item["Publisher"], item["Title"],
+                                         item["Author"], item["Price"], item["Accepted Price"], item["ISBN"], ex_id)
                                     )
                                     updated_count += 1
                                 else:
@@ -1982,7 +2031,8 @@ elif current == "தவறான பதிவு நீக்கம்":
             "4. கவனிக்க வேண்டியவை (Review / Price Conflicts)",
             "5. பதிவெண் மாற்றங்கள் (Accession Number Updates)",
             "6. Master Data தரவுகள்",
-            "7. பகுப்பு எண் மாற்றங்கள் (Classification Number Updates)"
+            "7. பகுப்பு எண் மாற்றங்கள் (Classification Number Updates)",
+            "8. 🔧 பிரிக்கப்பட்ட தரவு பொருத்தம் சரிசெய் (Data Match Repair)"
         ],
         key="main_error_correction_sub_menu"
     )
@@ -2021,15 +2071,18 @@ elif current == "தவறான பதிவு நீக்கம்":
                 sel_title = st.selectbox("தலைப்பைத் தேர்ந்தெடுக்கவும்:", ["-- தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + title_list, key="err_title_sel")
                 
                 if sel_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
-                    req_qty = 90
-                    rec_qty = 75
+                    # books அட்டவணையிலிருந்து உண்மையான Required எண்ணிக்கையும் விவரங்களும்
+                    _bk_idx = _books_index(load_neon_database())
+                    _bk = _bk_idx.get((_norm_name(sel_pub), _norm_name(sel_title)))
+                    req_qty = int(_bk["count"]) if _bk else 1
+                    rec_qty = 0
                     target_index = None
                     target_id = None
                     
                     for idx, item in enumerate(st.session_state.get("submitted_reports", [])):
                         if item.get("Publisher") == sel_pub and item.get("Title") == sel_title:
-                            req_qty = int(item.get("Required Qty", 90))
-                            rec_qty = int(item.get("Received Qty", 75))
+                            req_qty = int(item.get("Required Qty", req_qty) or req_qty)
+                            rec_qty = int(item.get("Received Qty", 0) or 0)
                             target_index = idx
                             target_id = item.get("Id")
                             break
@@ -2075,9 +2128,12 @@ elif current == "தவறான பதிவு நீக்கம்":
                                         cur.execute("UPDATE submitted_reports SET received_qty = %s WHERE id = %s;", (new_val, target_id))
                                     else:
                                         cur.execute("""
-                                            INSERT INTO submitted_reports (publisher, title, required_qty, received_qty, date)
-                                            VALUES (%s, %s, %s, %s, %s)
-                                        """, (sel_pub, sel_title, req_qty, new_val, datetime.now().strftime("%Y-%m-%d %H:%M")))
+                                            INSERT INTO submitted_reports (publisher, title, author, price, accepted_price, isbn, required_qty, received_qty, date)
+                                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                        """, (sel_pub, sel_title,
+                                              _bk["author"] if _bk else None, _bk["price"] if _bk else None,
+                                              _bk["accepted"] if _bk else None, _bk["isbn"] if _bk else None,
+                                              req_qty, new_val, datetime.now().strftime("%Y-%m-%d %H:%M")))
                                     conn.commit()
                                     cur.close()
                                     conn.close()
@@ -2153,6 +2209,80 @@ elif current == "தவறான பதிவு நீக்கம்":
     elif edit_action_option == "7. பகுப்பு எண் மாற்றங்கள் (Classification Number Updates)":
         st.markdown("### 🏷️ 7. பகுப்பு எண் புதுப்பிப்பதற்கு மேல் மெனுவில் '🏷️ பகுப்பு எண் புதுப்பி' பட்டனை அழுத்தவும்.")
         st.info("ℹ️ பகுப்பு எண் புதுப்பிப்பதற்கான முழு வசதி '🏷️ பகுப்பு எண் புதுப்பி' மெனுவில் உள்ளது.")
+
+    elif edit_action_option == "8. 🔧 பிரிக்கப்பட்ட தரவு பொருத்தம் சரிசெய் (Data Match Repair)":
+        st.markdown("### 🔧 8. பிரிக்கப்பட்ட தரவு ↔ Books அட்டவணை பொருத்த சரிபார்ப்பு")
+        st.caption("Neon books அட்டவணை புதிதாக ஏற்றிய பின், சமர்ப்பிக்கப்பட்ட பதிவுகளில் விவரம் விடுபட்டுள்ளதா / Required எண்ணிக்கை மாறியுள்ளதா / நகல் பதிவுகள் உள்ளனவா என்பதைச் சரிபார்க்கிறது.")
+        _rp_neon = load_neon_database()
+        _rp_rows = st.session_state.get("submitted_reports", [])
+        if _rp_neon.empty or not _rp_rows:
+            st.info("ℹ️ சரிபார்க்கத் தரவுகள் இல்லை.")
+        else:
+            _rp_idx = _books_index(_rp_neon)
+            _rp_df = pd.DataFrame(_rp_rows)
+            _rp_df["_k"] = [(_norm_name(p), _norm_name(t)) for p, t in zip(_rp_df["Publisher"], _rp_df["Title"])]
+            _dup_keys = set(_rp_df["_k"][_rp_df["_k"].duplicated(keep=False)])
+            _report_rows, _fixable = [], []
+            for _, _r in _rp_df.iterrows():
+                _issues = []
+                _bk = _rp_idx.get(_r["_k"])
+                if _bk is None:
+                    _issues.append("❌ books-ல் இந்தத் தலைப்பு இல்லை")
+                else:
+                    _fix_needed = False
+                    if any(_is_blank(_r.get(c)) for c in ["Author", "Price", "Accepted Price", "ISBN"]):
+                        _issues.append("⚠️ விவரம் (Author/Price/ISBN) விடுபட்டுள்ளது")
+                        _fix_needed = True
+                    try:
+                        _req_db = int(float(_r.get("Required Qty") or 0))
+                    except Exception:
+                        _req_db = 0
+                    if _req_db != _bk["count"]:
+                        _issues.append(f"⚠️ Required {_req_db} ≠ books {_bk['count']}")
+                        _fix_needed = True
+                    if _fix_needed:
+                        _fixable.append((_r["Id"], _bk))
+                    try:
+                        if int(float(_r.get("Received Qty") or 0)) > _bk["count"]:
+                            _issues.append("⚠️ Received, books எண்ணிக்கையை விட அதிகம்")
+                    except Exception:
+                        pass
+                if _r["_k"] in _dup_keys:
+                    _issues.append("🔁 ஒரே பதிப்பகம்+தலைப்புக்கு நகல் பதிவுகள் உள்ளன")
+                if _issues:
+                    _report_rows.append({"Id": _r["Id"], "Publisher": _r["Publisher"], "Title": _r["Title"], "Author": _r.get("Author"),
+                                         "Required (DB)": _r.get("Required Qty"), "Books எண்ணிக்கை": _bk["count"] if _bk else None,
+                                         "Received": _r.get("Received Qty"), "சிக்கல்": " | ".join(_issues)})
+            if not _report_rows:
+                st.success("🎉 அனைத்துப் பதிவுகளும் books அட்டவணையுடன் சரியாகப் பொருந்துகின்றன.")
+            else:
+                st.warning(f"⚠️ {len(_report_rows)} பதிவுகளில் சிக்கல் உள்ளது.")
+                st.dataframe(pd.DataFrame(_report_rows), use_container_width=True, hide_index=True)
+                if _fixable:
+                    st.markdown(f"**தானாகச் சரிசெய்யக்கூடியவை:** {len(_fixable)} (விடுபட்ட விவரங்களை books-லிருந்து நிரப்பி, Required-ஐ books எண்ணிக்கைக்கு மாற்றும்; Received மாறாது)")
+                    if st.button("🛠️ தானாகச் சரிசெய்", type="primary", key="repair_apply_btn"):
+                        try:
+                            conn = psycopg2.connect(DB_URL)
+                            cur = conn.cursor()
+                            for _rid, _bk in _fixable:
+                                cur.execute(
+                                    "UPDATE submitted_reports SET publisher = %s, title = %s, required_qty = %s, "
+                                    "author = COALESCE(NULLIF(author, ''), %s), price = COALESCE(NULLIF(price::text, ''), %s), "
+                                    "accepted_price = COALESCE(NULLIF(accepted_price::text, ''), %s), isbn = COALESCE(NULLIF(isbn, ''), %s) "
+                                    "WHERE id = %s;",
+                                    (_bk["publisher"], _bk["title"], _bk["count"], _bk["author"], _bk["price"], _bk["accepted"], _bk["isbn"], int(_rid))
+                                )
+                            conn.commit()
+                            cur.close()
+                            conn.close()
+                            load_submitted_reports_from_db.clear()
+                            st.session_state["submitted_reports"] = load_submitted_reports_from_db()
+                            st.success("✅ சரிசெய்யப்பட்டது!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Repair error: {e}")
+                if _dup_keys:
+                    st.info("ℹ️ நகல் பதிவுகளைத் தானாக நீக்கவில்லை. எது சரியானது என்பதை நீங்கள் முடிவு செய்ய வேண்டும் — '1. பதிப்பாளர் தேர்வு' மூலம் தவறானதை நீக்கவும் (அறிக்கைகளில் இவற்றின் Received கூட்டப்படும்).")
 
     else:
         st.info("👆 மேல் உள்ள தேர்வில் ஏதேனும் ஒரு பிரிவைத் தேர்வு செய்தால், அதற்கான திருத்தும் மற்றும் நீக்கும் வசதிகள் உடனே தோன்றும்.")
@@ -2244,7 +2374,7 @@ elif current == "Master Data":
                     """Adds a 'publisher' + 'received_stats' column for one publisher's rows."""
                     p_neon_df = source_neon_df[source_neon_df[pub_col] == pub_name].copy()
                     p_rep = source_rep_df[source_rep_df["Publisher"] == pub_name] if not source_rep_df.empty else pd.DataFrame()
-                    t_map = dict(zip(p_rep["Title"], p_rep["Received Qty"])) if not p_rep.empty else {}
+                    t_map = (p_rep.groupby("Title")["Received Qty"].apply(lambda x: pd.to_numeric(x, errors="coerce").fillna(0).sum()).to_dict() if not p_rep.empty else {})
 
                     rows = []
                     for title_val, group_df in p_neon_df.groupby(title_col):
