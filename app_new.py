@@ -671,29 +671,18 @@ elif _role == "Librarian":
 else:
     menu_options = ALL_MENU_OPTIONS
 
-# --- முதன்மை வழிசெலுத்தல்: ஒரே ஒரு Dropdown மூலம் அனைத்து பகுதிகளையும் தேர்ந்தெடுக்கவும் ---
-_NAV_PLACEHOLDER = "-- பகுதியைத் தேர்ந்தெடுக்கவும் --"
-_nav_display_to_label = {f"{icon} {label}": label for icon, label in menu_options}
-_nav_label_to_display = {label: f"{icon} {label}" for icon, label in menu_options}
-_nav_display_options = [_NAV_PLACEHOLDER] + list(_nav_display_to_label.keys())
-
-# current_menu ஏதேனும் மற்ற இடத்தில் programmatic-ஆக மாற்றப்பட்டிருந்தால்
-# (எ.கா. சமர்ப்பித்த பிறகு "அறிக்கைகள்"-க்கு தானாக redirect), Dropdown-ஐ
-# அதற்கேற்ப Widget உருவாக்கும் முன்பே sync செய்யவும்.
-_expected_nav_display = _nav_label_to_display.get(st.session_state["current_menu"], _NAV_PLACEHOLDER)
-if st.session_state.get("main_nav_dropdown") != _expected_nav_display:
-    st.session_state["main_nav_dropdown"] = _expected_nav_display
-
-nav_choice = st.selectbox(
-    "📌 பகுதியைத் தேர்ந்தெடுக்கவும் (Select Section):",
-    _nav_display_options,
-    key="main_nav_dropdown"
-)
-
-_chosen_label = None if nav_choice == _NAV_PLACEHOLDER else _nav_display_to_label[nav_choice]
-if _chosen_label != st.session_state["current_menu"]:
-    st.session_state["current_menu"] = _chosen_label
-    st.rerun()
+# Rows of up to 6 buttons each — easier to read/tap than one cramped long row
+menu_rows = [menu_options[i:i + 6] for i in range(0, len(menu_options), 6)]
+btn_counter = 0
+for row in menu_rows:
+    cols = st.columns(len(row))
+    for col, (icon, label) in zip(cols, row):
+        with col:
+            btn_type = "primary" if st.session_state["current_menu"] == label else "secondary"
+            if st.button(f"{icon}\n{label}", key=f"menu_btn_{btn_counter}", use_container_width=True, type=btn_type):
+                st.session_state["current_menu"] = label
+                st.rerun()
+        btn_counter += 1
 
 st.markdown("---")
 
@@ -918,7 +907,7 @@ if current is not None and current not in _allowed_labels:
     st.session_state["current_menu"] = None
 
 if current is None:
-    st.info("👆 மேல் உள்ள Dropdown-ல் ஏதேனும் ஒரு பகுதியை (உதாரணமாக **'🔀 பிரிக்க'** அல்லது **'📊 அறிக்கைகள்'**) தேர்வு செய்யவும்.")
+    st.info("👆 மேல் உள்ள மெனு பட்டன்களில் ஏதேனும் ஒன்றை (உதாரணமாக **'🔀 பிரிக்க'** அல்லது **'📊 அறிக்கைகள்'**) தேர்வு செய்யவும்.")
 
 elif current == "பிரிக்க":
     st.subheader("🔀 நூல்களைப் பிரிக்கும் பகுதி (Publisher-wise Book Distribution)")
