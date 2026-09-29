@@ -15,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-DB_URL = "postgresql://neondb_owner:npg_y1mObIUlc2ox@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DB_URL = "postgresql://neondb_owner:npg_y1mObIUlc2ox@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require "
 
 st.markdown("""
 <style>
@@ -1489,10 +1489,25 @@ elif current == "அறிக்கைகள்":
         _REP_SUMMARY = "📋 சுருக்க அறிக்கை (Summary)"
         _REP_PUB = "🧾 பதிப்பக தொகுப்பு (Publisher Summary)"
         _REP_LIB = "🏛️ நூலக விவரம் (Library Detail)"
-        _REP_CAT = "📂 வகை வாரியான அறிக்கை (Category Reports)"
+        _REP_T1 = "1. 🔀 பிரிக்க"
+        _REP_T2 = "2. 📜 நூலகர் சான்று"
+        _REP_T3 = "3. ⚠️ கவனிக்க"
+        _REP_T4 = "4. 🔢 பதிவெண் மாற்ற"
+        _REP_T5 = "5. 🗂️ Master Data"
+        _REP_T6 = "6. ❌ தவறான பதிவு நீக்கம்"
+        _REP_T7 = "7. 🔑 கடவுச்சொல் மாற்ற"
+        _REP_T8 = "8. 📥 Excel பதிவிறக்கம்"
+        _REP_T9 = "9. 👥 நூலகர் பார்வை ஆண்டு"
+        _REP_T10 = "10. 📂 Excel அப்லோடு"
+        _REP_T11 = "11. 🏷️ பகுப்பு எண் புதுப்பி"
+        _REP_T12 = "12. 🔗 நூலக பொருத்தம்"
         report_section = st.selectbox(
             "📌 எந்தப் பகுதியின் அறிக்கை வேண்டும் என்பதைத் தேர்ந்தெடுக்கவும்:",
-            [_REP_PLACEHOLDER, _REP_SUMMARY, _REP_PUB, _REP_LIB, _REP_CAT],
+            [
+                _REP_PLACEHOLDER, _REP_SUMMARY, _REP_PUB, _REP_LIB,
+                _REP_T1, _REP_T2, _REP_T3, _REP_T4, _REP_T5, _REP_T6,
+                _REP_T7, _REP_T8, _REP_T9, _REP_T10, _REP_T11, _REP_T12,
+            ],
             key="main_report_section_menu"
         )
         st.markdown("---")
@@ -1687,282 +1702,260 @@ elif current == "அறிக்கைகள்":
                                         )
 
         # ======================================================================
-        # 📂 வகை வாரியான அறிக்கை — (12) பணிப் பகுதிகள் (மேல் மெனுவில் உள்ள
-        # 12 பட்டன்களுக்கும் இணையான பெயர்களில்). இங்கு திருத்த/நீக்க/பணி செய்ய
-        # வசதிகள் இல்லை — தரவைப் பார்த்து அறிக்கையாகப் பதிவிறக்கலாம் மட்டுமே.
-        # ஒரு குறிப்பிட்டப் பணியைச் செய்ய மேல் மெனுவில் உள்ள அந்தப் பட்டனுக்குச் செல்லவும்.
+        # (12) பணிப் பகுதிகளின் தரவு அறிக்கை — மேல் மெனுவில் உள்ள 12 பட்டன்களுக்கும்
+        # இணையான பெயர்களில், நேரடியாக இந்த ஒரே Dropdown-லிருந்தே தேர்ந்தெடுக்கலாம்.
+        # இது படிக்க மட்டுமான (read-only) அறிக்கை — இங்கு திருத்த/நீக்க/பணி செய்ய
+        # வசதிகள் இல்லை. ஒரு குறிப்பிட்டப் பணியைச் செய்ய மேல் மெனுவில் உள்ள
+        # அந்தப் பட்டனுக்குச் செல்லவும்.
         # ======================================================================
-        if report_section == _REP_CAT:
-            def _cat_downloads(df_to_dl, label_prefix, key_prefix):
-                """CSV + Excel பதிவிறக்க பட்டன்கள் (எந்த DataFrame-க்கும்)."""
-                import io as _io
-                _stamp = datetime.now().strftime('%Y%m%d_%H%M')
-                _c1, _c2 = st.columns(2)
-                with _c1:
+        def _cat_downloads(df_to_dl, label_prefix, key_prefix):
+            """CSV + Excel பதிவிறக்க பட்டன்கள் (எந்த DataFrame-க்கும்)."""
+            import io as _io
+            _stamp = datetime.now().strftime('%Y%m%d_%H%M')
+            _c1, _c2 = st.columns(2)
+            with _c1:
+                st.download_button(
+                    label="📥 CSV",
+                    data=df_to_dl.to_csv(index=False).encode('utf-8-sig'),
+                    file_name=f"{label_prefix}_{_stamp}.csv",
+                    mime="text/csv",
+                    type="primary",
+                    use_container_width=True,
+                    key=f"{key_prefix}_csv"
+                )
+            with _c2:
+                if len(df_to_dl) <= 60000:
+                    _buf = _io.BytesIO()
+                    with pd.ExcelWriter(_buf, engine="openpyxl") as _w:
+                        df_to_dl.to_excel(_w, sheet_name="Report", index=False)
                     st.download_button(
-                        label="📥 CSV",
-                        data=df_to_dl.to_csv(index=False).encode('utf-8-sig'),
-                        file_name=f"{label_prefix}_{_stamp}.csv",
-                        mime="text/csv",
-                        type="primary",
+                        label="📥 Excel",
+                        data=_buf.getvalue(),
+                        file_name=f"{label_prefix}_{_stamp}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
-                        key=f"{key_prefix}_csv"
+                        key=f"{key_prefix}_xlsx"
                     )
-                with _c2:
-                    if len(df_to_dl) <= 60000:
-                        _buf = _io.BytesIO()
-                        with pd.ExcelWriter(_buf, engine="openpyxl") as _w:
-                            df_to_dl.to_excel(_w, sheet_name="Report", index=False)
-                        st.download_button(
-                            label="📥 Excel",
-                            data=_buf.getvalue(),
-                            file_name=f"{label_prefix}_{_stamp}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True,
-                            key=f"{key_prefix}_xlsx"
-                        )
 
-            cat_option = st.selectbox(
-                "📤 எந்தப் பணிப் பகுதியின் தரவு அறிக்கை வேண்டும் என்பதைத் தேர்ந்தெடுக்கவும் (Select task-section to view its data report):",
-                [
-                    "-- பகுதியைத் தேர்ந்தெடுக்கவும் --",
-                    "1. 🔀 பிரிக்க",
-                    "2. 📜 நூலகர் சான்று",
-                    "3. ⚠️ கவனிக்க",
-                    "4. 🔢 பதிவெண் மாற்ற",
-                    "5. 🗂️ Master Data",
-                    "6. ❌ தவறான பதிவு நீக்கம்",
-                    "7. 🔑 கடவுச்சொல் மாற்ற",
-                    "8. 📥 Excel பதிவிறக்கம்",
-                    "9. 👥 நூலகர் பார்வை ஆண்டு",
-                    "10. 📂 Excel அப்லோடு",
-                    "11. 🏷️ பகுப்பு எண் புதுப்பி",
-                    "12. 🔗 நூலக பொருத்தம்",
-                ],
-                key="report_category_sub_menu"
-            )
-            st.caption("ℹ️ இது படிக்க மட்டுமான (read-only) அறிக்கை — இங்கு எதையும் திருத்தவோ நீக்கவோ முடியாது. பணியைச் செய்ய மேல் மெனுவில் உள்ள அந்தப் பட்டனைப் பயன்படுத்தவும்.")
-            st.markdown("---")
+        if report_section == _REP_T1:
+            st.markdown("### 🔀 1. பிரிக்க — சமர்ப்பிக்கப்பட்ட தரவுகள் (Submitted Reports)")
+            _pub_names = sorted(set(
+                [i["Publisher"] for i in st.session_state.get("submitted_reports", []) if "Publisher" in i]
+            ))
+            _all_rep_cat = pd.DataFrame(st.session_state["submitted_reports"])
+            if not _all_rep_cat.empty and _pub_names:
+                _sel_pub_cat = st.selectbox("🏢 பதிப்பகம் வாரியாக வடிகட்ட (விருப்பம்):", ["-- அனைத்துப் பதிப்பகங்களும் --"] + _pub_names, key="cat_pub_sel")
+                if _sel_pub_cat != "-- அனைத்துப் பதிப்பகங்களும் --":
+                    _all_rep_cat = _all_rep_cat[_all_rep_cat["Publisher"] == _sel_pub_cat]
+            _all_rep_cat = _all_rep_cat.reset_index(drop=True)
+            st.markdown(f"**மொத்தப் பதிவுகள்:** {len(_all_rep_cat)}")
+            st.dataframe(_all_rep_cat, use_container_width=True)
+            if not _all_rep_cat.empty:
+                _cat_downloads(_all_rep_cat, "Pirikka_Submitted_Reports", "dl_cat1")
 
-            if cat_option == "1. 🔀 பிரிக்க":
-                st.markdown("### 🔀 1. பிரிக்க — சமர்ப்பிக்கப்பட்ட தரவுகள் (Submitted Reports)")
-                _pub_names = sorted(set(
-                    [i["Publisher"] for i in st.session_state.get("submitted_reports", []) if "Publisher" in i]
-                ))
-                _all_rep_cat = pd.DataFrame(st.session_state["submitted_reports"])
-                if not _all_rep_cat.empty and _pub_names:
-                    _sel_pub_cat = st.selectbox("🏢 பதிப்பகம் வாரியாக வடிகட்ட (விருப்பம்):", ["-- அனைத்துப் பதிப்பகங்களும் --"] + _pub_names, key="cat_pub_sel")
-                    if _sel_pub_cat != "-- அனைத்துப் பதிப்பகங்களும் --":
-                        _all_rep_cat = _all_rep_cat[_all_rep_cat["Publisher"] == _sel_pub_cat]
-                _all_rep_cat = _all_rep_cat.reset_index(drop=True)
-                st.markdown(f"**மொத்தப் பதிவுகள்:** {len(_all_rep_cat)}")
-                st.dataframe(_all_rep_cat, use_container_width=True)
-                if not _all_rep_cat.empty:
-                    _cat_downloads(_all_rep_cat, "Pirikka_Submitted_Reports", "dl_cat1")
-
-            elif cat_option == "2. 📜 நூலகர் சான்று":
-                st.markdown("### 📜 2. நூலகர் சான்று — அனுப்பிய / பெறப்பட்ட விவரங்கள் (Dispatch Records)")
-                _disp_df_cat = load_dispatch_status_full()
-                if _disp_df_cat.empty:
-                    st.info("ℹ️ இதுவரை எந்த நூல்களும் நூலகர் சான்று மூலம் பெறப்பட்டதாகப் பதிவு செய்யப்படவில்லை.")
-                else:
-                    st.markdown(f"**மொத்த பதிவுகள்:** {len(_disp_df_cat)}")
-                    st.dataframe(_disp_df_cat, use_container_width=True)
-                    _cat_downloads(_disp_df_cat, "Nulagar_Sanru_Dispatch_Records", "dl_cat2")
-
-            elif cat_option == "3. ⚠️ கவனிக்க":
-                st.markdown("### ⚠️ 3. கவனிக்க — விலை முரண்பாடு உள்ள பதிவுகள் (Price Conflicts)")
-                _neon_cat4 = load_neon_database()
-                if _neon_cat4.empty:
-                    st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
-                else:
-                    _price_col = next((c for c in _neon_cat4.columns if c == 'price'), None)
-                    _acc_price_col = next((c for c in _neon_cat4.columns if 'accept' in c or 'rate' in c or 'offer' in c), None)
-                    if not _price_col or not _acc_price_col:
-                        st.info("ℹ️ விலை நெடுவரிசைகள் கண்டறியப்படவில்லை.")
-                    else:
-                        _cmp = _neon_cat4.copy()
-                        _cmp["_p"] = pd.to_numeric(_cmp[_price_col], errors="coerce")
-                        _cmp["_a"] = pd.to_numeric(_cmp[_acc_price_col], errors="coerce")
-                        _conf = _cmp[_cmp["_p"] != _cmp["_a"]].drop(columns=["_p", "_a"]).reset_index(drop=True)
-                        if _conf.empty:
-                            st.success("🎉 விலை முரண்பாடுகள் எதுவும் இல்லை!")
-                        else:
-                            st.markdown(f"**முரண்பாடு உள்ள பதிவுகள்:** {len(_conf)}")
-                            st.dataframe(_conf, use_container_width=True)
-                            _cat_downloads(_conf, "Kavanikka_Price_Conflicts", "dl_cat3")
-
-            elif cat_option == "4. 🔢 பதிவெண் மாற்ற":
-                st.markdown("### 🔢 4. பதிவெண் நிலை அறிக்கை (Accession Number)")
-                _neon_cat5 = load_neon_database()
-                if _neon_cat5.empty:
-                    st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
-                else:
-                    _acc_col = next((c for c in _neon_cat5.columns if c == 'state_acc_number'), None) or next((c for c in _neon_cat5.columns if 'accession' in c or c == 'acc_no' or 'reg_no' in c), None)
-                    if not _acc_col:
-                        st.info("ℹ️ 'Accession Number' நெடுவரிசை கண்டறியப்படவில்லை.")
-                    else:
-                        _acc_series = _neon_cat5[_acc_col].astype(str).str.strip().str.lower()
-                        _missing_mask = _acc_series.isin(["", "nan", "none", "null"])
-                        _c1, _c2, _c3 = st.columns(3)
-                        with _c1:
-                            st.metric("📚 மொத்த நூல்கள்", len(_neon_cat5))
-                        with _c2:
-                            st.metric("✅ பதிவெண் உள்ளவை", int((~_missing_mask).sum()))
-                        with _c3:
-                            st.metric("⏳ பதிவெண் இல்லாதவை", int(_missing_mask.sum()))
-                        _acc_view = st.radio("காண்பிக்க:", ["பதிவெண் உள்ளவை", "பதிவெண் இல்லாதவை"], horizontal=True, key="cat5_view")
-                        _acc_df = (_neon_cat5[~_missing_mask] if _acc_view == "பதிவெண் உள்ளவை" else _neon_cat5[_missing_mask]).reset_index(drop=True)
-                        st.dataframe(_acc_df, use_container_width=True)
-                        if not _acc_df.empty:
-                            _cat_downloads(_acc_df, "Pathivenn_Maatram_Accession", "dl_cat4")
-                st.caption("💡 பதிவெண்ணைத் திருத்த மேல் மெனுவில் '🔢 பதிவெண் மாற்ற' பட்டனைப் பயன்படுத்தவும்.")
-
-            elif cat_option == "5. 🗂️ Master Data":
-                st.markdown("### 🗂️ 5. Master Data — முழு பட்டியல்")
-                _neon_cat6 = load_neon_database()
-                if _neon_cat6.empty:
-                    st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
-                else:
-                    _pub_col6 = next((c for c in _neon_cat6.columns if c == 'vendor_name'), None)
-                    _lang_col6 = next((c for c in _neon_cat6.columns if c == 'language'), None)
-                    _f1, _f2 = st.columns(2)
-                    _view6 = _neon_cat6
-                    with _f1:
-                        if _pub_col6:
-                            _p6 = st.selectbox("🏢 பதிப்பகம்:", ["-- அனைத்தும் --"] + sorted(_neon_cat6[_pub_col6].dropna().unique().tolist()), key="cat6_pub")
-                            if _p6 != "-- அனைத்தும் --":
-                                _view6 = _view6[_view6[_pub_col6] == _p6]
-                    with _f2:
-                        if _lang_col6:
-                            _l6 = st.selectbox("🌐 மொழி:", ["-- அனைத்தும் --", "Tamil", "English"], key="cat6_lang")
-                            if _l6 != "-- அனைத்தும் --":
-                                _view6 = _view6[_view6[_lang_col6].astype(str).str.strip().str.lower() == _l6.lower()]
-                    _view6 = _view6.reset_index(drop=True)
-                    st.markdown(f"**மொத்த நூல்கள்:** {len(_view6)}")
-                    st.dataframe(_view6.head(2000), use_container_width=True)
-                    if len(_view6) > 2000:
-                        st.caption("ℹ️ திரையில் முதல் 2000 வரிசைகள் மட்டும் காட்டப்படுகின்றன; பதிவிறக்கத்தில் அனைத்தும் இருக்கும்.")
-                    _cat_downloads(_view6, "Master_Data", "dl_cat5")
-
-            elif cat_option == "6. ❌ தவறான பதிவு நீக்கம்":
-                st.markdown("### ❌ 6. தவறான பதிவு நீக்கம் — நடப்பில் உள்ள பதிவுகளின் சுருக்கம்")
-                st.caption("இங்கு எந்த அட்டவணையில் எத்தனை பதிவுகள் உள்ளன என்பதன் சுருக்கம் மட்டும் — நீக்க/திருத்த மேல் மெனுவில் உள்ள '❌ தவறான பதிவு நீக்கம்' பட்டனைப் பயன்படுத்தவும்.")
-                _neon_cat8 = load_neon_database()
-                _disp_cat8 = load_dispatch_status_full()
-                _rep_cat8 = pd.DataFrame(st.session_state.get("submitted_reports", []))
-                _summary_rows = [
-                    {"அட்டவணை": "📚 Master Data (books)", "மொத்த பதிவுகள்": len(_neon_cat8)},
-                    {"அட்டவணை": "🔀 அறிக்கை தரவுகள் (submitted_reports)", "மொத்த பதிவுகள்": len(_rep_cat8)},
-                    {"அட்டவணை": "📜 நூலகர் சான்று (dispatch_status)", "மொத்த பதிவுகள்": len(_disp_cat8)},
-                ]
-                _summary_df8 = pd.DataFrame(_summary_rows)
-                st.dataframe(_summary_df8, use_container_width=True, hide_index=True)
-                _cat_downloads(_summary_df8, "Thavarana_Pathivu_Summary", "dl_cat6")
-
-            elif cat_option == "7. 🔑 கடவுச்சொல் மாற்ற":
-                st.markdown("### 🔑 7. கடவுச்சொல் மாற்ற")
-                st.info("ℹ️ இந்தப் பகுதிக்கு தரவு அறிக்கை (report) பொருந்தாது — இது ஒரு பணி (action) மட்டுமே. கடவுச்சொல்லை மாற்ற மேல் மெனுவில் உள்ள '🔑 கடவுச்சொல் மாற்ற' பட்டனைப் பயன்படுத்தவும்.")
-
-            elif cat_option == "8. 📥 Excel பதிவிறக்கம்":
-                st.markdown("### 📥 8. Excel பதிவிறக்கம் — முழுமையான சமர்ப்பிக்கப்பட்ட தரவுகள்")
-                _rep_cat9 = pd.DataFrame(st.session_state.get("submitted_reports", []))
-                if _rep_cat9.empty:
-                    st.info("ℹ️ பதிவிறக்கம் செய்யத் தரவுகள் எதுவும் இல்லை.")
-                else:
-                    st.markdown(f"**மொத்தப் பதிவுகள்:** {len(_rep_cat9)}")
-                    st.dataframe(_rep_cat9, use_container_width=True)
-                    _cat_downloads(_rep_cat9, "Excel_Pathivirakkam", "dl_cat7")
-
-            elif cat_option == "9. 👥 நூலகர் பார்வை ஆண்டு":
-                st.markdown("### 👥 9. நூலகர் பார்வை ஆண்டு விவரங்கள்")
-                _lib_rec_cat = pd.DataFrame(st.session_state.get("librarian_records", []))
-                if _lib_rec_cat.empty:
-                    st.info("ℹ️ இதுவரை நூலகர் பார்வை ஆண்டு பதிவுகள் எதுவும் சேர்க்கப்படவில்லை.")
-                else:
-                    st.markdown(f"**மொத்தப் பதிவுகள்:** {len(_lib_rec_cat)}")
-                    st.dataframe(_lib_rec_cat, use_container_width=True)
-                    _cat_downloads(_lib_rec_cat, "Nulagar_Aandu_Parvai", "dl_cat8")
-
-            elif cat_option == "10. 📂 Excel அப்லோடு":
-                st.markdown("### 📂 10. Excel அப்லோடு — books அட்டவணையின் தற்போதைய நிலை")
-                _neon_cat10 = load_neon_database()
-                st.metric("📚 books அட்டவணையில் தற்போது உள்ள மொத்த பதிவுகள்", len(_neon_cat10))
-                st.caption("ℹ️ புதிதாக Excel பதிவேற்றம் செய்ய மேல் மெனுவில் உள்ள '📂 Excel அப்லோடு' பட்டனைப் பயன்படுத்தவும்.")
-
-            elif cat_option == "11. 🏷️ பகுப்பு எண் புதுப்பி":
-                st.markdown("### 🏷️ 11. பகுப்பு எண் நிலை அறிக்கை (Classification Number)")
-                _neon_cat7 = load_neon_database()
-                if _neon_cat7.empty:
-                    st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
-                else:
-                    _class_col = next((c for c in _neon_cat7.columns if 'classification' in c or c == 'class_no' or 'call_no' in c or 'call number' in c), None)
-                    if not _class_col:
-                        st.info("ℹ️ 'Classification Number' நெடுவரிசை தரவுத்தளத்தில் கண்டறியப்படவில்லை.")
-                    else:
-                        _cls_series = _neon_cat7[_class_col].astype(str).str.strip().str.lower()
-                        _cls_missing = _cls_series.isin(["", "nan", "none", "null"])
-                        _c1, _c2, _c3 = st.columns(3)
-                        with _c1:
-                            st.metric("📚 மொத்த நூல்கள்", len(_neon_cat7))
-                        with _c2:
-                            st.metric("✅ பகுப்பு எண் உள்ளவை", int((~_cls_missing).sum()))
-                        with _c3:
-                            st.metric("⏳ பகுப்பு எண் இல்லாதவை", int(_cls_missing.sum()))
-                        _cls_view = st.radio("காண்பிக்க:", ["பகுப்பு எண் உள்ளவை", "பகுப்பு எண் இல்லாதவை"], horizontal=True, key="cat7_view")
-                        _cls_df = (_neon_cat7[~_cls_missing] if _cls_view == "பகுப்பு எண் உள்ளவை" else _neon_cat7[_cls_missing]).reset_index(drop=True)
-                        st.dataframe(_cls_df, use_container_width=True)
-                        if not _cls_df.empty:
-                            _cat_downloads(_cls_df, "Pagupu_Enn_Classification", "dl_cat9")
-                st.caption("💡 பகுப்பு எண்ணைத் திருத்த மேல் மெனுவில் '🏷️ பகுப்பு எண் புதுப்பி' பட்டனைப் பயன்படுத்தவும்.")
-
-            elif cat_option == "12. 🔗 நூலக பொருத்தம்":
-                st.markdown("### 🔗 12. நூலக பொருத்தம் — TNDPL ↔ books பொருத்த நிலை")
-                _neon_cat11 = load_neon_database()
-                _libs_cat11 = load_libraries_df()
-                if _neon_cat11.empty or _libs_cat11.empty:
-                    st.warning("⚠️ தேவையான தரவுகள் கிடைக்கவில்லை.")
-                else:
-                    _lib_col_11 = next((c for c in _neon_cat11.columns if 'library' in c and ('name' in c or 'tm' in c)), None)
-                    if not _lib_col_11:
-                        st.error("❌ books அட்டவணையில் நூலகப் பெயர் column கண்டறியப்படவில்லை.")
-                    else:
-                        _actual_lib_11 = sorted(_neon_cat11[_lib_col_11].dropna().unique().tolist())
-
-                        def _norm11(s):
-                            return str(s).strip().lower().replace(" ", "")
-
-                        _status_rows_11 = []
-                        for _, _r in _libs_cat11.iterrows():
-                            if _r["Matched Value"] and str(_r["Matched Value"]).strip():
-                                _status_rows_11.append("✅ Admin உறுதி செய்தது")
-                            else:
-                                _nt, _ne = _norm11(_r["Name (Tamil)"]), _norm11(_r["Name (English)"])
-                                _auto = None
-                                for _v in _actual_lib_11:
-                                    _nv = _norm11(_v)
-                                    if _nv == _nt or _nv == _ne or (_nt and _nt in _nv) or (_ne and _ne in _nv):
-                                        _auto = _v
-                                        break
-                                _status_rows_11.append(f"🟡 தானியங்கு பொருத்தம்: {_auto}" if _auto else "❌ பொருத்தம் இல்லை")
-                        _libs_cat11 = _libs_cat11.copy()
-                        _libs_cat11["நிலை"] = _status_rows_11
-
-                        _n_unmatched_11 = sum(1 for s in _status_rows_11 if s == "❌ பொருத்தம் இல்லை")
-                        _n_confirmed_11 = sum(1 for s in _status_rows_11 if s.startswith("✅"))
-                        _c1, _c2, _c3 = st.columns(3)
-                        with _c1:
-                            st.metric("🏛️ மொத்த நூலகங்கள்", len(_libs_cat11))
-                        with _c2:
-                            st.metric("✅ Admin உறுதி செய்தவை", _n_confirmed_11)
-                        with _c3:
-                            st.metric("❌ பொருத்தமில்லாதவை", _n_unmatched_11)
-                        st.dataframe(_libs_cat11, use_container_width=True)
-                        _cat_downloads(_libs_cat11, "Nulaga_Poruthham", "dl_cat10")
-                st.caption("💡 பொருத்தத்தைத் திருத்த மேல் மெனுவில் உள்ள '🔗 நூலக பொருத்தம்' பட்டனைப் பயன்படுத்தவும்.")
-
+        elif report_section == _REP_T2:
+            st.markdown("### 📜 2. நூலகர் சான்று — அனுப்பிய / பெறப்பட்ட விவரங்கள் (Dispatch Records)")
+            _disp_df_cat = load_dispatch_status_full()
+            if _disp_df_cat.empty:
+                st.info("ℹ️ இதுவரை எந்த நூல்களும் நூலகர் சான்று மூலம் பெறப்பட்டதாகப் பதிவு செய்யப்படவில்லை.")
             else:
-                st.info("👆 மேல் உள்ள தேர்வில் ஏதேனும் ஒரு பணிப் பகுதியைத் தேர்வு செய்தால், அதற்கான தரவு அறிக்கை உடனே தோன்றும்.")
+                st.markdown(f"**மொத்த பதிவுகள்:** {len(_disp_df_cat)}")
+                st.dataframe(_disp_df_cat, use_container_width=True)
+                _cat_downloads(_disp_df_cat, "Nulagar_Sanru_Dispatch_Records", "dl_cat2")
+
+        elif report_section == _REP_T3:
+            st.markdown("### ⚠️ 3. கவனிக்க — விலை முரண்பாடு உள்ள பதிவுகள் (Price Conflicts)")
+            _neon_cat4 = load_neon_database()
+            if _neon_cat4.empty:
+                st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
+            else:
+                _price_col = next((c for c in _neon_cat4.columns if c == 'price'), None)
+                _acc_price_col = next((c for c in _neon_cat4.columns if 'accept' in c or 'rate' in c or 'offer' in c), None)
+                if not _price_col or not _acc_price_col:
+                    st.info("ℹ️ விலை நெடுவரிசைகள் கண்டறியப்படவில்லை.")
+                else:
+                    _cmp = _neon_cat4.copy()
+                    _cmp["_p"] = pd.to_numeric(_cmp[_price_col], errors="coerce")
+                    _cmp["_a"] = pd.to_numeric(_cmp[_acc_price_col], errors="coerce")
+                    _conf = _cmp[_cmp["_p"] != _cmp["_a"]].drop(columns=["_p", "_a"]).reset_index(drop=True)
+                    if _conf.empty:
+                        st.success("🎉 விலை முரண்பாடுகள் எதுவும் இல்லை!")
+                    else:
+                        st.markdown(f"**முரண்பாடு உள்ள பதிவுகள்:** {len(_conf)}")
+                        st.dataframe(_conf, use_container_width=True)
+                        _cat_downloads(_conf, "Kavanikka_Price_Conflicts", "dl_cat3")
+
+        elif report_section == _REP_T4:
+            st.markdown("### 🔢 4. பதிவெண் நிலை அறிக்கை (Accession Number)")
+            _neon_cat5 = load_neon_database()
+            if _neon_cat5.empty:
+                st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
+            else:
+                _acc_col = next((c for c in _neon_cat5.columns if c == 'state_acc_number'), None) or next((c for c in _neon_cat5.columns if 'accession' in c or c == 'acc_no' or 'reg_no' in c), None)
+                if not _acc_col:
+                    st.info("ℹ️ 'Accession Number' நெடுவரிசை கண்டறியப்படவில்லை.")
+                else:
+                    _acc_series = _neon_cat5[_acc_col].astype(str).str.strip().str.lower()
+                    _missing_mask = _acc_series.isin(["", "nan", "none", "null"])
+                    _c1, _c2, _c3 = st.columns(3)
+                    with _c1:
+                        st.metric("📚 மொத்த நூல்கள்", len(_neon_cat5))
+                    with _c2:
+                        st.metric("✅ பதிவெண் உள்ளவை", int((~_missing_mask).sum()))
+                    with _c3:
+                        st.metric("⏳ பதிவெண் இல்லாதவை", int(_missing_mask.sum()))
+                    _acc_view = st.radio("காண்பிக்க:", ["பதிவெண் உள்ளவை", "பதிவெண் இல்லாதவை"], horizontal=True, key="cat5_view")
+                    _acc_df = (_neon_cat5[~_missing_mask] if _acc_view == "பதிவெண் உள்ளவை" else _neon_cat5[_missing_mask]).reset_index(drop=True)
+                    st.dataframe(_acc_df, use_container_width=True)
+                    if not _acc_df.empty:
+                        _cat_downloads(_acc_df, "Pathivenn_Maatram_Accession", "dl_cat4")
+            st.caption("💡 பதிவெண்ணைத் திருத்த மேல் மெனுவில் '🔢 பதிவெண் மாற்ற' பட்டனைப் பயன்படுத்தவும்.")
+
+        elif report_section == _REP_T5:
+            st.markdown("### 🗂️ 5. Master Data — முழு பட்டியல்")
+            _neon_cat6 = load_neon_database()
+            if _neon_cat6.empty:
+                st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
+            else:
+                _pub_col6 = next((c for c in _neon_cat6.columns if c == 'vendor_name'), None)
+                _lang_col6 = next((c for c in _neon_cat6.columns if c == 'language'), None)
+                _f1, _f2 = st.columns(2)
+                _view6 = _neon_cat6
+                with _f1:
+                    if _pub_col6:
+                        _p6 = st.selectbox("🏢 பதிப்பகம்:", ["-- அனைத்தும் --"] + sorted(_neon_cat6[_pub_col6].dropna().unique().tolist()), key="cat6_pub")
+                        if _p6 != "-- அனைத்தும் --":
+                            _view6 = _view6[_view6[_pub_col6] == _p6]
+                with _f2:
+                    if _lang_col6:
+                        _l6 = st.selectbox("🌐 மொழி:", ["-- அனைத்தும் --", "Tamil", "English"], key="cat6_lang")
+                        if _l6 != "-- அனைத்தும் --":
+                            _view6 = _view6[_view6[_lang_col6].astype(str).str.strip().str.lower() == _l6.lower()]
+                _view6 = _view6.reset_index(drop=True)
+                st.markdown(f"**மொத்த நூல்கள்:** {len(_view6)}")
+                st.dataframe(_view6.head(2000), use_container_width=True)
+                if len(_view6) > 2000:
+                    st.caption("ℹ️ திரையில் முதல் 2000 வரிசைகள் மட்டும் காட்டப்படுகின்றன; பதிவிறக்கத்தில் அனைத்தும் இருக்கும்.")
+                _cat_downloads(_view6, "Master_Data", "dl_cat5")
+
+        elif report_section == _REP_T6:
+            st.markdown("### ❌ 6. தவறான பதிவு நீக்கம் — நடப்பில் உள்ள பதிவுகளின் சுருக்கம்")
+            st.caption("இங்கு எந்த அட்டவணையில் எத்தனை பதிவுகள் உள்ளன என்பதன் சுருக்கம் மட்டும் — நீக்க/திருத்த மேல் மெனுவில் உள்ள '❌ தவறான பதிவு நீக்கம்' பட்டனைப் பயன்படுத்தவும்.")
+            _neon_cat8 = load_neon_database()
+            _disp_cat8 = load_dispatch_status_full()
+            _rep_cat8 = pd.DataFrame(st.session_state.get("submitted_reports", []))
+            _summary_rows = [
+                {"அட்டவணை": "📚 Master Data (books)", "மொத்த பதிவுகள்": len(_neon_cat8)},
+                {"அட்டவணை": "🔀 அறிக்கை தரவுகள் (submitted_reports)", "மொத்த பதிவுகள்": len(_rep_cat8)},
+                {"அட்டவணை": "📜 நூலகர் சான்று (dispatch_status)", "மொத்த பதிவுகள்": len(_disp_cat8)},
+            ]
+            _summary_df8 = pd.DataFrame(_summary_rows)
+            st.dataframe(_summary_df8, use_container_width=True, hide_index=True)
+            _cat_downloads(_summary_df8, "Thavarana_Pathivu_Summary", "dl_cat6")
+
+        elif report_section == _REP_T7:
+            st.markdown("### 🔑 7. கடவுச்சொல் மாற்ற")
+            st.info("ℹ️ இந்தப் பகுதிக்கு தரவு அறிக்கை (report) பொருந்தாது — இது ஒரு பணி (action) மட்டுமே. கடவுச்சொல்லை மாற்ற மேல் மெனுவில் உள்ள '🔑 கடவுச்சொல் மாற்ற' பட்டனைப் பயன்படுத்தவும்.")
+
+        elif report_section == _REP_T8:
+            st.markdown("### 📥 8. Excel பதிவிறக்கம் — முழுமையான சமர்ப்பிக்கப்பட்ட தரவுகள்")
+            _rep_cat9 = pd.DataFrame(st.session_state.get("submitted_reports", []))
+            if _rep_cat9.empty:
+                st.info("ℹ️ பதிவிறக்கம் செய்யத் தரவுகள் எதுவும் இல்லை.")
+            else:
+                st.markdown(f"**மொத்தப் பதிவுகள்:** {len(_rep_cat9)}")
+                st.dataframe(_rep_cat9, use_container_width=True)
+                _cat_downloads(_rep_cat9, "Excel_Pathivirakkam", "dl_cat7")
+
+        elif report_section == _REP_T9:
+            st.markdown("### 👥 9. நூலகர் பார்வை ஆண்டு விவரங்கள்")
+            _lib_rec_cat = pd.DataFrame(st.session_state.get("librarian_records", []))
+            if _lib_rec_cat.empty:
+                st.info("ℹ️ இதுவரை நூலகர் பார்வை ஆண்டு பதிவுகள் எதுவும் சேர்க்கப்படவில்லை.")
+            else:
+                st.markdown(f"**மொத்தப் பதிவுகள்:** {len(_lib_rec_cat)}")
+                st.dataframe(_lib_rec_cat, use_container_width=True)
+                _cat_downloads(_lib_rec_cat, "Nulagar_Aandu_Parvai", "dl_cat8")
+
+        elif report_section == _REP_T10:
+            st.markdown("### 📂 10. Excel அப்லோடு — books அட்டவணையின் தற்போதைய நிலை")
+            _neon_cat10 = load_neon_database()
+            st.metric("📚 books அட்டவணையில் தற்போது உள்ள மொத்த பதிவுகள்", len(_neon_cat10))
+            st.caption("ℹ️ புதிதாக Excel பதிவேற்றம் செய்ய மேல் மெனுவில் உள்ள '📂 Excel அப்லோடு' பட்டனைப் பயன்படுத்தவும்.")
+
+        elif report_section == _REP_T11:
+            st.markdown("### 🏷️ 11. பகுப்பு எண் நிலை அறிக்கை (Classification Number)")
+            _neon_cat7 = load_neon_database()
+            if _neon_cat7.empty:
+                st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
+            else:
+                _class_col = next((c for c in _neon_cat7.columns if 'classification' in c or c == 'class_no' or 'call_no' in c or 'call number' in c), None)
+                if not _class_col:
+                    st.info("ℹ️ 'Classification Number' நெடுவரிசை தரவுத்தளத்தில் கண்டறியப்படவில்லை.")
+                else:
+                    _cls_series = _neon_cat7[_class_col].astype(str).str.strip().str.lower()
+                    _cls_missing = _cls_series.isin(["", "nan", "none", "null"])
+                    _c1, _c2, _c3 = st.columns(3)
+                    with _c1:
+                        st.metric("📚 மொத்த நூல்கள்", len(_neon_cat7))
+                    with _c2:
+                        st.metric("✅ பகுப்பு எண் உள்ளவை", int((~_cls_missing).sum()))
+                    with _c3:
+                        st.metric("⏳ பகுப்பு எண் இல்லாதவை", int(_cls_missing.sum()))
+                    _cls_view = st.radio("காண்பிக்க:", ["பகுப்பு எண் உள்ளவை", "பகுப்பு எண் இல்லாதவை"], horizontal=True, key="cat7_view")
+                    _cls_df = (_neon_cat7[~_cls_missing] if _cls_view == "பகுப்பு எண் உள்ளவை" else _neon_cat7[_cls_missing]).reset_index(drop=True)
+                    st.dataframe(_cls_df, use_container_width=True)
+                    if not _cls_df.empty:
+                        _cat_downloads(_cls_df, "Pagupu_Enn_Classification", "dl_cat9")
+            st.caption("💡 பகுப்பு எண்ணைத் திருத்த மேல் மெனுவில் '🏷️ பகுப்பு எண் புதுப்பி' பட்டனைப் பயன்படுத்தவும்.")
+
+        elif report_section == _REP_T12:
+            st.markdown("### 🔗 12. நூலக பொருத்தம் — TNDPL ↔ books பொருத்த நிலை")
+            _neon_cat11 = load_neon_database()
+            _libs_cat11 = load_libraries_df()
+            if _neon_cat11.empty or _libs_cat11.empty:
+                st.warning("⚠️ தேவையான தரவுகள் கிடைக்கவில்லை.")
+            else:
+                _lib_col_11 = next((c for c in _neon_cat11.columns if 'library' in c and ('name' in c or 'tm' in c)), None)
+                if not _lib_col_11:
+                    st.error("❌ books அட்டவணையில் நூலகப் பெயர் column கண்டறியப்படவில்லை.")
+                else:
+                    _actual_lib_11 = sorted(_neon_cat11[_lib_col_11].dropna().unique().tolist())
+
+                    def _norm11(s):
+                        return str(s).strip().lower().replace(" ", "")
+
+                    _status_rows_11 = []
+                    for _, _r in _libs_cat11.iterrows():
+                        if _r["Matched Value"] and str(_r["Matched Value"]).strip():
+                            _status_rows_11.append("✅ Admin உறுதி செய்தது")
+                        else:
+                            _nt, _ne = _norm11(_r["Name (Tamil)"]), _norm11(_r["Name (English)"])
+                            _auto = None
+                            for _v in _actual_lib_11:
+                                _nv = _norm11(_v)
+                                if _nv == _nt or _nv == _ne or (_nt and _nt in _nv) or (_ne and _ne in _nv):
+                                    _auto = _v
+                                    break
+                            _status_rows_11.append(f"🟡 தானியங்கு பொருத்தம்: {_auto}" if _auto else "❌ பொருத்தம் இல்லை")
+                    _libs_cat11 = _libs_cat11.copy()
+                    _libs_cat11["நிலை"] = _status_rows_11
+
+                    _n_unmatched_11 = sum(1 for s in _status_rows_11 if s == "❌ பொருத்தம் இல்லை")
+                    _n_confirmed_11 = sum(1 for s in _status_rows_11 if s.startswith("✅"))
+                    _c1, _c2, _c3 = st.columns(3)
+                    with _c1:
+                        st.metric("🏛️ மொத்த நூலகங்கள்", len(_libs_cat11))
+                    with _c2:
+                        st.metric("✅ Admin உறுதி செய்தவை", _n_confirmed_11)
+                    with _c3:
+                        st.metric("❌ பொருத்தமில்லாதவை", _n_unmatched_11)
+                    st.dataframe(_libs_cat11, use_container_width=True)
+                    _cat_downloads(_libs_cat11, "Nulaga_Poruthham", "dl_cat10")
+            st.caption("💡 பொருத்தத்தைத் திருத்த மேல் மெனுவில் உள்ள '🔗 நூலக பொருத்தம்' பட்டனைப் பயன்படுத்தவும்.")
+
+        if report_section in (_REP_T1, _REP_T2, _REP_T3, _REP_T4, _REP_T5, _REP_T6, _REP_T7, _REP_T8, _REP_T9, _REP_T10, _REP_T11, _REP_T12):
+            st.caption("ℹ️ இது படிக்க மட்டுமான (read-only) அறிக்கை — இங்கு எதையும் திருத்தவோ நீக்கவோ முடியாது. பணியைச் செய்ய மேல் மெனுவில் உள்ள அந்தப் பட்டனைப் பயன்படுத்தவும்.")
 
         if report_section == _REP_PLACEHOLDER:
             st.info("👆 மேல் உள்ள தேர்வில் ஏதேனும் ஒரு பிரிவைத் தேர்வு செய்தால், அதற்கான அறிக்கை உடனே தோன்றும்.")
@@ -1989,117 +1982,102 @@ elif current == "தவறான பதிவு நீக்கம்":
     
     if edit_action_option == "1. பதிப்பாளர் தேர்வு (Publisher Records)":
         st.markdown("### 🏢 1. பதிப்பாளர் தேர்வு & திருத்துதல் / நீக்குதல்")
-
-        # முந்தைய செயல்பாட்டின் வெற்றி/எச்சரிக்கைச் செய்தி (st.rerun-க்குப் பின்னும் தெரியும்படி)
-        _flash = st.session_state.pop("_err_flash", None)
-        if _flash:
-            st.success(_flash)
-
-        def _blank(v):
-            return v is None or (isinstance(v, float) and pd.isna(v)) or str(v).strip() in ("", "nan", "None", "NaN")
-
-        def _is_defective(r):
-            # குறைபாடுள்ள பதிவு: Author, Price, ISBN மூன்றும் காலி
-            return _blank(r.get("Author")) and _blank(r.get("Price")) and _blank(r.get("ISBN"))
-
-        all_rows = st.session_state.get("submitted_reports", [])
-        pub_list = sorted({r["Publisher"] for r in all_rows if r.get("Publisher")})
-
+        
+        completed_publishers = set()
+        for item in st.session_state.get("submitted_reports", []):
+            if "Publisher" in item:
+                completed_publishers.add(item["Publisher"])
+        for item in st.session_state.get("temp_distributed_list", []):
+            if "Publisher" in item:
+                completed_publishers.add(item["Publisher"])
+                
+        pub_list = sorted(list(completed_publishers))
+        
         if not pub_list:
             st.info("ℹ️ இதுவரை எந்தப் பதிப்பகப் பணியும் முடிக்கப்படவில்லை.")
         else:
             sel_pub = st.selectbox("பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:", ["-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"] + pub_list, key="err_pub_sel")
-
+            
             if sel_pub != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
-                # ஒவ்வொரு பதிவும் தனித்தனியாக (Id அடிப்படையில்) — ஒரே தலைப்பில் 2 பதிவுகள்
-                # இருந்தாலும் சரியானதை மட்டும் தேர்ந்தெடுத்து நீக்கலாம்.
-                pub_rows = sorted([r for r in all_rows if r.get("Publisher") == sel_pub and r.get("Id") is not None],
-                                  key=lambda r: int(r["Id"]))
-                row_by_id = {int(r["Id"]): r for r in pub_rows}
-
-                titles_count = {}
-                for r in pub_rows:
-                    titles_count[r.get("Title")] = titles_count.get(r.get("Title"), 0) + 1
-
-                def _row_label(i):
-                    if i is None:
-                        return "-- பதிவைத் தேர்ந்தெடுக்கவும் --"
-                    r = row_by_id[i]
-                    flag = "⚠️ குறைபாடு | " if _is_defective(r) else ""
-                    dup = " (இரட்டிப்பு)" if titles_count.get(r.get("Title"), 0) > 1 else ""
-                    return f"{flag}Id {i} | {r.get('Title')}{dup} | Req {r.get('Required Qty')} / Rec {r.get('Received Qty')}"
-
-                bad_ids = [i for i, r in row_by_id.items() if _is_defective(r)]
-                if bad_ids:
-                    st.warning(f"⚠️ இந்தப் பதிப்பகத்தில் குறைபாடுள்ள (Author / Price / ISBN காலி) பதிவுகள்: Id {', '.join(map(str, bad_ids))}")
-
-                sel_id = st.selectbox("பதிவைத் தேர்ந்தெடுக்கவும்:", [None] + list(row_by_id.keys()),
-                                      format_func=_row_label, key="err_row_sel")
-
-                if sel_id is not None:
-                    row = row_by_id[sel_id]
-                    req_qty = int(row.get("Required Qty") or 0)
-                    rec_qty = int(row.get("Received Qty") or 0)
-
-                    same_title = [i for i, r in row_by_id.items() if r.get("Title") == row.get("Title") and i != sel_id]
-                    extra = f"<br><b>ℹ️ இதே தலைப்புள்ள மற்ற பதிவுகள்:</b> Id {', '.join(map(str, same_title))}" if same_title else ""
+                completed_titles = set()
+                for item in st.session_state.get("submitted_reports", []):
+                    if item.get("Publisher") == sel_pub and "Title" in item:
+                        completed_titles.add(item["Title"])
+                for item in st.session_state.get("temp_distributed_list", []):
+                    if item.get("Publisher") == sel_pub and "Title" in item:
+                        completed_titles.add(item["Title"])
+                        
+                title_list = sorted(list(completed_titles))
+                
+                sel_title = st.selectbox("தலைப்பைத் தேர்ந்தெடுக்கவும்:", ["-- தலைப்பைத் தேர்ந்தெடுக்கவும் --"] + title_list, key="err_title_sel")
+                
+                if sel_title != "-- தலைப்பைத் தேர்ந்தெடுக்கவும் --":
+                    req_qty = 90
+                    rec_qty = 75
+                    target_index = None
+                    target_id = None
+                    
+                    for idx, item in enumerate(st.session_state.get("submitted_reports", [])):
+                        if item.get("Publisher") == sel_pub and item.get("Title") == sel_title:
+                            req_qty = int(item.get("Required Qty", 90))
+                            rec_qty = int(item.get("Received Qty", 75))
+                            target_index = idx
+                            target_id = item.get("Id")
+                            break
 
                     st.markdown(f"""
                     <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
-                        <b>🆔 Id:</b> {sel_id}<br>
-                        <b>📖 நூல் தலைப்பு:</b> {row.get('Title')}<br>
-                        <b>✍️ ஆசிரியர்:</b> {'—' if _blank(row.get('Author')) else row.get('Author')} &nbsp; | &nbsp;
-                        <b>ISBN:</b> {'—' if _blank(row.get('ISBN')) else row.get('ISBN')}<br>
+                        <b>📖 நூல் தலைப்பு:</b> {sel_title}<br>
                         <b>📌 பெறப்பட வேண்டிய மொத்த எண்ணிக்கை (Required):</b> <span style="color: #2563eb; font-weight: bold;">{req_qty}</span><br>
-                        <b>📥 ஏற்கனவே பெறப்பட்ட எண்ணிக்கை (Received):</b> <span style="color: #16a34a; font-weight: bold;">{rec_qty}</span>{extra}
+                        <b>📥 ஏற்கனவே பெறப்பட்ட எண்ணிக்கை (Received):</b> <span style="color: #16a34a; font-weight: bold;">{rec_qty}</span>
                     </div>
                     """, unsafe_allow_html=True)
 
                     c1, c2 = st.columns(2)
                     with c1:
-                        new_val = st.number_input("📥 பெறப்பட்ட எண்ணிக்கையைத் திருத்துக (Update Received Qty):",
-                                                  min_value=0, max_value=max(req_qty * 2, rec_qty), value=rec_qty,
-                                                  key=f"err_pub_qty_{sel_id}")
-                        if st.button("💾 மாற்று/புதுப்பி", key=f"err_pub_upd_btn_{sel_id}", type="primary", use_container_width=True):
-                            try:
-                                conn = psycopg2.connect(DB_URL)
-                                cur = conn.cursor()
-                                # Id மூலம் மட்டும் UPDATE — புதிய பதிவு (INSERT) ஒருபோதும் உருவாக்கப்படாது
-                                cur.execute("UPDATE submitted_reports SET received_qty = %s WHERE id = %s;", (int(new_val), int(sel_id)))
-                                changed = cur.rowcount
-                                conn.commit()
-                                cur.close()
-                                conn.close()
-                                load_submitted_reports_from_db.clear()
-                                st.session_state["submitted_reports"] = load_submitted_reports_from_db()
-                                if changed == 1:
-                                    st.session_state["_err_flash"] = f"✅ Id {sel_id}: எண்ணிக்கை {new_val} என மாற்றப்பட்டது!"
-                                    st.rerun()
-                                else:
-                                    st.warning("⚠️ இந்த Id database-ல் கிடைக்கவில்லை; எதுவும் மாற்றப்படவில்லை.")
-                            except Exception as e:
-                                st.error(f"❌ Update error: {e}")
+                        new_val = st.number_input("📥 பெறப்பட்ட எண்ணிக்கையைத் திருத்துக (Update Received Qty):", min_value=0, max_value=req_qty*2, value=rec_qty, key="err_pub_qty")
                     with c2:
-                        confirm_del = st.checkbox(f"✅ Id {sel_id} பதிவை நிரந்தரமாக நீக்க உறுதிப்படுத்துகிறேன்", key=f"err_del_confirm_{sel_id}")
-                        if st.button("🗑️ நீக்கு", key=f"err_pub_del_btn_{sel_id}", use_container_width=True, disabled=not confirm_del):
-                            try:
-                                conn = psycopg2.connect(DB_URL)
-                                cur = conn.cursor()
-                                cur.execute("DELETE FROM submitted_reports WHERE id = %s;", (int(sel_id),))
-                                deleted = cur.rowcount
-                                conn.commit()
-                                cur.close()
-                                conn.close()
-                                load_submitted_reports_from_db.clear()
-                                st.session_state["submitted_reports"] = load_submitted_reports_from_db()
-                                if deleted == 1:
-                                    st.session_state["_err_flash"] = f"✅ Id {sel_id} பதிவு வெற்றிகரமாக நீக்கப்பட்டது!"
-                                    st.session_state.pop("err_row_sel", None)
-                                    st.rerun()
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        col_d, col_u = st.columns(2)
+                        with col_d:
+                            if st.button("🗑️ நீக்கு", key="err_pub_del_btn", use_container_width=True):
+                                if target_id is not None:
+                                    try:
+                                        conn = psycopg2.connect(DB_URL)
+                                        cur = conn.cursor()
+                                        cur.execute("DELETE FROM submitted_reports WHERE id = %s;", (target_id,))
+                                        conn.commit()
+                                        cur.close()
+                                        conn.close()
+                                        load_submitted_reports_from_db.clear()
+                                        st.session_state["submitted_reports"] = load_submitted_reports_from_db()
+                                        st.success("✅ பதிவு வெற்றிகரமாக நீக்கப்பட்டது!")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"❌ Delete error: {e}")
                                 else:
-                                    st.warning("⚠️ இந்தப் பதிவு database-ல் கிடைக்கவில்லை (ஏற்கனவே நீக்கப்பட்டிருக்கலாம்).")
-                            except Exception as e:
-                                st.error(f"❌ Delete error: {e}")
+                                    st.warning("⚠️ இந்தப் பதிவு database-ல் கிடைக்கவில்லை (Id காணப்படவில்லை).")
+                        with col_u:
+                            if st.button("💾 மாற்று/புதுப்பி", key="err_pub_upd_btn", type="primary", use_container_width=True):
+                                try:
+                                    conn = psycopg2.connect(DB_URL)
+                                    cur = conn.cursor()
+                                    if target_id is not None:
+                                        cur.execute("UPDATE submitted_reports SET received_qty = %s WHERE id = %s;", (new_val, target_id))
+                                    else:
+                                        cur.execute("""
+                                            INSERT INTO submitted_reports (publisher, title, required_qty, received_qty, date)
+                                            VALUES (%s, %s, %s, %s, %s)
+                                        """, (sel_pub, sel_title, req_qty, new_val, datetime.now().strftime("%Y-%m-%d %H:%M")))
+                                    conn.commit()
+                                    cur.close()
+                                    conn.close()
+                                    load_submitted_reports_from_db.clear()
+                                    st.session_state["submitted_reports"] = load_submitted_reports_from_db()
+                                except Exception as e:
+                                    st.error(f"❌ Update error: {e}")
+                                st.success(f"✅ எண்ணிக்கை வெற்றிகரமாக {new_val} என மாற்றப்பட்டது!")
+                                st.rerun()
 
     elif edit_action_option == "2. அனுப்பிய விவரங்கள் (Dispatch Records)":
         st.markdown("### 📤 2. அனுப்பிய விவரங்கள் — திருத்துதல் / நீக்குதல்")
