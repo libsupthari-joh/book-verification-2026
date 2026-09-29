@@ -1489,10 +1489,23 @@ elif current == "அறிக்கைகள்":
         _REP_SUMMARY = "📋 சுருக்க அறிக்கை (Summary)"
         _REP_PUB = "🧾 பதிப்பக தொகுப்பு (Publisher Summary)"
         _REP_LIB = "🏛️ நூலக விவரம் (Library Detail)"
-        _REP_CAT = "📂 வகை வாரியான அறிக்கை (Category Reports)"
+        _REP_CAT_ITEMS = [
+            "1. 🔀 பிரிக்க",
+            "2. 📜 நூலகர் சான்று",
+            "3. ⚠️ கவனிக்க",
+            "4. 🔢 பதிவெண் மாற்ற",
+            "5. 🗂️ Master Data",
+            "6. ❌ தவறான பதிவு நீக்கம்",
+            "7. 🔑 கடவுச்சொல் மாற்ற",
+            "8. 📥 Excel பதிவிறக்கம்",
+            "9. 👥 நூலகர் பார்வை ஆண்டு",
+            "10. 📂 Excel அப்லோடு",
+            "11. 🏷️ பகுப்பு எண் புதுப்பி",
+            "12. 🔗 நூலக பொருத்தம்",
+        ]
         report_section = st.selectbox(
             "📌 எந்தப் பகுதியின் அறிக்கை வேண்டும் என்பதைத் தேர்ந்தெடுக்கவும்:",
-            [_REP_PLACEHOLDER, _REP_SUMMARY, _REP_PUB, _REP_LIB, _REP_CAT],
+            [_REP_PLACEHOLDER, _REP_SUMMARY, _REP_PUB, _REP_LIB] + _REP_CAT_ITEMS,
             key="main_report_section_menu"
         )
         st.markdown("---")
@@ -1692,7 +1705,7 @@ elif current == "அறிக்கைகள்":
         # வசதிகள் இல்லை — தரவைப் பார்த்து அறிக்கையாகப் பதிவிறக்கலாம் மட்டுமே.
         # ஒரு குறிப்பிட்டப் பணியைச் செய்ய மேல் மெனுவில் உள்ள அந்தப் பட்டனுக்குச் செல்லவும்.
         # ======================================================================
-        if report_section == _REP_CAT:
+        if report_section in _REP_CAT_ITEMS:
             def _cat_downloads(df_to_dl, label_prefix, key_prefix):
                 """CSV + Excel பதிவிறக்க பட்டன்கள் (எந்த DataFrame-க்கும்)."""
                 import io as _io
@@ -1722,25 +1735,7 @@ elif current == "அறிக்கைகள்":
                             key=f"{key_prefix}_xlsx"
                         )
 
-            cat_option = st.selectbox(
-                "📤 எந்தப் பணிப் பகுதியின் தரவு அறிக்கை வேண்டும் என்பதைத் தேர்ந்தெடுக்கவும் (Select task-section to view its data report):",
-                [
-                    "-- பகுதியைத் தேர்ந்தெடுக்கவும் --",
-                    "1. 🔀 பிரிக்க",
-                    "2. 📜 நூலகர் சான்று",
-                    "3. ⚠️ கவனிக்க",
-                    "4. 🔢 பதிவெண் மாற்ற",
-                    "5. 🗂️ Master Data",
-                    "6. ❌ தவறான பதிவு நீக்கம்",
-                    "7. 🔑 கடவுச்சொல் மாற்ற",
-                    "8. 📥 Excel பதிவிறக்கம்",
-                    "9. 👥 நூலகர் பார்வை ஆண்டு",
-                    "10. 📂 Excel அப்லோடு",
-                    "11. 🏷️ பகுப்பு எண் புதுப்பி",
-                    "12. 🔗 நூலக பொருத்தம்",
-                ],
-                key="report_category_sub_menu"
-            )
+            cat_option = report_section  # மேலே தேர்ந்தெடுத்த 12 தலைப்புகளில் ஒன்று
             st.caption("ℹ️ இது படிக்க மட்டுமான (read-only) அறிக்கை — இங்கு எதையும் திருத்தவோ நீக்கவோ முடியாது. பணியைச் செய்ய மேல் மெனுவில் உள்ள அந்தப் பட்டனைப் பயன்படுத்தவும்.")
             st.markdown("---")
 
@@ -1751,7 +1746,7 @@ elif current == "அறிக்கைகள்":
                 ))
                 _all_rep_cat = pd.DataFrame(st.session_state["submitted_reports"])
                 if not _all_rep_cat.empty and _pub_names:
-                    _sel_pub_cat = st.selectbox("🏢 பதிப்பகம் வாரியாக வடிகட்ட (விருப்பம்):", ["-- அனைத்துப் பதிப்பகங்களும் --"] + _pub_names, key="cat_pub_sel")
+                    _sel_pub_cat = selected_report_pub if selected_report_pub != "-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --" else "-- அனைத்துப் பதிப்பகங்களும் --"
                     if _sel_pub_cat != "-- அனைத்துப் பதிப்பகங்களும் --":
                         _all_rep_cat = _all_rep_cat[_all_rep_cat["Publisher"] == _sel_pub_cat]
                 _all_rep_cat = _all_rep_cat.reset_index(drop=True)
