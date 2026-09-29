@@ -1482,13 +1482,86 @@ elif current == "அறிக்கைகள்":
         st.info("ℹ️ இதுவரை சமர்ப்பிக்கப்பட்ட தரவுகள் எதுவும் இல்லை.")
     else:
         full_report_df = pd.DataFrame(st.session_state["submitted_reports"])
-        unique_report_publishers = ["-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --"] + sorted(full_report_df["Publisher"].dropna().unique().tolist())
-        selected_report_pub = st.selectbox("🔍 பதிப்பகம் வாரியாக வடிகட்டுக (Filter by Publisher):", unique_report_publishers)
-
         _REP_PLACEHOLDER = "-- பகுதியைத் தேர்ந்தெடுக்கவும் --"
         _REP_SUMMARY = "📋 சுருக்க அறிக்கை (Summary)"
         _REP_PUB = "🧾 பதிப்பக தொகுப்பு (Publisher Summary)"
         _REP_LIB = "🏛️ நூலக விவரம் (Library Detail)"
+        # ---------- பொதுவான உதவிச் செயல்பாடுகள் (ஒவ்வொரு பகுதியின் கீழும் பயன்படும்) ----------
+        _ALL_PUB = "-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --"
+
+        def _pub_filter(df, key):
+            """தேர்ந்தெடுத்த பகுதியின் கீழேயே பதிப்பக வடிகட்டியைக் காட்டும்.
+            அட்டவணையில் பதிப்பக நெடுவரிசை இல்லையெனில் வடிகட்டி காட்டப்படாது."""
+            if df is None or df.empty:
+                return df
+            _cands = ["Publisher", "vendor_name", "பதிப்பகம்", "publisher_name", "publication_name", "publication name"]
+            _pc = next((c for c in _cands if c in df.columns), None)
+            if _pc is None:
+                return df
+            _names = sorted(df[_pc].dropna().astype(str).unique().tolist())
+            _sel = st.selectbox("🔍 பதிப்பகம் வாரியாக வடிகட்டுக (Filter by Publisher):", [_ALL_PUB] + _names, key=key)
+            if _sel != _ALL_PUB:
+                df = df[df[_pc].astype(str) == _sel]
+            return df.reset_index(drop=True)
+
+        def _report_downloads(df_to_dl, label_prefix, key_prefix, pdf_cols=None, pdf_title=None):
+            """CSV + Excel + PDF பதிவிறக்க பட்டன்கள் (எந்த DataFrame-க்கும்)."""
+            import io as _io
+            _stamp = datetime.now().strftime('%Y%m%d_%H%M')
+            _c1, _c2, _c3 = st.columns(3)
+            with _c1:
+                st.download_button(
+                    label="📥 CSV",
+                    data=df_to_dl.to_csv(index=False).encode('utf-8-sig'),
+                    file_name=f"{label_prefix}_{_stamp}.csv",
+                    mime="text/csv",
+                    type="primary",
+                    use_container_width=True,
+                    key=f"{key_prefix}_csv"
+                )
+            with _c2:
+                if len(df_to_dl) <= 60000:
+                    _buf = _io.BytesIO()
+                    with pd.ExcelWriter(_buf, engine="openpyxl") as _w:
+                        df_to_dl.to_excel(_w, sheet_name="Report", index=False)
+                    st.download_button(
+                        label="📥 Excel",
+                        data=_buf.getvalue(),
+                        file_name=f"{label_prefix}_{_stamp}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                        key=f"{key_prefix}_xlsx"
+                    )
+                else:
+                    st.info("ℹ️ Excel-க்கு 60000-க்கும் குறைவான வரிசைகள் தேவை; CSV-ஐப் பயன்படுத்தவும்.")
+            with _c3:
+                if len(df_to_dl) > 3000:
+                    st.info("ℹ️ PDF-ஆக பதிவிறக்க 3000-க்கும் குறைவான வரிசைகள் இருக்க வேண்டும். வடிகட்டி மூலம் குறைக்கவும்.")
+                elif st.button("📄 PDF உருவாக்கு", key=f"{key_prefix}_pdfgen", use_container_width=True):
+                    _cols = [c for c in (pdf_cols or list(df_to_dl.columns)) if c in df_to_dl.columns][:8]
+                    if not _cols:
+                        st.info("ℹ️ PDF-க்கு நெடுவரிசைகள் இல்லை.")
+                    else:
+                        _pdf_df = df_to_dl[_cols].fillna("").astype(str)
+                        _w = tuple([max(20, 270 // len(_cols))] * len(_cols))
+                        _pdf_bytes = generate_tamil_pdf_table(_pdf_df, [str(c) for c in _cols], _w, pdf_title or label_prefix)
+                        if _pdf_bytes is None:
+                            st.error("❌ Tamil font கோப்பு கிடைக்கவில்லை.")
+                        else:
+                            if len(df_to_dl.columns) > len(_cols) and not pdf_cols:
+                                st.caption(f"ℹ️ PDF-ல் முதல் {len(_cols)} நெடுவரிசைகள் மட்டும் உள்ளன; முழு விவரம் Excel/CSV-ல்.")
+                            st.download_button(
+                                label="📥 PDF பதிவிறக்கம்",
+                                data=_pdf_bytes,
+                                file_name=f"{label_prefix}_{_stamp}.pdf",
+                                mime="application/pdf",
+                                type="primary",
+                                use_container_width=True,
+                                key=f"{key_prefix}_pdf"
+                            )
+
+        _cat_downloads = _report_downloads
+
         _REP_CAT_ITEMS = [
             "1. 🔀 பிரிக்க",
             "2. 📜 நூலகர் சான்று",
@@ -1511,25 +1584,11 @@ elif current == "அறிக்கைகள்":
         st.markdown("---")
 
         if report_section == _REP_SUMMARY:
-            if selected_report_pub != "-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --":
-                display_df = full_report_df[full_report_df["Publisher"] == selected_report_pub].reset_index(drop=True)
-                st.markdown(f"### 🏢 பதிப்பகம்: {selected_report_pub} (பதிவு செய்யப்பட்ட தலைப்புகள்: {len(display_df)})")
-            else:
-                display_df = full_report_df
-                st.markdown(f"**மொத்தப் பதிவு செய்யப்பட்ட தலைப்புகள்:** {len(display_df)}")
-                
+            display_df = _pub_filter(full_report_df, "f_summary_pub")
+            st.markdown(f"**பதிவு செய்யப்பட்ட தலைப்புகள்:** {len(display_df)}")
             st.dataframe(display_df, use_container_width=True)
-            
-            csv_all = full_report_df.to_csv(index=False).encode('utf-8-sig')
-            st.download_button(
-                label="📥 அறிக்கையைப் பதிவிறக்குக (Download CSV)",
-                data=csv_all,
-                file_name=f"Verification_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                mime="text/csv",
-                type="primary",
-                use_container_width=True,
-                key="dl_summary_csv"
-            )
+            if not display_df.empty:
+                _report_downloads(display_df, "Verification_Report", "dl_summary")
 
         if report_section == _REP_PUB:
             st.caption("தேவையான அறிக்கை வகையைத் தேர்ந்தெடுக்கவும் — அதற்கேற்ப அட்டவணையும் பதிவிறக்க பட்டன்களும் கீழே வரும்.")
@@ -1575,6 +1634,7 @@ elif current == "அறிக்கைகள்":
                 chosen_df, chosen_label = pending_pub_df, "Pending_Publishers"
 
             if chosen_df is not None:
+                chosen_df = _pub_filter(chosen_df, "f_pubsum_pub")
                 c1, c2, c3 = st.columns(3)
                 with c1:
                     st.metric("🏢 மொத்த பதிப்பகங்கள்", len(pub_summary_df))
@@ -1661,43 +1721,16 @@ elif current == "அறிக்கைகள்":
 
                     if sel_lib_report and sel_lib_report != "-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --":
                         lib_display_df = submitted_neon_df[submitted_neon_df[lib_col_name] == sel_lib_report].reset_index(drop=True)
+                        lib_display_df = _pub_filter(lib_display_df, "f_lib_pub")
                         st.markdown(f"### 🏛️ நூலகம்: {sel_lib_report} (மொத்த நூல்கள்: {len(lib_display_df)})")
                         st.dataframe(lib_display_df, use_container_width=True)
 
-                        col_csv, col_pdf = st.columns(2)
-                        with col_csv:
-                            csv_lib_report = lib_display_df.to_csv(index=False).encode('utf-8-sig')
-                            st.download_button(
-                                label="📥 நூலக அறிக்கை (CSV)",
-                                data=csv_lib_report,
-                                file_name=f"Library_Report_{sel_lib_report}.csv",
-                                mime="text/csv",
-                                use_container_width=True,
-                                key="dl_library_csv"
+                        if not lib_display_df.empty:
+                            _report_downloads(
+                                lib_display_df, f"Library_Report_{sel_lib_report}", "dl_library",
+                                pdf_cols=[c for c in [book_id_col, title_col, author_col, pub_col] if c and c in lib_display_df.columns],
+                                pdf_title=f"நூலக அறிக்கை — {sel_lib_report}"
                             )
-                        with col_pdf:
-                            if len(lib_display_df) > 3000:
-                                st.info("ℹ️ PDF-ஆக பதிவிறக்க 3000-க்கும் குறைவான வரிசைகள் இருக்க வேண்டும்.")
-                            else:
-                                if st.button("📄 PDF உருவாக்கு", key="gen_pdf_lib_report", use_container_width=True):
-                                    pdf_headers = [c for c in [book_id_col, title_col, author_col, pub_col] if c and c in lib_display_df.columns]
-                                    pdf_widths = (25, 90, 60, 60)[:len(pdf_headers)]
-                                    pdf_bytes = generate_tamil_pdf_table(
-                                        lib_display_df[pdf_headers], pdf_headers, pdf_widths,
-                                        f"நூலக அறிக்கை — {sel_lib_report}"
-                                    )
-                                    if pdf_bytes is None:
-                                        st.error("❌ Tamil font கோப்பு கிடைக்கவில்லை.")
-                                    else:
-                                        st.download_button(
-                                            label="📥 PDF பதிவிறக்கம்",
-                                            data=pdf_bytes,
-                                            file_name=f"Library_Report_{sel_lib_report}.pdf",
-                                            mime="application/pdf",
-                                            type="primary",
-                                            use_container_width=True,
-                                            key="dl_pdf_lib_report"
-                                        )
 
         # ======================================================================
         # 📂 வகை வாரியான அறிக்கை — (12) பணிப் பகுதிகள் (மேல் மெனுவில் உள்ள
@@ -1706,35 +1739,6 @@ elif current == "அறிக்கைகள்":
         # ஒரு குறிப்பிட்டப் பணியைச் செய்ய மேல் மெனுவில் உள்ள அந்தப் பட்டனுக்குச் செல்லவும்.
         # ======================================================================
         if report_section in _REP_CAT_ITEMS:
-            def _cat_downloads(df_to_dl, label_prefix, key_prefix):
-                """CSV + Excel பதிவிறக்க பட்டன்கள் (எந்த DataFrame-க்கும்)."""
-                import io as _io
-                _stamp = datetime.now().strftime('%Y%m%d_%H%M')
-                _c1, _c2 = st.columns(2)
-                with _c1:
-                    st.download_button(
-                        label="📥 CSV",
-                        data=df_to_dl.to_csv(index=False).encode('utf-8-sig'),
-                        file_name=f"{label_prefix}_{_stamp}.csv",
-                        mime="text/csv",
-                        type="primary",
-                        use_container_width=True,
-                        key=f"{key_prefix}_csv"
-                    )
-                with _c2:
-                    if len(df_to_dl) <= 60000:
-                        _buf = _io.BytesIO()
-                        with pd.ExcelWriter(_buf, engine="openpyxl") as _w:
-                            df_to_dl.to_excel(_w, sheet_name="Report", index=False)
-                        st.download_button(
-                            label="📥 Excel",
-                            data=_buf.getvalue(),
-                            file_name=f"{label_prefix}_{_stamp}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True,
-                            key=f"{key_prefix}_xlsx"
-                        )
-
             cat_option = report_section  # மேலே தேர்ந்தெடுத்த 12 தலைப்புகளில் ஒன்று
             st.caption("ℹ️ இது படிக்க மட்டுமான (read-only) அறிக்கை — இங்கு எதையும் திருத்தவோ நீக்கவோ முடியாது. பணியைச் செய்ய மேல் மெனுவில் உள்ள அந்தப் பட்டனைப் பயன்படுத்தவும்.")
             st.markdown("---")
@@ -1745,11 +1749,7 @@ elif current == "அறிக்கைகள்":
                     [i["Publisher"] for i in st.session_state.get("submitted_reports", []) if "Publisher" in i]
                 ))
                 _all_rep_cat = pd.DataFrame(st.session_state["submitted_reports"])
-                if not _all_rep_cat.empty and _pub_names:
-                    _sel_pub_cat = selected_report_pub if selected_report_pub != "-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --" else "-- அனைத்துப் பதிப்பகங்களும் --"
-                    if _sel_pub_cat != "-- அனைத்துப் பதிப்பகங்களும் --":
-                        _all_rep_cat = _all_rep_cat[_all_rep_cat["Publisher"] == _sel_pub_cat]
-                _all_rep_cat = _all_rep_cat.reset_index(drop=True)
+                _all_rep_cat = _pub_filter(_all_rep_cat, "f_c1_pub").reset_index(drop=True)
                 st.markdown(f"**மொத்தப் பதிவுகள்:** {len(_all_rep_cat)}")
                 st.dataframe(_all_rep_cat, use_container_width=True)
                 if not _all_rep_cat.empty:
@@ -1761,9 +1761,11 @@ elif current == "அறிக்கைகள்":
                 if _disp_df_cat.empty:
                     st.info("ℹ️ இதுவரை எந்த நூல்களும் நூலகர் சான்று மூலம் பெறப்பட்டதாகப் பதிவு செய்யப்படவில்லை.")
                 else:
+                    _disp_df_cat = _pub_filter(_disp_df_cat, "f_c2_pub")
                     st.markdown(f"**மொத்த பதிவுகள்:** {len(_disp_df_cat)}")
                     st.dataframe(_disp_df_cat, use_container_width=True)
-                    _cat_downloads(_disp_df_cat, "Nulagar_Sanru_Dispatch_Records", "dl_cat2")
+                    if not _disp_df_cat.empty:
+                        _cat_downloads(_disp_df_cat, "Nulagar_Sanru_Dispatch_Records", "dl_cat2")
 
             elif cat_option == "3. ⚠️ கவனிக்க":
                 st.markdown("### ⚠️ 3. கவனிக்க — விலை முரண்பாடு உள்ள பதிவுகள் (Price Conflicts)")
@@ -1780,6 +1782,7 @@ elif current == "அறிக்கைகள்":
                         _cmp["_p"] = pd.to_numeric(_cmp[_price_col], errors="coerce")
                         _cmp["_a"] = pd.to_numeric(_cmp[_acc_price_col], errors="coerce")
                         _conf = _cmp[_cmp["_p"] != _cmp["_a"]].drop(columns=["_p", "_a"]).reset_index(drop=True)
+                        _conf = _pub_filter(_conf, "f_c3_pub") if not _conf.empty else _conf
                         if _conf.empty:
                             st.success("🎉 விலை முரண்பாடுகள் எதுவும் இல்லை!")
                         else:
@@ -1793,6 +1796,7 @@ elif current == "அறிக்கைகள்":
                 if _neon_cat5.empty:
                     st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
                 else:
+                    _neon_cat5 = _pub_filter(_neon_cat5, "f_c4_pub")
                     _acc_col = next((c for c in _neon_cat5.columns if c == 'state_acc_number'), None) or next((c for c in _neon_cat5.columns if 'accession' in c or c == 'acc_no' or 'reg_no' in c), None)
                     if not _acc_col:
                         st.info("ℹ️ 'Accession Number' நெடுவரிசை கண்டறியப்படவில்லை.")
@@ -1865,9 +1869,11 @@ elif current == "அறிக்கைகள்":
                 if _rep_cat9.empty:
                     st.info("ℹ️ பதிவிறக்கம் செய்யத் தரவுகள் எதுவும் இல்லை.")
                 else:
+                    _rep_cat9 = _pub_filter(_rep_cat9, "f_c8_pub")
                     st.markdown(f"**மொத்தப் பதிவுகள்:** {len(_rep_cat9)}")
                     st.dataframe(_rep_cat9, use_container_width=True)
-                    _cat_downloads(_rep_cat9, "Excel_Pathivirakkam", "dl_cat7")
+                    if not _rep_cat9.empty:
+                        _cat_downloads(_rep_cat9, "Excel_Pathivirakkam", "dl_cat7")
 
             elif cat_option == "9. 👥 நூலகர் பார்வை ஆண்டு":
                 st.markdown("### 👥 9. நூலகர் பார்வை ஆண்டு விவரங்கள்")
@@ -1891,6 +1897,7 @@ elif current == "அறிக்கைகள்":
                 if _neon_cat7.empty:
                     st.warning("⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை.")
                 else:
+                    _neon_cat7 = _pub_filter(_neon_cat7, "f_c11_pub")
                     _class_col = next((c for c in _neon_cat7.columns if 'classification' in c or c == 'class_no' or 'call_no' in c or 'call number' in c), None)
                     if not _class_col:
                         st.info("ℹ️ 'Classification Number' நெடுவரிசை தரவுத்தளத்தில் கண்டறியப்படவில்லை.")
