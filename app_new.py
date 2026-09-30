@@ -15,7 +15,18 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-DB_URL = "postgresql://neondb_owner:npg_y1mObIUlc2ox@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+def _get_db_url():
+    """DB முகவரியை Environment / Streamlit Secrets-லிருந்து படிக்கும் (கோடில் கடவுச்சொல் வைக்க வேண்டியதில்லை).
+    இரண்டிலும் இல்லையெனில் கீழே உள்ள மதிப்பை (இங்கே உங்கள் உண்மையான URL-ஐ இட்டால்) பயன்படுத்தும்."""
+    _u = os.environ.get("postgresql://neondb_owner:npg_y1mObIUlc2ox@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
+    if not _u:
+        try:
+            _u = st.secrets["DATABASE_URL"]
+        except Exception:
+            _u = None
+    return _u or ". . . . . . . . . . "
+
+DB_URL = _get_db_url()
 
 st.markdown("""
 <style>
