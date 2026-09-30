@@ -18,13 +18,13 @@ st.set_page_config(
 def _get_db_url():
     """DB முகவரியை Environment / Streamlit Secrets-லிருந்து படிக்கும் (கோடில் கடவுச்சொல் வைக்க வேண்டியதில்லை).
     இரண்டிலும் இல்லையெனில் கீழே உள்ள மதிப்பை (இங்கே உங்கள் உண்மையான URL-ஐ இட்டால்) பயன்படுத்தும்."""
-    _u = os.environ.get("postgresql://neondb_owner:npg_y1mObIUlc2ox@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
+    _u = os.environ.get("DATABASE_URL")
     if not _u:
         try:
             _u = st.secrets["DATABASE_URL"]
         except Exception:
             _u = None
-    return _u or ". . . . . . . . . . "
+    return _u or "postgresql://neondb_owner:npg_y1mObIUlc2ox@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 DB_URL = _get_db_url()
 
@@ -1569,6 +1569,58 @@ elif current == "அறிக்கைகள்":
 
         _cat_downloads = _report_downloads
 
+        def _build_title_status(neon_df, records):
+            """books அட்டவணையின் ஒவ்வொரு (பதிப்பகம் + தலைப்பு)-க்கும் நிலை:
+            🔴 பிரிக்கப்படவில்லை = submitted_reports-ல் பதிவே இல்லை
+            ⚠️ குறைவாகப் பெறப்பட்டது = பதிவு உள்ளது; பெற்றது < books-ல் உள்ள நூல்கள் (பதிவு செய்யப்பட்ட குறைவு)
+            ✅ முடிந்தது = பதிவு உள்ளது; முழுவதும் பெறப்பட்டது"""
+            if neon_df is None or neon_df.empty:
+                return pd.DataFrame()
+            cols = list(neon_df.columns)
+            pub_c = next((c for c in cols if c == 'vendor_name'), None) or next((c for c in cols if c in ['publication name', 'publication_name', 'publisher_name'] or 'publication' in c), None)
+            title_c = next((c for c in cols if c == 'title' or (('title' in c) and ('book' not in c))), None) or next((c for c in cols if 'title' in c), None)
+            if not pub_c or not title_c:
+                return pd.DataFrame()
+            auth_c = next((c for c in cols if 'author' in c), None)
+            isbn_c = next((c for c in cols if 'isbn' in c), None)
+            lang_c = next((c for c in cols if c == 'language'), None) or next((c for c in cols if 'lang' in c), None)
+            b = pd.DataFrame({"Publisher": neon_df[pub_c], "Title": neon_df[title_c]})
+            b["Author"] = neon_df[auth_c] if auth_c else ""
+            b["ISBN"] = neon_df[isbn_c] if isbn_c else ""
+            _lang = neon_df[lang_c].astype(str).str.strip().str.lower() if lang_c else pd.Series("", index=neon_df.index)
+            b["_ta"] = (_lang == "tamil").astype(int)
+            b["_en"] = (_lang == "english").astype(int)
+            b = b.dropna(subset=["Publisher", "Title"])
+            b["_pk"] = b["Publisher"].map(_norm_name)
+            b["_tk"] = b["Title"].map(_norm_name)
+            T = b.groupby(["_pk", "_tk"], sort=False).agg(
+                Publisher=("Publisher", "first"), Title=("Title", "first"), Author=("Author", "first"), ISBN=("ISBN", "first"),
+                Copies=("Title", "size"), TA=("_ta", "sum"), EN=("_en", "sum")
+            ).reset_index()
+            sub = {}
+            for r in (records or []):
+                k = (_norm_name(r.get("Publisher")), _norm_name(r.get("Title")))
+                try:
+                    q = int(float(r.get("Received Qty", 0) or 0))
+                except Exception:
+                    q = 0
+                d = sub.setdefault(k, {"rows": 0, "rec": 0, "ids": []})
+                d["rows"] += 1
+                d["rec"] += q
+                d["ids"].append(str(r.get("Id")))
+            keys = list(zip(T["_pk"], T["_tk"]))
+            T["Rows"] = [sub.get(k, {}).get("rows", 0) for k in keys]
+            T["Ids"] = [", ".join(sub.get(k, {}).get("ids", [])) for k in keys]
+            T["Received"] = [min(sub.get(k, {}).get("rec", 0), int(n)) for k, n in zip(keys, T["Copies"])]
+            T["Shortage"] = [int(n - r_) if rows > 0 else 0 for n, r_, rows in zip(T["Copies"], T["Received"], T["Rows"])]
+            T["Lang"] = ["தமிழ்" if (ta >= en and ta > 0) else ("ஆங்கிலம்" if en > 0 else "-") for ta, en in zip(T["TA"], T["EN"])]
+            def _st(rows, sh):
+                if rows == 0:
+                    return "🔴 பிரிக்கப்படவில்லை"
+                return "⚠️ குறைவாகப் பெறப்பட்டது" if sh > 0 else "✅ முடிந்தது"
+            T["Status"] = [_st(rw, sh) for rw, sh in zip(T["Rows"], T["Shortage"])]
+            return T
+
         _REP_PLACEHOLDER = "-- பகுதியைத் தேர்ந்தெடுக்கவும் --"
         _REP_SUMMARY = "📋 சுருக்க அறிக்கை (Summary)"
         _REP_PUB = "🧾 பதிப்பக தொகுப்பு (Publisher Summary)"
@@ -1605,24 +1657,33 @@ elif current == "அறிக்கைகள்":
 
         if report_section == _REP_PUB:
             st.caption("தேவையான அறிக்கை வகையைத் தேர்ந்தெடுக்கவும் — அதற்கேற்ப அட்டவணையும் பதிவிறக்க பட்டன்களும் கீழே வரும்.")
-            st.caption("🛠️ Build 30-09-2026 v2 · 5 வகை அறிக்கைகள் (ஒரே பட்டியல்)")
+            st.caption("🛠️ Build 30-09-2026 v3 · பிரிக்கப்படாதவை / குறைவாகப் பெறப்பட்டவை தனித்தனி")
 
-            full_report_df["Required Qty"] = pd.to_numeric(full_report_df["Required Qty"], errors="coerce").fillna(0)
-            full_report_df["Received Qty"] = pd.to_numeric(full_report_df["Received Qty"], errors="coerce").fillna(0)
-
-            pub_summary_df = (
-                full_report_df.groupby("Publisher")
-                .agg(
-                    மொத்த_தலைப்புகள்=("Title", "nunique"),
-                    பெற_வேண்டியது=("Required Qty", "sum"),
-                    பெற்றது=("Received Qty", "sum"),
-                )
-                .reset_index()
-                .rename(columns={"Publisher": "பதிப்பகம்"})
-            )
-            pub_summary_df["மீதம்"] = pub_summary_df["பெற_வேண்டியது"] - pub_summary_df["பெற்றது"]
-            pub_summary_df["நிலை"] = pub_summary_df["மீதம்"].apply(lambda x: "✅ முடிக்கப்பட்டது" if x <= 0 else "⏳ முடிக்கப்படவில்லை")
+            _T = _build_title_status(load_neon_database(), st.session_state.get("submitted_reports", []))
+            if _T.empty:
+                st.warning("⚠️ Neon books அட்டவணையிலிருந்து தரவுகள் கிடைக்கவில்லை.")
+                pub_summary_df = pd.DataFrame(columns=["பதிப்பகம்", "மொத்த_தலைப்புகள்", "பிரிக்கப்படாத_தலைப்புகள்", "பெற_வேண்டியது", "பெற்றது", "குறைவு", "பிரிக்கப்படாத_நூல்கள்", "நிலை"])
+            else:
+                _T["_unsplit_copies"] = _T["Copies"].where(_T["Rows"] == 0, 0)
+                _T["_unsplit_title"] = (_T["Rows"] == 0).astype(int)
+                _P = _T.groupby("_pk", sort=False).agg(
+                    Publisher=("Publisher", "first"), Titles=("Title", "size"), Unsplit=("_unsplit_title", "sum"),
+                    Copies=("Copies", "sum"), Received=("Received", "sum"), Shortage=("Shortage", "sum"),
+                    UnsplitCopies=("_unsplit_copies", "sum")
+                ).reset_index()
+                pub_summary_df = pd.DataFrame({
+                    "பதிப்பகம்": _P["Publisher"],
+                    "மொத்த_தலைப்புகள்": _P["Titles"],
+                    "பிரிக்கப்படாத_தலைப்புகள்": _P["Unsplit"],
+                    "பெற_வேண்டியது": _P["Copies"],
+                    "பெற்றது": _P["Received"],
+                    "குறைவு": _P["Shortage"],
+                    "பிரிக்கப்படாத_நூல்கள்": _P["UnsplitCopies"],
+                    "நிலை": _P["Unsplit"].map(lambda x: "✅ முடிக்கப்பட்டது" if x == 0 else "⏳ முடிக்கப்படவில்லை"),
+                })
             pub_summary_df = pub_summary_df.sort_values("பதிப்பகம்").reset_index(drop=True)
+            st.caption("ℹ️ **முடிக்கப்படாதது** = பதிப்பகத்தின் ஏதேனும் தலைப்பு இன்னும் பிரிக்கப்படவில்லை. "
+                       "**குறைவு** = பிரிக்கப்பட்டு, பெற வேண்டியதை விடக் குறைவாகப் பெறப்பட்டது (பதிவு செய்யப்பட்ட குறைவு; நிலுவையல்ல).")
 
             completed_pub_df = pub_summary_df[pub_summary_df["நிலை"] == "✅ முடிக்கப்பட்டது"].drop(columns=["நிலை"]).reset_index(drop=True)
             pending_pub_df = pub_summary_df[pub_summary_df["நிலை"] == "⏳ முடிக்கப்படவில்லை"].drop(columns=["நிலை"]).reset_index(drop=True)
@@ -1635,8 +1696,8 @@ elif current == "அறிக்கைகள்":
                     "1. மொத்த பதிப்பக தொகுப்பு (அனைத்தும், நிலையுடன்)",
                     "2. இதுவரை முடிக்கப்பட்ட பதிப்பகங்கள்",
                     "3. இன்னும் முடிக்கப்படாத பதிப்பகங்கள்",
-                    "4. இன்னும் முடிக்கப்படாத பதிப்பகங்கள் — தலைப்பு வாரியாக",
-                    "5. தலைப்புகள் குறைவாகப் பெறப்பட்டதன் விவரம்",
+                    "4. இன்னும் முடிக்கப்படாத பதிப்பகங்கள் — பிரிக்கப்படாத தலைப்புகள்",
+                    "5. குறைவாகப் பெறப்பட்ட தலைப்புகளின் விவரம் (பிரிக்கப்பட்டவை)",
                 ],
                 key="pub_summary_report_choice"
             )
@@ -1713,24 +1774,23 @@ elif current == "அறிக்கைகள்":
                                     key="dl_pub_summary_pdf"
                                 )
 
-            # ---------- 4 & 5 : தலைப்பு வாரியான அறிக்கைகள் (வடிகட்டி தேர்வு தேவையில்லை) ----------
+            # ---------- 4 & 5 : தலைப்பு வாரியான அறிக்கைகள் ----------
             if report_choice.startswith("4.") or report_choice.startswith("5."):
                 _is4 = report_choice.startswith("4.")
-                _t_all = pd.DataFrame(st.session_state.get("submitted_reports", []))
-                if _t_all.empty:
+                if _T.empty:
                     st.info("ℹ️ காட்டத் தரவுகள் இல்லை.")
                 else:
-                    _t_all["Required Qty"] = pd.to_numeric(_t_all["Required Qty"], errors="coerce").fillna(0).astype(int)
-                    _t_all["Received Qty"] = pd.to_numeric(_t_all["Received Qty"], errors="coerce").fillna(0).astype(int)
-                    _t_all["மீதம்"] = (_t_all["Required Qty"] - _t_all["Received Qty"]).clip(lower=0)
                     if _is4:
-                        _td = _t_all[_t_all["Publisher"].isin(set(pending_pub_df["பதிப்பகம்"]))]
-                        st.markdown("#### 📋 4. இன்னும் முடிக்கப்படாத பதிப்பகங்கள் — தலைப்பு வாரியாக")
-                        st.caption("முடிக்கப்படாத பதிப்பகங்களின் அனைத்துத் தலைப்புகளும் வரும்; ஒவ்வொரு பதிப்பகத்திலும் நிலுவை உள்ள தலைப்பு முதலில் இருக்கும்.")
+                        _td = _T[_T["Rows"] == 0].copy()
+                        st.markdown("#### 📋 4. இன்னும் முடிக்கப்படாத பதிப்பகங்கள் — பிரிக்கப்படாத தலைப்புகள்")
+                        st.caption("books அட்டவணையில் உள்ளன; இன்னும் பிரிக்கப்படாத (பதிவே இல்லாத) தலைப்புகள் மட்டும்.")
+                        _split_ct = _T.groupby("_pk")["Rows"].apply(lambda x: int((x > 0).sum())).to_dict()
+                        _tot_ct = _T.groupby("_pk")["Title"].size().to_dict()
+                        _td["_prog"] = [f"{_split_ct.get(k, 0)} / {_tot_ct.get(k, 0)}" for k in _td["_pk"]]
                     else:
-                        _td = _t_all[_t_all["மீதம்"] > 0]
-                        st.markdown("#### 📋 5. தலைப்புகள் குறைவாகப் பெறப்பட்டதன் விவரம்")
-                        st.caption("பெற வேண்டியதை விடக் குறைவாகப் பெறப்பட்ட தலைப்புகள் மட்டும்; அதிகக் குறைவு உள்ளவை முதலில்.")
+                        _td = _T[(_T["Rows"] > 0) & (_T["Shortage"] > 0)].copy()
+                        st.markdown("#### 📋 5. குறைவாகப் பெறப்பட்ட தலைப்புகளின் விவரம்")
+                        st.caption("பிரிக்கப்பட்டு பதிவு செய்யப்பட்டவை; பெறப்பட்ட எண்ணிக்கை, பெற வேண்டியதை விடக் குறைவு. இவை 'முடிக்கப்படாதவை' அல்ல.")
                     _qtxt = st.text_input("🔍 பதிப்பகம் / தலைப்பு / ஆசிரியர் / ISBN தேடுக (விருப்பம்):", key=f"pubsum_title_search_{'4' if _is4 else '5'}")
                     if _qtxt.strip():
                         _q = _qtxt.strip().lower()
@@ -1738,41 +1798,34 @@ elif current == "அறிக்கைகள்":
                         for _c in ["Publisher", "Title", "Author", "ISBN"]:
                             _mask = _mask | _td[_c].astype(str).str.lower().str.contains(_q, regex=False)
                         _td = _td[_mask]
-                    _tm1, _tm2, _tm3, _tm4 = st.columns(4)
+                    _tm1, _tm2, _tm3 = st.columns(3)
                     with _tm1:
                         st.metric("🏢 பதிப்பகங்கள்", _td["Publisher"].nunique())
                     with _tm2:
                         st.metric("📚 தலைப்புகள்", len(_td))
                     with _tm3:
-                        st.metric("📥 பெற வேண்டியது / பெற்றது", f"{int(_td['Required Qty'].sum())} / {int(_td['Received Qty'].sum())}")
-                    with _tm4:
-                        st.metric("⏳ மீதம்", int(_td["மீதம்"].sum()))
+                        st.metric("📦 பிரிக்கப்படாத நூல்கள்" if _is4 else "⚠️ குறைவான நூல்கள்",
+                                  int(_td["Copies"].sum()) if _is4 else int(_td["Shortage"].sum()))
                     if _td.empty:
                         st.success("🎉 காட்ட வேண்டிய தலைப்புகள் இல்லை.")
                     else:
-                        _pct = (_td["Received Qty"] / _td["Required Qty"].replace(0, pd.NA) * 100).astype(float).round(1)
-                        _tdisp = pd.DataFrame({
-                            "பதிப்பகம்": _td["Publisher"],
-                            "தலைப்பு": _td["Title"],
-                            "ஆசிரியர்": _td["Author"],
-                            "ISBN": _td["ISBN"],
-                            "பெற வேண்டியது": _td["Required Qty"],
-                            "பெற்றது": _td["Received Qty"],
-                            "மீதம்": _td["மீதம்"],
-                            "பெறப்பட்ட %": _pct,
-                            "நிலை": _td["மீதம்"].map(lambda x: "⏳ நிலுவை" if x > 0 else "✅ முடிந்தது"),
-                            "பதிவு Id": _td["Id"],
-                            "தேதி": _td["Date"],
-                        })
                         if _is4:
-                            _tdisp = _tdisp.sort_values(["பதிப்பகம்", "மீதம்", "தலைப்பு"], ascending=[True, False, True])
-                            _pdf_c = ["பதிப்பகம்", "தலைப்பு", "பெற வேண்டியது", "பெற்றது", "மீதம்", "நிலை"]
-                            _lbl, _ttl = "Pending_Publishers_TitleWise", "இன்னும் முடிக்கப்படாத பதிப்பகங்கள் — தலைப்பு வாரியாக"
+                            _tdisp = pd.DataFrame({
+                                "பதிப்பகம்": _td["Publisher"], "தலைப்பு": _td["Title"], "ஆசிரியர்": _td["Author"], "ISBN": _td["ISBN"],
+                                "மொழி": _td["Lang"], "நூல்கள்": _td["Copies"],
+                                "பதிப்பகத்தில் பிரிக்கப்பட்ட தலைப்புகள்": _td["_prog"], "நிலை": _td["Status"],
+                            }).sort_values(["பதிப்பகம்", "தலைப்பு"]).reset_index(drop=True)
+                            _pdf_c = ["பதிப்பகம்", "தலைப்பு", "ஆசிரியர்", "மொழி", "நூல்கள்"]
+                            _lbl, _ttl = "Unsplit_Titles_Pending_Publishers", "இன்னும் முடிக்கப்படாத பதிப்பகங்கள் — பிரிக்கப்படாத தலைப்புகள்"
                         else:
-                            _tdisp = _tdisp.sort_values(["மீதம்", "பதிப்பகம்", "தலைப்பு"], ascending=[False, True, True])
-                            _pdf_c = ["பதிப்பகம்", "தலைப்பு", "பெற வேண்டியது", "பெற்றது", "மீதம்", "பெறப்பட்ட %"]
-                            _lbl, _ttl = "Short_Received_Titles", "தலைப்புகள் குறைவாகப் பெறப்பட்டதன் விவரம்"
-                        _tdisp = _tdisp.reset_index(drop=True)
+                            _pct = (_td["Received"] / _td["Copies"].replace(0, pd.NA) * 100).astype(float).round(1)
+                            _tdisp = pd.DataFrame({
+                                "பதிப்பகம்": _td["Publisher"], "தலைப்பு": _td["Title"], "ஆசிரியர்": _td["Author"], "ISBN": _td["ISBN"],
+                                "பெற வேண்டியது": _td["Copies"], "பெற்றது": _td["Received"], "குறைவு": _td["Shortage"],
+                                "பெறப்பட்ட %": _pct, "பதிவு Id": _td["Ids"],
+                            }).sort_values(["குறைவு", "பதிப்பகம்", "தலைப்பு"], ascending=[False, True, True]).reset_index(drop=True)
+                            _pdf_c = ["பதிப்பகம்", "தலைப்பு", "பெற வேண்டியது", "பெற்றது", "குறைவு", "பெறப்பட்ட %"]
+                            _lbl, _ttl = "Short_Received_Titles", "குறைவாகப் பெறப்பட்ட தலைப்புகளின் விவரம்"
                         st.dataframe(_tdisp, use_container_width=True, hide_index=True)
                         _report_downloads(_tdisp, _lbl, f"dl_pubsum_title_{'4' if _is4 else '5'}", pdf_cols=_pdf_c, pdf_title=_ttl)
 
