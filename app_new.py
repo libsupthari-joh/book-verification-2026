@@ -1494,22 +1494,6 @@ elif current == "அறிக்கைகள்":
     else:
         full_report_df = pd.DataFrame(st.session_state["submitted_reports"])
         # ---------- பொதுவான உதவிச் செயல்பாடுகள் (ஒவ்வொரு பகுதியின் கீழும் பயன்படும்) ----------
-        _ALL_PUB = "-- அனைத்துப் பதிப்பகங்களும் (All Publishers) --"
-
-        def _pub_filter(df, key):
-            """தேர்ந்தெடுத்த பகுதியின் கீழேயே பதிப்பக வடிகட்டியைக் காட்டும்.
-            அட்டவணையில் பதிப்பக நெடுவரிசை இல்லையெனில் வடிகட்டி காட்டப்படாது."""
-            if df is None or df.empty:
-                return df
-            _cands = ["Publisher", "vendor_name", "பதிப்பகம்", "publisher_name", "publication_name", "publication name"]
-            _pc = next((c for c in _cands if c in df.columns), None)
-            if _pc is None:
-                return df
-            _names = sorted(df[_pc].dropna().astype(str).unique().tolist())
-            _sel = st.selectbox("🔍 பதிப்பகம் வாரியாக வடிகட்டுக (Filter by Publisher):", [_ALL_PUB] + _names, key=key)
-            if _sel != _ALL_PUB:
-                df = df[df[_pc].astype(str) == _sel]
-            return df.reset_index(drop=True)
 
         def _report_downloads(df_to_dl, label_prefix, key_prefix, pdf_cols=None, pdf_title=None):
             """CSV + Excel + PDF பதிவிறக்க பட்டன்கள் (எந்த DataFrame-க்கும்)."""
@@ -1649,7 +1633,7 @@ elif current == "அறிக்கைகள்":
         st.markdown("---")
 
         if report_section == _REP_SUMMARY:
-            display_df = _pub_filter(full_report_df, "f_summary_pub")
+            display_df = full_report_df.reset_index(drop=True)
             st.markdown(f"**பதிவு செய்யப்பட்ட தலைப்புகள்:** {len(display_df)}")
             st.dataframe(display_df, use_container_width=True)
             if not display_df.empty:
@@ -1902,8 +1886,7 @@ elif current == "அறிக்கைகள்":
         # ======================================================================
         if report_section == _REP_T1:
             st.markdown("### 🔀 1. பிரிக்க — சமர்ப்பிக்கப்பட்ட தரவுகள் (Submitted Reports)")
-            _all_rep_cat = pd.DataFrame(st.session_state["submitted_reports"])
-            _all_rep_cat = _pub_filter(_all_rep_cat, "f_t1_pub").reset_index(drop=True)
+            _all_rep_cat = pd.DataFrame(st.session_state["submitted_reports"]).reset_index(drop=True)
             st.markdown(f"**மொத்தப் பதிவுகள்:** {len(_all_rep_cat)}")
             st.dataframe(_all_rep_cat, use_container_width=True)
             if not _all_rep_cat.empty:
@@ -1915,7 +1898,6 @@ elif current == "அறிக்கைகள்":
             if _disp_df_cat.empty:
                 st.info("ℹ️ இதுவரை எந்த நூல்களும் நூலகர் சான்று மூலம் பெறப்பட்டதாகப் பதிவு செய்யப்படவில்லை.")
             else:
-                _disp_df_cat = _pub_filter(_disp_df_cat, "f_t2_pub")
                 st.markdown(f"**மொத்த பதிவுகள்:** {len(_disp_df_cat)}")
                 st.dataframe(_disp_df_cat, use_container_width=True)
                 if not _disp_df_cat.empty:
@@ -1939,7 +1921,6 @@ elif current == "அறிக்கைகள்":
                     if _conf.empty:
                         st.success("🎉 விலை முரண்பாடுகள் எதுவும் இல்லை!")
                     else:
-                        _conf = _pub_filter(_conf, "f_t3_pub")
                         st.markdown(f"**முரண்பாடு உள்ள பதிவுகள்:** {len(_conf)}")
                         st.dataframe(_conf, use_container_width=True)
                         if not _conf.empty:
@@ -1955,7 +1936,6 @@ elif current == "அறிக்கைகள்":
                 if not _acc_col:
                     st.info("ℹ️ 'Accession Number' நெடுவரிசை கண்டறியப்படவில்லை.")
                 else:
-                    _neon_cat5 = _pub_filter(_neon_cat5, "f_t4_pub")
                     _acc_series = _neon_cat5[_acc_col].astype(str).str.strip().str.lower()
                     _missing_mask = _acc_series.isin(["", "nan", "none", "null"])
                     _c1, _c2, _c3 = st.columns(3)
@@ -2024,7 +2004,6 @@ elif current == "அறிக்கைகள்":
             if _rep_cat9.empty:
                 st.info("ℹ️ பதிவிறக்கம் செய்யத் தரவுகள் எதுவும் இல்லை.")
             else:
-                _rep_cat9 = _pub_filter(_rep_cat9, "f_t8_pub")
                 st.markdown(f"**மொத்தப் பதிவுகள்:** {len(_rep_cat9)}")
                 st.dataframe(_rep_cat9, use_container_width=True)
                 if not _rep_cat9.empty:
@@ -2056,7 +2035,6 @@ elif current == "அறிக்கைகள்":
                 if not _class_col:
                     st.info("ℹ️ 'Classification Number' நெடுவரிசை தரவுத்தளத்தில் கண்டறியப்படவில்லை.")
                 else:
-                    _neon_cat7 = _pub_filter(_neon_cat7, "f_t11_pub")
                     _cls_series = _neon_cat7[_class_col].astype(str).str.strip().str.lower()
                     _cls_missing = _cls_series.isin(["", "nan", "none", "null"])
                     _c1, _c2, _c3 = st.columns(3)
