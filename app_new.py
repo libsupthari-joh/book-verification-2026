@@ -15,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-DB_URL = "postgresql://neondb_owner:npg_y1mObIUlc2ox@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DB_URL = ". . . . . . . . . . "
 
 st.markdown("""
 <style>
@@ -1594,6 +1594,7 @@ elif current == "அறிக்கைகள்":
 
         if report_section == _REP_PUB:
             st.caption("தேவையான அறிக்கை வகையைத் தேர்ந்தெடுக்கவும் — அதற்கேற்ப அட்டவணையும் பதிவிறக்க பட்டன்களும் கீழே வரும்.")
+            st.caption("🛠️ Build 30-09-2026 · தலைப்பு வாரியான விவரம் உள்ள பதிப்பு")
 
             full_report_df["Required Qty"] = pd.to_numeric(full_report_df["Required Qty"], errors="coerce").fillna(0)
             full_report_df["Received Qty"] = pd.to_numeric(full_report_df["Received Qty"], errors="coerce").fillna(0)
@@ -1696,6 +1697,70 @@ elif current == "அறிக்கைகள்":
                                     use_container_width=True,
                                     key="dl_pub_summary_pdf"
                                 )
+
+                # ---------- தலைப்பு வாரியான விவரம் (எந்தத் தலைப்பு நிலுவை என அறிய) ----------
+                st.markdown("---")
+                st.markdown("### 🔎 தலைப்பு வாரியான விவரம் (எந்தத் தலைப்பு நிலுவை என அறிய)")
+                _PH_T = "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --"
+                _ALL_PEND = "-- 📌 அனைத்துப் பதிப்பகங்களின் நிலுவைத் தலைப்புகள் --"
+                _t_all = pd.DataFrame(st.session_state.get("submitted_reports", []))
+                _pub_opts_t = chosen_df["பதிப்பகம்"].tolist() if "பதிப்பகம்" in chosen_df.columns else []
+                if _t_all.empty or not _pub_opts_t:
+                    st.info("ℹ️ காட்டத் தரவுகள் இல்லை.")
+                else:
+                    _t_all["Required Qty"] = pd.to_numeric(_t_all["Required Qty"], errors="coerce").fillna(0).astype(int)
+                    _t_all["Received Qty"] = pd.to_numeric(_t_all["Received Qty"], errors="coerce").fillna(0).astype(int)
+                    _t_all["மீதம்"] = (_t_all["Required Qty"] - _t_all["Received Qty"]).clip(lower=0)
+                    _opts_t = [_PH_T, _ALL_PEND] + _pub_opts_t
+                    _sel_t = st.selectbox("🏢 பதிப்பகம் (தலைப்புகளைக் காண):", _opts_t,
+                                          index=(2 if len(_pub_opts_t) == 1 else 0), key="pubsum_title_pub")
+                    if _sel_t != _PH_T:
+                        if _sel_t == _ALL_PEND:
+                            _td = _t_all[(_t_all["Publisher"].isin(_pub_opts_t)) & (_t_all["மீதம்"] > 0)]
+                            _only_pend = True
+                        else:
+                            _td = _t_all[_t_all["Publisher"] == _sel_t]
+                            _only_pend = st.checkbox("மீதம் உள்ள (நிலுவை) தலைப்புகளை மட்டும் காட்டு", value=True, key="pubsum_title_only_pend")
+                            if _only_pend:
+                                _td = _td[_td["மீதம்"] > 0]
+                        _qtxt = st.text_input("🔍 தலைப்பு / ஆசிரியர் / ISBN தேடுக:", key="pubsum_title_search")
+                        if _qtxt.strip():
+                            _q = _qtxt.strip().lower()
+                            _mask = (_td["Title"].astype(str).str.lower().str.contains(_q, regex=False)
+                                     | _td["Author"].astype(str).str.lower().str.contains(_q, regex=False)
+                                     | _td["ISBN"].astype(str).str.lower().str.contains(_q, regex=False))
+                            _td = _td[_mask]
+                        _tm1, _tm2, _tm3, _tm4 = st.columns(4)
+                        with _tm1:
+                            st.metric("📚 தலைப்புகள்", len(_td))
+                        with _tm2:
+                            st.metric("📥 பெற வேண்டியது", int(_td["Required Qty"].sum()))
+                        with _tm3:
+                            st.metric("✅ பெற்றது", int(_td["Received Qty"].sum()))
+                        with _tm4:
+                            st.metric("⏳ மீதம்", int(_td["மீதம்"].sum()))
+                        if _td.empty:
+                            st.success("🎉 காட்ட வேண்டிய தலைப்புகள் இல்லை (நிலுவை இல்லை / தேடலுக்குப் பொருந்தவில்லை).")
+                        else:
+                            _tdisp = pd.DataFrame({
+                                "பதிப்பகம்": _td["Publisher"],
+                                "தலைப்பு": _td["Title"],
+                                "ஆசிரியர்": _td["Author"],
+                                "ISBN": _td["ISBN"],
+                                "விலை": _td["Price"],
+                                "பெற வேண்டியது": _td["Required Qty"],
+                                "பெற்றது": _td["Received Qty"],
+                                "மீதம்": _td["மீதம்"],
+                                "நிலை": _td["மீதம்"].map(lambda x: "⏳ நிலுவை" if x > 0 else "✅ முடிந்தது"),
+                                "பதிவு Id": _td["Id"],
+                                "தேதி": _td["Date"],
+                            }).sort_values(["மீதம்", "தலைப்பு"], ascending=[False, True]).reset_index(drop=True)
+                            if _sel_t != _ALL_PEND:
+                                _tdisp = _tdisp.drop(columns=["பதிப்பகம்"])
+                            st.dataframe(_tdisp, use_container_width=True, hide_index=True)
+                            _pdf_c = (["பதிப்பகம்"] if _sel_t == _ALL_PEND else []) + ["தலைப்பு", "ஆசிரியர்", "பெற வேண்டியது", "பெற்றது", "மீதம்", "நிலை"]
+                            _lbl = "Pending_Titles_All" if _sel_t == _ALL_PEND else f"Titles_{str(_sel_t)[:25].replace(' ', '_')}"
+                            _report_downloads(_tdisp, _lbl, "dl_pubsum_titles", pdf_cols=_pdf_c, pdf_title="தலைப்பு வாரியான விவரம் — " + ("நிலுவைத் தலைப்புகள்" if _sel_t == _ALL_PEND else str(_sel_t)))
 
         if report_section == _REP_LIB:
             neon_df = load_neon_database()
