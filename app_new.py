@@ -24,7 +24,7 @@ def _get_db_url():
             _u = st.secrets["DATABASE_URL"]
         except Exception:
             _u = None
-    return _u or "postgresql://neondb_owner:npg_y1mObIUlc2ox@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+    return _u or ". . . . . . . . . . . . . . . . "
 
 DB_URL = _get_db_url()
 
@@ -666,7 +666,7 @@ with col_logout[1]:
 ALL_MENU_OPTIONS = [
     ("🔀", "பிரிக்க"), ("📜", "நூலகர் சான்று"), ("📊", "அறிக்கைகள்"), ("⚠️", "கவனிக்க"),
     ("🔢", "பதிவெண் மாற்ற"), ("🗂️", "Master Data"), ("❌", "தவறான பதிவு நீக்கம்"),
-    ("🔑", "கடவுச்சொல் மாற்ற"), ("📥", "Excel பதிவிறக்கம்"), ("👥", "நூலகர் பார்வை ஆண்டு"),
+    ("🔑", "கடவுச்சொல் மாற்ற"), ("📥", "Excel பதிவிறக்கம்"), ("📦", "நூலகங்களுக்கு பிரித்து வழங்கல்"),
     ("📂", "Excel அப்லோடு"), ("🏷️", "பகுப்பு எண் புதுப்பி"), ("🔗", "நூலக பொருத்தம்")
 ]
 
@@ -709,6 +709,97 @@ def load_neon_database():
     except Exception as e:
         st.error(f"❌ டேட்டாபேஸ் இணைப்பில் பிழை: {e}")
     return pd.DataFrame()
+
+# ---------------- நூலகங்களுக்கு பிரித்து வழங்கல் — பொதுவான helper-கள் ----------------
+def build_distribution_base():
+    """'பிரிக்க' பகுதியில் சமர்ப்பிக்கப்பட்ட (பிரிக்கப்பட்ட) பதிப்பாளர்களின் நூல்களை,
+    நூலகம் / தலைப்பு / மொழி விவரங்களுடன் ஒரே அட்டவணையாகத் தரும்.
+    திருப்பும் மதிப்பு: (DataFrame, பிழைச் செய்தி அல்லது None)"""
+    neon = load_neon_database()
+    if neon.empty:
+        return pd.DataFrame(), "⚠️ Neon Database-ல் இருந்து தரவுகள் கிடைக்கவில்லை."
+    if not st.session_state.get("submitted_reports"):
+        return pd.DataFrame(), "ℹ️ முதலில் '🔀 பிரிக்க' பகுதியில் நூல்களைப் பிரித்துச் சமர்ப்பிக்கவும். அதன் பிறகே இங்கு விவரங்கள் வரும்."
+    cols = list(neon.columns)
+    pub_c = next((c for c in cols if c == 'vendor_name'), None) or next((c for c in cols if c in ['publication name', 'publication_name', 'publisher_name'] or 'publication' in c), None)
+    title_c = next((c for c in cols if c == 'title' or (('title' in c) and ('book' not in c))), None) or next((c for c in cols if 'title' in c), None)
+    lib_c = next((c for c in cols if 'library' in c and ('name' in c or 'tm' in c)), None)
+    lang_c = next((c for c in cols if c == 'language'), None) or next((c for c in cols if 'lang' in c), None)
+    auth_c = next((c for c in cols if 'author' in c), None)
+    isbn_c = next((c for c in cols if 'isbn' in c), None)
+    if not pub_c or not title_c or not lib_c:
+        return pd.DataFrame(), "⚠️ பதிப்பகம் / தலைப்பு / நூலகப் பெயர் நெடுவரிசைகள் டேட்டாபேஸில் கண்டறியப்படவில்லை."
+
+    rep = pd.DataFrame(st.session_state["submitted_reports"])
+    submitted_keys = {_norm_name(x) for x in rep["Publisher"].dropna().unique()}
+    mask = neon[pub_c].map(_norm_name).isin(submitted_keys)
+    src = neon[mask]
+    if src.empty:
+        return pd.DataFrame(), "ℹ️ பிரிக்கப்பட்ட பதிப்பாளர்களுக்கான நூல்கள் எதுவும் இல்லை."
+
+    lang_raw = src[lang_c].astype(str).str.strip().str.lower() if lang_c else pd.Series("", index=src.index)
+    lang_disp = lang_raw.map(lambda v: "தமிழ்" if v == "tamil" else ("ஆங்கிலம்" if v == "english" else "மற்றவை"))
+    base = pd.DataFrame({
+        "Publisher": src[pub_c].astype(str).str.strip(),
+        "Title": src[title_c].astype(str).str.strip(),
+        "Library": src[lib_c].astype(str).str.strip(),
+        "Author": src[auth_c].fillna("").astype(str) if auth_c else "",
+        "ISBN": src[isbn_c].fillna("").astype(str) if isbn_c else "",
+        "Language": lang_disp,
+    }).reset_index(drop=True)
+    base = base[(base["Library"] != "") & (base["Library"].str.lower() != "nan")].reset_index(drop=True)
+    base["_pk"] = base["Publisher"].map(_norm_name)
+    base["_tk"] = base["_pk"] + "||" + base["Title"].map(_norm_name)
+    return base, None
+
+def summarize_distribution(df, by, by_label, show_pubs=True, show_libs=True):
+    """df-ஐ 'by' நெடுவரிசை அடிப்படையில் குழுவாக்கி: பதிப்பாளர் / நூலக / தலைப்பு / நூல் (பிரதி)
+    எண்ணிக்கை மற்றும் தமிழ் / ஆங்கில விவரங்களைத் தரும்."""
+    rows = []
+    for key, g in df.groupby(by, sort=True):
+        ta = g[g["Language"] == "தமிழ்"]
+        en = g[g["Language"] == "ஆங்கிலம்"]
+        r = {by_label: key}
+        if show_pubs:
+            r["பதிப்பாளர்கள்"] = int(g["_pk"].nunique())
+        if show_libs:
+            r["நூலகங்கள்"] = int(g["Library"].nunique())
+        r["தலைப்புகள்"] = int(g["_tk"].nunique())
+        r["நூல்கள் (பிரதிகள்)"] = int(len(g))
+        r["தமிழ் தலைப்புகள்"] = int(ta["_tk"].nunique())
+        r["ஆங்கில தலைப்புகள்"] = int(en["_tk"].nunique())
+        r["தமிழ் நூல்கள்"] = int(len(ta))
+        r["ஆங்கில நூல்கள்"] = int(len(en))
+        rows.append(r)
+    return pd.DataFrame(rows)
+
+def title_detail_table(df):
+    """ஒவ்வொரு (பதிப்பகம் + தலைப்பு + நூலகம்)-க்கும் மொழி மற்றும் பிரதிகள் எண்ணிக்கை."""
+    if df.empty:
+        return pd.DataFrame()
+    out = (df.groupby(["Publisher", "Title", "Library", "Language"], sort=True)
+             .agg(Author=("Author", "first"), ISBN=("ISBN", "first"), Copies=("Title", "size"))
+             .reset_index())
+    return out.rename(columns={
+        "Publisher": "பதிப்பகம்", "Title": "தலைப்பு", "Library": "நூலகம்",
+        "Language": "மொழி", "Author": "ஆசிரியர்", "ISBN": "ISBN", "Copies": "பிரதிகள்"
+    })[["பதிப்பகம்", "தலைப்பு", "நூலகம்", "மொழி", "ஆசிரியர்", "ISBN", "பிரதிகள்"]]
+
+def _csv_btn(df, label, fname, key):
+    st.download_button(label=label, data=df.to_csv(index=False).encode("utf-8-sig"),
+                       file_name=fname, mime="text/csv", key=key)
+
+def _dist_metrics(d):
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("🏛️ நூலகங்கள்", int(d["Library"].nunique()))
+    m2.metric("🏢 பதிப்பாளர்கள்", int(d["_pk"].nunique()))
+    m3.metric("📖 தலைப்புகள்", int(d["_tk"].nunique()))
+    m4.metric("📚 நூல்கள் (பிரதிகள்)", len(d))
+    t1, t2, t3, t4 = st.columns(4)
+    t1.metric("தமிழ் தலைப்புகள்", int(d[d["Language"] == "தமிழ்"]["_tk"].nunique()))
+    t2.metric("ஆங்கில தலைப்புகள்", int(d[d["Language"] == "ஆங்கிலம்"]["_tk"].nunique()))
+    t3.metric("தமிழ் நூல்கள்", int((d["Language"] == "தமிழ்").sum()))
+    t4.metric("ஆங்கில நூல்கள்", int((d["Language"] == "ஆங்கிலம்").sum()))
 
 def build_pub_stats_df(pub_name, source_neon_df, source_rep_df, pub_col, title_col):
     """For one publisher: mark the first N rows per title as 'received' (received_stats=1),
@@ -1617,7 +1708,7 @@ elif current == "அறிக்கைகள்":
         _REP_T6 = "6. ❌ தவறான பதிவு நீக்கம்"
         _REP_T7 = "7. 🔑 கடவுச்சொல் மாற்ற"
         _REP_T8 = "8. 📥 Excel பதிவிறக்கம்"
-        _REP_T9 = "9. 👥 நூலகர் பார்வை ஆண்டு"
+        _REP_T9 = "9. 📦 நூலகங்களுக்கு பிரித்து வழங்கல்"
         _REP_T10 = "10. 📂 Excel அப்லோடு"
         _REP_T11 = "11. 🏷️ பகுப்பு எண் புதுப்பி"
         _REP_T12 = "12. 🔗 நூலக பொருத்தம்"
@@ -2010,14 +2101,15 @@ elif current == "அறிக்கைகள்":
                     _cat_downloads(_rep_cat9, "Excel_Pathivirakkam", "dl_cat7")
 
         elif report_section == _REP_T9:
-            st.markdown("### 👥 9. நூலகர் பார்வை ஆண்டு விவரங்கள்")
-            _lib_rec_cat = pd.DataFrame(st.session_state.get("librarian_records", []))
-            if _lib_rec_cat.empty:
-                st.info("ℹ️ இதுவரை நூலகர் பார்வை ஆண்டு பதிவுகள் எதுவும் சேர்க்கப்படவில்லை.")
+            st.markdown("### 📦 9. நூலகங்களுக்கு பிரித்து வழங்கல் — நூலகம் வாரியான சுருக்கம்")
+            _dist_rep, _dist_rep_err = build_distribution_base()
+            if _dist_rep_err:
+                st.info(_dist_rep_err)
             else:
-                st.markdown(f"**மொத்தப் பதிவுகள்:** {len(_lib_rec_cat)}")
-                st.dataframe(_lib_rec_cat, use_container_width=True)
-                _cat_downloads(_lib_rec_cat, "Nulagar_Aandu_Parvai", "dl_cat8")
+                _dist_rep_sum = summarize_distribution(_dist_rep, "Library", "நூலகம்", show_pubs=True, show_libs=False)
+                st.markdown(f"**மொத்த நூலகங்கள்:** {len(_dist_rep_sum)}")
+                st.dataframe(_dist_rep_sum, use_container_width=True)
+                _cat_downloads(_dist_rep_sum, "Nulagangalukku_Pirithu_Vazhangal", "dl_cat8")
 
         elif report_section == _REP_T10:
             st.markdown("### 📂 10. Excel அப்லோடு — books அட்டவணையின் தற்போதைய நிலை")
@@ -2492,41 +2584,68 @@ elif current == "Master Data":
             else:
                 st.warning("⚠️ நூலகப் பெயர் காலம் (Library Name Column) டேட்டாபேஸில் கிடைக்கவில்லை.")
 
-elif current == "நூலகர் பார்வை ஆண்டு":
-    st.subheader("👥 நூலகர் பார்வை ஆண்டு விவரங்கள் மேலாண்மை")
-    st.info("ℹ️ ஒவ்வொரு நூலகருக்கும் பார்வைக் காலத்தைப் (ஆண்டு) பதிவு செய்யவும், தேவைப்படின் திருத்தவும்.")
+elif current == "நூலகங்களுக்கு பிரித்து வழங்கல்":
+    st.subheader("📦 நூலகங்களுக்கு பிரித்து வழங்கல் (பிரிக்கப்பட்ட பதிப்பாளர்களின் நூல்கள்)")
+    st.caption("ℹ️ '🔀 பிரிக்க' பகுதியில் பிரிக்கப்பட்ட பதிப்பாளர்களின் நூல்கள் ஒவ்வொரு நூலகத்திற்கும் எப்படிப் பிரித்து வழங்கப்பட்டுள்ளன என்பதை ஒட்டுமொத்தமாகவும், பதிப்பகம் வாரியாகவும், நூலகம் வாரியாகவும் இங்கு காணலாம்.")
 
-    with st.form("librarian_year_form"):
-        lc1, lc2 = st.columns(2)
-        with lc1:
-            librarian_name = st.text_input("👤 நூலகர் பெயர்")
-            library_name = st.text_input("🏛️ நூலகத்தின் பெயர்")
-        with lc2:
-            view_year = st.text_input("📅 பார்வை ஆண்டு (உ.ம். 2026-27)", value="2026-27")
-        add_lib_record = st.form_submit_button("➕ பதிவு சேர்", type="primary")
-
-        if add_lib_record:
-            if not librarian_name.strip() or not library_name.strip():
-                st.error("❌ நூலகர் பெயர் மற்றும் நூலகத்தின் பெயரை உள்ளிடவும்!")
-            else:
-                st.session_state["librarian_records"].append({
-                    "Librarian": librarian_name.strip(), "Library": library_name.strip(),
-                    "View Year": view_year.strip(), "Date": datetime.now().strftime("%Y-%m-%d %H:%M")
-                })
-                st.success(f"✅ '{librarian_name}' — {view_year} பதிவு சேர்க்கப்பட்டது!")
-                st.rerun()
-
-    if st.session_state["librarian_records"]:
-        st.markdown("---")
-        lib_rec_df = pd.DataFrame(st.session_state["librarian_records"])
-        st.dataframe(lib_rec_df, use_container_width=True)
-        del_idx = st.number_input("🗑️ நீக்க வேண்டிய வரிசை எண் (Row Index)", min_value=0, max_value=len(lib_rec_df) - 1, value=0, step=1, key="lib_rec_del_idx")
-        if st.button("🗑️ தேர்ந்தெடுத்த பதிவை நீக்கு", key="lib_rec_del_btn"):
-            st.session_state["librarian_records"].pop(int(del_idx))
-            st.success("✅ பதிவு நீக்கப்பட்டது!")
-            st.rerun()
+    dist_base, dist_err = build_distribution_base()
+    if dist_err:
+        st.info(dist_err) if dist_err.startswith("ℹ️") else st.warning(dist_err)
     else:
-        st.info("ℹ️ இதுவரை நூலகர் பார்வை ஆண்டு பதிவுகள் எதுவும் சேர்க்கப்படவில்லை.")
+        tab_all, tab_pub, tab_lib = st.tabs(["🌐 ஒட்டுமொத்தம்", "🧾 பதிப்பகம் வாரியாக", "🏛️ நூலகம் வாரியாக"])
+
+        # ---------- ஒட்டுமொத்தம் ----------
+        with tab_all:
+            st.markdown("#### 🌐 ஒட்டுமொத்த விவரம்")
+            _dist_metrics(dist_base)
+            st.markdown("##### 🏛️ ஒவ்வொரு நூலகத்திற்கும் — பதிப்பாளர்கள் / தலைப்புகள் / தமிழ் - ஆங்கிலம்")
+            lib_summary = summarize_distribution(dist_base, "Library", "நூலகம்", show_pubs=True, show_libs=False)
+            st.dataframe(lib_summary, use_container_width=True, hide_index=True)
+            _csv_btn(lib_summary, "📥 நூலகம் வாரியான சுருக்கம் (CSV)", "Nulagam_Wari_Surukkam.csv", "dl_dist_all_lib")
+            st.markdown("##### 📋 முழு விவரப்பட்டியல் (பதிப்பகம் + தலைப்பு + நூலகம்)")
+            full_detail = title_detail_table(dist_base)
+            st.dataframe(full_detail, use_container_width=True, hide_index=True)
+            _csv_btn(full_detail, "📥 முழு விவரப்பட்டியல் (CSV)", "Pirithu_Vazhangal_Full.csv", "dl_dist_all_full")
+
+        # ---------- பதிப்பகம் வாரியாக ----------
+        with tab_pub:
+            st.markdown("#### 🧾 பதிப்பகம் வாரியாக")
+            pub_summary = summarize_distribution(dist_base, "Publisher", "பதிப்பகம்", show_pubs=False, show_libs=True)
+            st.dataframe(pub_summary, use_container_width=True, hide_index=True)
+            _csv_btn(pub_summary, "📥 பதிப்பகம் வாரியான சுருக்கம் (CSV)", "Pathippagam_Wari_Surukkam.csv", "dl_dist_pub_sum")
+
+            ALL_OPT = "-- அனைத்தும் --"
+            sel_pub = st.selectbox("🔍 ஒரு பதிப்பகத்தின் விவரம் காண:", [ALL_OPT] + sorted(dist_base["Publisher"].unique().tolist()), key="dist_pub_sel")
+            if sel_pub != ALL_OPT:
+                pdf_ = dist_base[dist_base["Publisher"] == sel_pub]
+                st.markdown(f"##### 🏢 {sel_pub}")
+                _dist_metrics(pdf_)
+                st.markdown("**நூலகம் வாரியாக இந்தப் பதிப்பகத்தின் நூல்கள்:**")
+                p_lib = summarize_distribution(pdf_, "Library", "நூலகம்", show_pubs=False, show_libs=False)
+                st.dataframe(p_lib, use_container_width=True, hide_index=True)
+                st.markdown("**தலைப்பு வாரியான பட்டியல்:**")
+                p_detail = title_detail_table(pdf_)
+                st.dataframe(p_detail, use_container_width=True, hide_index=True)
+                _csv_btn(p_detail, "📥 இந்தப் பதிப்பகப் பட்டியல் (CSV)", f"Pathippagam_{sel_pub}.csv", "dl_dist_pub_detail")
+
+        # ---------- நூலகம் வாரியாக ----------
+        with tab_lib:
+            st.markdown("#### 🏛️ நூலகம் வாரியாக")
+            lib_summary2 = summarize_distribution(dist_base, "Library", "நூலகம்", show_pubs=True, show_libs=False)
+            st.dataframe(lib_summary2, use_container_width=True, hide_index=True)
+
+            sel_lib_d = st.selectbox("🔍 ஒரு நூலகத்தின் விவரம் காண:", [ALL_OPT] + sorted(dist_base["Library"].unique().tolist()), key="dist_lib_sel")
+            if sel_lib_d != ALL_OPT:
+                ldf = dist_base[dist_base["Library"] == sel_lib_d]
+                st.markdown(f"##### 🏛️ {sel_lib_d}")
+                _dist_metrics(ldf)
+                st.markdown("**இந்த நூலகத்திற்கு வழங்கப்பட்ட பதிப்பாளர்கள் (தலைப்புகள் / தமிழ் - ஆங்கிலம்):**")
+                l_pub = summarize_distribution(ldf, "Publisher", "பதிப்பகம்", show_pubs=False, show_libs=False)
+                st.dataframe(l_pub, use_container_width=True, hide_index=True)
+                st.markdown("**தலைப்பு வாரியான பட்டியல்:**")
+                l_detail = title_detail_table(ldf)
+                st.dataframe(l_detail, use_container_width=True, hide_index=True)
+                _csv_btn(l_detail, "📥 இந்த நூலகப் பட்டியல் (CSV)", f"Nulagam_{sel_lib_d}.csv", "dl_dist_lib_detail")
 
 elif current == "Excel அப்லோடு":
     st.subheader("📂 புதிய Excel தரவு பதிவேற்றம் & மேலாண்மை")
