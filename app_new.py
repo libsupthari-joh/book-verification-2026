@@ -20,7 +20,7 @@ def _get_db_url():
     if not _u:
         try:
             _u = st.secrets["DATABASE_URL"]
-        except Exception:
+        except Exception: "postgresql://neondb_owner:npg_uGTf68JXVjyw@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
             _u = None
     if not _u or not str(_u).strip().startswith(("postgresql://", "postgres://")):
         st.error("❌ DATABASE_URL அமைக்கப்படவில்லை அல்லது தவறாக உள்ளது. Streamlit Secrets-ஐச் சரிபார்க்கவும்.")
