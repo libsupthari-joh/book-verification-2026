@@ -24,7 +24,7 @@ def _get_db_url():
             _u = st.secrets["DATABASE_URL"]
         except Exception:
             _u = None
-    return _u or ". . . . . . . . . . . . . . . . "
+    return _u or "postgresql://neondb_owner:npg_y1mObIUlc2ox@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 DB_URL = _get_db_url()
 
