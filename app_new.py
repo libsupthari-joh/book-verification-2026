@@ -14,18 +14,21 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
-
 def _get_db_url():
     _u = os.environ.get("DATABASE_URL")
     if not _u:
         try:
             _u = st.secrets["DATABASE_URL"]
-        except Exception: "postgresql://neondb_owner:npg_uGTf68JXVjyw@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+        except Exception:
             _u = None
-    if not _u or not str(_u).strip().startswith(("postgresql://", "postgres://")):
+    _u = str(_u).strip() if _u else ""
+    if not _u.startswith(("postgresql://", "postgres://")):
         st.error("❌ DATABASE_URL அமைக்கப்படவில்லை அல்லது தவறாக உள்ளது. Streamlit Secrets-ஐச் சரிபார்க்கவும்.")
         st.stop()
-    return str(_u).strip()
+    return _u
+
+DB_URL = _get_db_url()
+    
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@400;600;700;800&display=swap');
