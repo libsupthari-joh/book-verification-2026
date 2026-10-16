@@ -712,8 +712,10 @@ def load_neon_database():
 
 # ---------------- நூலகங்களுக்கு பிரித்து வழங்கல் — பொதுவான helper-கள் ----------------
 def build_distribution_base():
-    """'பிரிக்க' பகுதியில் சமர்ப்பிக்கப்பட்ட (பிரிக்கப்பட்ட) பதிப்பாளர்களின் நூல்களை,
-    நூலகம் / தலைப்பு / மொழி விவரங்களுடன் ஒரே அட்டவணையாகத் தரும்.
+    """Master Data-வில் உள்ள அதே முறையில் (build_pub_stats_df): ஒவ்வொரு பதிப்பகத்தின் ஒவ்வொரு
+    தலைப்புக்கும், 'பிரிக்க' பகுதியில் சமர்ப்பிக்கப்பட்ட Received Qty எண்ணிக்கை அளவுக்கு,
+    பட்டியலில் மேலிருந்து கீழாக வரிசையாக நூலகங்களுக்கு 'பெறப்பட்டது' (Received=1) எனக் குறிக்கப்படும்.
+    போதிய எண்ணிக்கை பெறப்படவில்லை எனில் கீழ் உள்ள நூலகங்களுக்கு 0 என வரும்.
     திருப்பும் மதிப்பு: (DataFrame, பிழைச் செய்தி அல்லது None)"""
     neon = load_neon_database()
     if neon.empty:
@@ -731,21 +733,26 @@ def build_distribution_base():
         return pd.DataFrame(), "⚠️ பதிப்பகம் / தலைப்பு / நூலகப் பெயர் நெடுவரிசைகள் டேட்டாபேஸில் கண்டறியப்படவில்லை."
 
     rep = pd.DataFrame(st.session_state["submitted_reports"])
-    submitted_keys = {_norm_name(x) for x in rep["Publisher"].dropna().unique()}
-    mask = neon[pub_c].map(_norm_name).isin(submitted_keys)
-    src = neon[mask]
-    if src.empty:
+    pubs_in_db = set(neon[pub_c].dropna().unique())
+    submitted_pubs = sorted([x for x in rep["Publisher"].dropna().unique().tolist() if x in pubs_in_db])
+    if not submitted_pubs:
         return pd.DataFrame(), "ℹ️ பிரிக்கப்பட்ட பதிப்பாளர்களுக்கான நூல்கள் எதுவும் இல்லை."
 
-    lang_raw = src[lang_c].astype(str).str.strip().str.lower() if lang_c else pd.Series("", index=src.index)
+    frames = [build_pub_stats_df(pub, neon, rep, pub_c, title_c) for pub in submitted_pubs]
+    comb = pd.concat(frames, ignore_index=True)
+    if "received_stats" not in comb.columns or comb.empty:
+        return pd.DataFrame(), "ℹ️ பிரிக்கப்பட்ட பதிப்பாளர்களுக்கான நூல்கள் எதுவும் இல்லை."
+
+    lang_raw = comb[lang_c].astype(str).str.strip().str.lower() if lang_c else pd.Series("", index=comb.index)
     lang_disp = lang_raw.map(lambda v: "தமிழ்" if v == "tamil" else ("ஆங்கிலம்" if v == "english" else "மற்றவை"))
     base = pd.DataFrame({
-        "Publisher": src[pub_c].astype(str).str.strip(),
-        "Title": src[title_c].astype(str).str.strip(),
-        "Library": src[lib_c].astype(str).str.strip(),
-        "Author": src[auth_c].fillna("").astype(str) if auth_c else "",
-        "ISBN": src[isbn_c].fillna("").astype(str) if isbn_c else "",
+        "Publisher": comb[pub_c].astype(str).str.strip(),
+        "Title": comb[title_c].astype(str).str.strip(),
+        "Library": comb[lib_c].astype(str).str.strip(),
+        "Author": comb[auth_c].fillna("").astype(str) if auth_c else "",
+        "ISBN": comb[isbn_c].fillna("").astype(str) if isbn_c else "",
         "Language": lang_disp,
+        "Received": comb["received_stats"].astype(int),
     }).reset_index(drop=True)
     base = base[(base["Library"] != "") & (base["Library"].str.lower() != "nan")].reset_index(drop=True)
     base["_pk"] = base["Publisher"].map(_norm_name)
@@ -753,53 +760,64 @@ def build_distribution_base():
     return base, None
 
 def summarize_distribution(df, by, by_label, show_pubs=True, show_libs=True):
-    """df-ஐ 'by' நெடுவரிசை அடிப்படையில் குழுவாக்கி: பதிப்பாளர் / நூலக / தலைப்பு / நூல் (பிரதி)
-    எண்ணிக்கை மற்றும் தமிழ் / ஆங்கில விவரங்களைத் தரும்."""
+    """df-ஐ 'by' அடிப்படையில் குழுவாக்கி: பதிப்பாளர் / நூலக / தலைப்பு / நூல் (தேவை vs பெறப்பட்டவை)
+    எண்ணிக்கைகளையும், தமிழ் / ஆங்கில விவரங்களையும் தரும். பெறப்படாதவை 0-ஆகக் கணக்கிடப்படும்."""
     rows = []
     for key, g in df.groupby(by, sort=True):
-        ta = g[g["Language"] == "தமிழ்"]
-        en = g[g["Language"] == "ஆங்கிலம்"]
+        rec = g[g["Received"] == 1]
         r = {by_label: key}
         if show_pubs:
-            r["பதிப்பாளர்கள்"] = int(g["_pk"].nunique())
+            r["பதிப்பாளர்கள் (மொத்தம்)"] = int(g["_pk"].nunique())
+            r["பதிப்பாளர்கள் (பெற்றவை)"] = int(rec["_pk"].nunique())
         if show_libs:
-            r["நூலகங்கள்"] = int(g["Library"].nunique())
-        r["தலைப்புகள்"] = int(g["_tk"].nunique())
-        r["நூல்கள் (பிரதிகள்)"] = int(len(g))
-        r["தமிழ் தலைப்புகள்"] = int(ta["_tk"].nunique())
-        r["ஆங்கில தலைப்புகள்"] = int(en["_tk"].nunique())
-        r["தமிழ் நூல்கள்"] = int(len(ta))
-        r["ஆங்கில நூல்கள்"] = int(len(en))
+            r["நூலகங்கள் (மொத்தம்)"] = int(g["Library"].nunique())
+            r["நூலகங்கள் (பெற்றவை)"] = int(rec["Library"].nunique())
+        r["தலைப்புகள் (தேவை)"] = int(g["_tk"].nunique())
+        r["தலைப்புகள் (பெறப்பட்ட)"] = int(rec["_tk"].nunique())
+        r["நூல்கள் (தேவை)"] = int(len(g))
+        r["நூல்கள் (பெறப்பட்டவை)"] = int(len(rec))
+        r["பெறப்படாதவை"] = int(len(g) - len(rec))
+        r["தமிழ் தலைப்புகள் (பெறப்பட்ட)"] = int(rec[rec["Language"] == "தமிழ்"]["_tk"].nunique())
+        r["ஆங்கில தலைப்புகள் (பெறப்பட்ட)"] = int(rec[rec["Language"] == "ஆங்கிலம்"]["_tk"].nunique())
+        r["தமிழ் நூல்கள் (பெறப்பட்டவை)"] = int((rec["Language"] == "தமிழ்").sum())
+        r["தமிழ் நூல்கள் (தேவை)"] = int((g["Language"] == "தமிழ்").sum())
+        r["ஆங்கில நூல்கள் (பெறப்பட்டவை)"] = int((rec["Language"] == "ஆங்கிலம்").sum())
+        r["ஆங்கில நூல்கள் (தேவை)"] = int((g["Language"] == "ஆங்கிலம்").sum())
         rows.append(r)
     return pd.DataFrame(rows)
 
 def title_detail_table(df):
-    """ஒவ்வொரு (பதிப்பகம் + தலைப்பு + நூலகம்)-க்கும் மொழி மற்றும் பிரதிகள் எண்ணிக்கை."""
+    """ஒவ்வொரு (பதிப்பகம் + தலைப்பு + நூலகம்)-க்கும் மொழி, தேவையான / பெறப்பட்ட பிரதிகள் மற்றும் நிலை."""
     if df.empty:
         return pd.DataFrame()
     out = (df.groupby(["Publisher", "Title", "Library", "Language"], sort=True)
-             .agg(Author=("Author", "first"), ISBN=("ISBN", "first"), Copies=("Title", "size"))
+             .agg(Author=("Author", "first"), ISBN=("ISBN", "first"),
+                  Need=("Title", "size"), Got=("Received", "sum"))
              .reset_index())
+    out["Pending"] = out["Need"] - out["Got"]
+    out["Status"] = out.apply(lambda r: "✅ பெறப்பட்டது" if r["Pending"] == 0 else ("⏳ பகுதி" if r["Got"] > 0 else "🔴 0 (பெறப்படவில்லை)"), axis=1)
     return out.rename(columns={
-        "Publisher": "பதிப்பகம்", "Title": "தலைப்பு", "Library": "நூலகம்",
-        "Language": "மொழி", "Author": "ஆசிரியர்", "ISBN": "ISBN", "Copies": "பிரதிகள்"
-    })[["பதிப்பகம்", "தலைப்பு", "நூலகம்", "மொழி", "ஆசிரியர்", "ISBN", "பிரதிகள்"]]
+        "Publisher": "பதிப்பகம்", "Title": "தலைப்பு", "Library": "நூலகம்", "Language": "மொழி",
+        "Author": "ஆசிரியர்", "ISBN": "ISBN", "Need": "தேவை", "Got": "பெறப்பட்டவை",
+        "Pending": "பெறப்படாதவை", "Status": "நிலை"
+    })[["பதிப்பகம்", "தலைப்பு", "நூலகம்", "மொழி", "ஆசிரியர்", "ISBN", "தேவை", "பெறப்பட்டவை", "பெறப்படாதவை", "நிலை"]]
 
 def _csv_btn(df, label, fname, key):
     st.download_button(label=label, data=df.to_csv(index=False).encode("utf-8-sig"),
                        file_name=fname, mime="text/csv", key=key)
 
 def _dist_metrics(d):
+    rec = d[d["Received"] == 1]
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("🏛️ நூலகங்கள்", int(d["Library"].nunique()))
-    m2.metric("🏢 பதிப்பாளர்கள்", int(d["_pk"].nunique()))
-    m3.metric("📖 தலைப்புகள்", int(d["_tk"].nunique()))
-    m4.metric("📚 நூல்கள் (பிரதிகள்)", len(d))
+    m1.metric("🏛️ நூலகங்கள்", f"{int(rec['Library'].nunique())} / {int(d['Library'].nunique())}")
+    m2.metric("🏢 பதிப்பாளர்கள்", f"{int(rec['_pk'].nunique())} / {int(d['_pk'].nunique())}")
+    m3.metric("📖 தலைப்புகள்", f"{int(rec['_tk'].nunique())} / {int(d['_tk'].nunique())}")
+    m4.metric("📚 நூல்கள் (பெறப்பட்டவை / தேவை)", f"{len(rec)} / {len(d)}")
     t1, t2, t3, t4 = st.columns(4)
-    t1.metric("தமிழ் தலைப்புகள்", int(d[d["Language"] == "தமிழ்"]["_tk"].nunique()))
-    t2.metric("ஆங்கில தலைப்புகள்", int(d[d["Language"] == "ஆங்கிலம்"]["_tk"].nunique()))
-    t3.metric("தமிழ் நூல்கள்", int((d["Language"] == "தமிழ்").sum()))
-    t4.metric("ஆங்கில நூல்கள்", int((d["Language"] == "ஆங்கிலம்").sum()))
+    t1.metric("தமிழ் தலைப்புகள் (பெறப்பட்ட)", int(rec[rec["Language"] == "தமிழ்"]["_tk"].nunique()))
+    t2.metric("ஆங்கில தலைப்புகள் (பெறப்பட்ட)", int(rec[rec["Language"] == "ஆங்கிலம்"]["_tk"].nunique()))
+    t3.metric("தமிழ் நூல்கள் (பெறப்பட்ட / தேவை)", f"{int((rec['Language'] == 'தமிழ்').sum())} / {int((d['Language'] == 'தமிழ்').sum())}")
+    t4.metric("ஆங்கில நூல்கள் (பெறப்பட்ட / தேவை)", f"{int((rec['Language'] == 'ஆங்கிலம்').sum())} / {int((d['Language'] == 'ஆங்கிலம்').sum())}")
 
 def build_pub_stats_df(pub_name, source_neon_df, source_rep_df, pub_col, title_col):
     """For one publisher: mark the first N rows per title as 'received' (received_stats=1),
@@ -2586,39 +2604,42 @@ elif current == "Master Data":
 
 elif current == "நூலகங்களுக்கு பிரித்து வழங்கல்":
     st.subheader("📦 நூலகங்களுக்கு பிரித்து வழங்கல் (பிரிக்கப்பட்ட பதிப்பாளர்களின் நூல்கள்)")
-    st.caption("ℹ️ '🔀 பிரிக்க' பகுதியில் பிரிக்கப்பட்ட பதிப்பாளர்களின் நூல்கள் ஒவ்வொரு நூலகத்திற்கும் எப்படிப் பிரித்து வழங்கப்பட்டுள்ளன என்பதை ஒட்டுமொத்தமாகவும், பதிப்பகம் வாரியாகவும், நூலகம் வாரியாகவும் இங்கு காணலாம்.")
+    st.caption("ℹ️ Master Data-வில் உள்ளது போலவே: ஒவ்வொரு தலைப்புக்கும் பதிப்பாளரிடமிருந்து பெறப்பட்ட எண்ணிக்கை, பட்டியலில் மேலிருந்து கீழாக நூலகங்களுக்கு வழங்கப்படும். பெறப்பட்ட எண்ணிக்கை போதாவிட்டால், கீழ் உள்ள நூலகங்களுக்கு 0 என வரும்.")
 
     dist_base, dist_err = build_distribution_base()
     if dist_err:
         st.info(dist_err) if dist_err.startswith("ℹ️") else st.warning(dist_err)
     else:
-        tab_all, tab_pub, tab_lib = st.tabs(["🌐 ஒட்டுமொத்தம்", "🧾 பதிப்பகம் வாரியாக", "🏛️ நூலகம் வாரியாக"])
+        view_mode_d = st.radio(
+            "📂 பார்வை முறையைத் தேர்ந்தெடுக்கவும்:",
+            ["🌐 ஒட்டுமொத்தம் (Overall)", "🏢 பதிப்பகம் வாரியாக (Publisher-wise)", "🏛️ நூலகம் வாரியாக (Library-wise)"],
+            horizontal=True, key="dist_view_mode"
+        )
+        ALL_OPT = "-- அனைத்தும் --"
 
-        # ---------- ஒட்டுமொத்தம் ----------
-        with tab_all:
-            st.markdown("#### 🌐 ஒட்டுமொத்த விவரம்")
+        if view_mode_d.startswith("🌐"):
+            st.markdown("### 🌐 ஒட்டுமொத்த விவரம்")
             _dist_metrics(dist_base)
-            st.markdown("##### 🏛️ ஒவ்வொரு நூலகத்திற்கும் — பதிப்பாளர்கள் / தலைப்புகள் / தமிழ் - ஆங்கிலம்")
+            st.markdown("#### 🏛️ ஒவ்வொரு நூலகத்திற்கும் — பதிப்பாளர்கள் / தலைப்புகள் / தமிழ் - ஆங்கிலம்")
             lib_summary = summarize_distribution(dist_base, "Library", "நூலகம்", show_pubs=True, show_libs=False)
             st.dataframe(lib_summary, use_container_width=True, hide_index=True)
             _csv_btn(lib_summary, "📥 நூலகம் வாரியான சுருக்கம் (CSV)", "Nulagam_Wari_Surukkam.csv", "dl_dist_all_lib")
-            st.markdown("##### 📋 முழு விவரப்பட்டியல் (பதிப்பகம் + தலைப்பு + நூலகம்)")
+            st.markdown("#### 📋 முழு விவரப்பட்டியல் (பதிப்பகம் + தலைப்பு + நூலகம்)")
             full_detail = title_detail_table(dist_base)
             st.dataframe(full_detail, use_container_width=True, hide_index=True)
             _csv_btn(full_detail, "📥 முழு விவரப்பட்டியல் (CSV)", "Pirithu_Vazhangal_Full.csv", "dl_dist_all_full")
 
-        # ---------- பதிப்பகம் வாரியாக ----------
-        with tab_pub:
-            st.markdown("#### 🧾 பதிப்பகம் வாரியாக")
-            pub_summary = summarize_distribution(dist_base, "Publisher", "பதிப்பகம்", show_pubs=False, show_libs=True)
-            st.dataframe(pub_summary, use_container_width=True, hide_index=True)
-            _csv_btn(pub_summary, "📥 பதிப்பகம் வாரியான சுருக்கம் (CSV)", "Pathippagam_Wari_Surukkam.csv", "dl_dist_pub_sum")
-
-            ALL_OPT = "-- அனைத்தும் --"
-            sel_pub = st.selectbox("🔍 ஒரு பதிப்பகத்தின் விவரம் காண:", [ALL_OPT] + sorted(dist_base["Publisher"].unique().tolist()), key="dist_pub_sel")
-            if sel_pub != ALL_OPT:
+        elif view_mode_d.startswith("🏢"):
+            st.markdown("### 🏢 பதிப்பகம் வாரியாக")
+            sel_pub = st.selectbox("🔍 பதிப்பகத்தைத் தேர்ந்தெடுக்கவும்:", [ALL_OPT] + sorted(dist_base["Publisher"].unique().tolist()), key="dist_pub_sel")
+            if sel_pub == ALL_OPT:
+                _dist_metrics(dist_base)
+                pub_summary = summarize_distribution(dist_base, "Publisher", "பதிப்பகம்", show_pubs=False, show_libs=True)
+                st.dataframe(pub_summary, use_container_width=True, hide_index=True)
+                _csv_btn(pub_summary, "📥 பதிப்பகம் வாரியான சுருக்கம் (CSV)", "Pathippagam_Wari_Surukkam.csv", "dl_dist_pub_sum")
+            else:
                 pdf_ = dist_base[dist_base["Publisher"] == sel_pub]
-                st.markdown(f"##### 🏢 {sel_pub}")
+                st.markdown(f"#### 🏢 {sel_pub}")
                 _dist_metrics(pdf_)
                 st.markdown("**நூலகம் வாரியாக இந்தப் பதிப்பகத்தின் நூல்கள்:**")
                 p_lib = summarize_distribution(pdf_, "Library", "நூலகம்", show_pubs=False, show_libs=False)
@@ -2628,18 +2649,19 @@ elif current == "நூலகங்களுக்கு பிரித்த�
                 st.dataframe(p_detail, use_container_width=True, hide_index=True)
                 _csv_btn(p_detail, "📥 இந்தப் பதிப்பகப் பட்டியல் (CSV)", f"Pathippagam_{sel_pub}.csv", "dl_dist_pub_detail")
 
-        # ---------- நூலகம் வாரியாக ----------
-        with tab_lib:
-            st.markdown("#### 🏛️ நூலகம் வாரியாக")
-            lib_summary2 = summarize_distribution(dist_base, "Library", "நூலகம்", show_pubs=True, show_libs=False)
-            st.dataframe(lib_summary2, use_container_width=True, hide_index=True)
-
-            sel_lib_d = st.selectbox("🔍 ஒரு நூலகத்தின் விவரம் காண:", [ALL_OPT] + sorted(dist_base["Library"].unique().tolist()), key="dist_lib_sel")
-            if sel_lib_d != ALL_OPT:
+        else:
+            st.markdown("### 🏛️ நூலகம் வாரியாக")
+            sel_lib_d = st.selectbox("🔍 நூலகத்தைத் தேர்ந்தெடுக்கவும்:", [ALL_OPT] + sorted(dist_base["Library"].unique().tolist()), key="dist_lib_sel")
+            if sel_lib_d == ALL_OPT:
+                _dist_metrics(dist_base)
+                lib_summary2 = summarize_distribution(dist_base, "Library", "நூலகம்", show_pubs=True, show_libs=False)
+                st.dataframe(lib_summary2, use_container_width=True, hide_index=True)
+                _csv_btn(lib_summary2, "📥 நூலகம் வாரியான சுருக்கம் (CSV)", "Nulagam_Wari_Surukkam2.csv", "dl_dist_lib_sum")
+            else:
                 ldf = dist_base[dist_base["Library"] == sel_lib_d]
-                st.markdown(f"##### 🏛️ {sel_lib_d}")
+                st.markdown(f"#### 🏛️ {sel_lib_d}")
                 _dist_metrics(ldf)
-                st.markdown("**இந்த நூலகத்திற்கு வழங்கப்பட்ட பதிப்பாளர்கள் (தலைப்புகள் / தமிழ் - ஆங்கிலம்):**")
+                st.markdown("**இந்த நூலகத்திற்கான பதிப்பாளர்கள் (தலைப்புகள் / தமிழ் - ஆங்கிலம் / பெறப்பட்டவை):**")
                 l_pub = summarize_distribution(ldf, "Publisher", "பதிப்பகம்", show_pubs=False, show_libs=False)
                 st.dataframe(l_pub, use_container_width=True, hide_index=True)
                 st.markdown("**தலைப்பு வாரியான பட்டியல்:**")
