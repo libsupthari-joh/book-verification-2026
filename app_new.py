@@ -507,9 +507,62 @@ def _books_name_maps():
     """books அட்டவணையின் Vendor Name / Title-க்கு Normalize செய்த பெயரிலிருந்து சரியான பெயருக்கான வரைபடம்."""
     return _canonical_maps_from_df(_load_books_raw())
 
+@st.cache_data
+def _books_title_counts():
+    """{சரியான பதிப்பகம்: {சரியான தலைப்பு: books-ல் உள்ள வரிசைகள்}}"""
+    df = _load_books_raw()
+    if df.empty:
+        return {}
+    pc, tc = _detect_pub_title_cols(df)
+    if not pc or not tc:
+        return {}
+    pub_map, title_map = _canonical_maps_from_df(df)
+    d = df[[pc, tc]].dropna().copy()
+    pk = d[pc].map(_norm_name)
+    tk = d[tc].map(_norm_name)
+    d["_p"] = [pub_map.get(a, o) for a, o in zip(pk, d[pc])]
+    d["_t"] = [title_map.get((a, b), o) for a, b, o in zip(pk, tk, d[tc])]
+    out = {}
+    for (p, t), n in d.groupby(["_p", "_t"]).size().items():
+        out.setdefault(p, {})[t] = int(n)
+    return out
+
+def _auto_match_unmatched_titles(records):
+    """submitted_reports-ல் உள்ள தலைப்பு books-ல் இல்லையெனில் (எழுத்து மாறியிருந்தால்), அதே பதிப்பகத்தில்
+    இன்னும் எந்தப் பதிவும் பொருந்தாத தலைப்புகளில், Required Qty = books வரிசை எண்ணிக்கை ஆகவும்,
+    பெயர் மிகவும் ஒத்ததாகவும் உள்ளதைத் தானாகப் பொருத்தும் (நினைவகத்தில் மட்டும்; DB மாறாது)."""
+    import difflib
+    counts = _books_title_counts()
+    if not counts:
+        return records
+    covered = {}
+    for r in records:
+        if r.get("Title") in counts.get(r.get("Publisher"), {}):
+            covered.setdefault(r.get("Publisher"), set()).add(r.get("Title"))
+    for r in records:
+        p, t = r.get("Publisher"), r.get("Title")
+        pool = counts.get(p)
+        if not pool or t in pool:
+            continue
+        try:
+            req = int(float(r.get("Required Qty") or 0))
+        except Exception:
+            req = 0
+        if req <= 0:
+            continue
+        cand = [x for x in pool if x not in covered.get(p, set()) and pool[x] == req]
+        if not cand:
+            continue
+        nt = _norm_name(t)
+        score, best = max((difflib.SequenceMatcher(None, nt, _norm_name(x)).ratio(), x) for x in cand)
+        if score >= (0.3 if len(cand) == 1 else 0.5):
+            r["Title"] = best
+            covered.setdefault(p, set()).add(best)
+    return records
+
 def clear_books_cache():
     """books / submitted_reports மாறிய பிறகு அனைத்து தொடர்புடைய cache-களையும் அழிக்கும்."""
-    for _f in (_load_books_raw, _books_name_maps, load_neon_database, load_submitted_reports_from_db):
+    for _f in (_load_books_raw, _books_name_maps, _books_title_counts, load_neon_database, load_submitted_reports_from_db):
         _f.clear()
 
 def canonicalize_report_records(records):
@@ -527,7 +580,7 @@ def canonicalize_report_records(records):
             r["Publisher"] = pub_map[npub]
         r["Title"] = title_map.get((npub, _norm_name(r.get("Title"))), r.get("Title"))
         out.append(r)
-    return out
+    return _auto_match_unmatched_titles(out)
 
 @st.cache_data
 def load_submitted_reports_from_db():
@@ -755,10 +808,15 @@ def _record_qty(r):
     except Exception:
         return 0
 
-def compute_received_flags(neon_df, pub_col, title_col, records):
-    """ஒவ்வொரு (பதிப்பகம் + தலைப்பு)-க்கும் submitted Received Qty கூட்டி, அந்தத் தலைப்பின் முதல் N வரிசைகளுக்கு
-    1 (received) தரும் — N = min(Received Qty, books-ல் உள்ள வரிசைகள்). Ticker, Master Data, அறிக்கைகள் அனைத்துக்கும்
-    இதே ஒரு கணக்குதான் — எனவே எங்கும் எண்ணிக்கை மாறாது."""
+def _find_lib_col(df):
+    return next((c for c in df.columns if 'library' in c and ('name' in c or 'tm' in c)), None)
+
+def compute_received_flags(neon_df, pub_col, title_col, records, lib_col=None):
+    """ஒவ்வொரு (பதிப்பகம் + தலைப்பு)-க்கும் submitted Received Qty கூட்டி received_stats (1/0) தரும்.
+    மொத்த எண்ணிக்கை = min(Received Qty, books-ல் உள்ள வரிசைகள்) — இது முன்பு போலவே, மாறாது.
+    குறைவாகப் பெறப்பட்ட தலைப்பில் 'பெறப்படாதவை' கீழிருந்து மேலாக, **ஒரு நூலகத்தின் அனைத்துப் பிரதிகளும் சேர்த்து**
+    (எ.கா. 2 பிரதி உள்ள நூலகத்தில் ஒன்று 1, ஒன்று 0 என்று பிரியாமல்) ஒதுக்கப்படும்.
+    சரியாகப் பொருந்தும் வகையில் முழு நூலகமாக ஒதுக்க முடியாவிட்டால் மட்டுமே ஒரு நூலகத்தின் பிரதிகள் பிரியும்."""
     if neon_df is None or neon_df.empty or not pub_col or not title_col:
         return pd.Series(dtype=int)
     qty = {}
@@ -767,9 +825,47 @@ def compute_received_flags(neon_df, pub_col, title_col, records):
         qty[k] = qty.get(k, 0) + _record_qty(r)
     pk = neon_df[pub_col].map(_norm_name).rename("_pk")
     tk = neon_df[title_col].map(_norm_name).rename("_tk")
+    keys = list(zip(pk, tk))
     pos = neon_df.groupby([pk, tk]).cumcount().to_numpy()
-    limit = np.array([qty.get(k, 0) for k in zip(pk, tk)])
-    return pd.Series((pos < limit).astype(int), index=neon_df.index)
+    limit = np.array([qty.get(k, 0) for k in keys])
+    flags = (pos < limit).astype(int)
+
+    if lib_col is None:
+        lib_col = _find_lib_col(neon_df)
+    if lib_col is not None:
+        libs = neon_df[lib_col].astype(str).to_numpy()
+        groups = {}
+        for i, k in enumerate(keys):
+            if 0 < qty.get(k, 0):
+                groups.setdefault(k, []).append(i)
+        for k, idxs in groups.items():
+            L, n = qty[k], len(idxs)
+            if not (0 < L < n):
+                continue
+            short = n - L
+            for i in idxs:
+                flags[i] = 1
+            cnt, last = {}, {}
+            for i in idxs:
+                cnt[libs[i]] = cnt.get(libs[i], 0) + 1
+                last[libs[i]] = i
+            zero_libs, rem = set(), short
+            for lib in sorted(cnt, key=lambda x: last[x], reverse=True):
+                if rem == 0:
+                    break
+                if cnt[lib] <= rem:
+                    zero_libs.add(lib)
+                    rem -= cnt[lib]
+            for i in idxs:
+                if libs[i] in zero_libs:
+                    flags[i] = 0
+            for i in reversed(idxs):
+                if rem <= 0:
+                    break
+                if flags[i] == 1:
+                    flags[i] = 0
+                    rem -= 1
+    return pd.Series(flags, index=neon_df.index)
 
 def submitted_match_stats(neon_df, pub_col, title_col, records):
     """(பொருந்திய Qty, மொத்த submitted Qty, பொருந்தாத பதிவுகளின் பட்டியல்).
@@ -913,10 +1009,10 @@ if _pub_col_ticker and _title_col_ticker and not neon_df_ticker.empty:
     # இன்று பிரிக்கப்பட்டவை = (இன்று வரை மொத்தம்) − (இன்றைக்கு முந்தைய பதிவுகளால் மட்டும் வந்தவை)
     _before = [r for r in _all_records if str(r.get("Date", ""))[:10] < _today_iso]
     _flags_before = compute_received_flags(neon_df_ticker, _pub_col_ticker, _title_col_ticker, _before)
-    _m_today = _m_all & (_flags_before == 0)
-    today_submitted_count = int(_m_today.sum())
-    today_submitted_ta = int((_m_today & (_lang_s == "tamil")).sum())
-    today_submitted_en = int((_m_today & (_lang_s == "english")).sum())
+    _m_before = _flags_before == 1
+    today_submitted_count = max(int(_m_all.sum()) - int(_m_before.sum()), 0)
+    today_submitted_ta = max(int((_m_all & (_lang_s == "tamil")).sum()) - int((_m_before & (_lang_s == "tamil")).sum()), 0)
+    today_submitted_en = max(int((_m_all & (_lang_s == "english")).sum()) - int((_m_before & (_lang_s == "english")).sum()), 0)
 
     _matched_q, _raw_q, _problem_recs = submitted_match_stats(neon_df_ticker, _pub_col_ticker, _title_col_ticker, _all_records)
     unmatched_submitted_count = max(_raw_q - _matched_q, 0)
