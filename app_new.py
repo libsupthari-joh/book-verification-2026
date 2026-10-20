@@ -527,6 +527,12 @@ def _books_title_counts():
         out.setdefault(p, {})[t] = int(n)
     return out
 
+def _record_qty(r):
+    try:
+        return int(float(r.get("Received Qty", 0) or 0))
+    except Exception:
+        return 0
+
 def _auto_match_unmatched_titles(records, changes=None):
     """submitted_reports-ல் பதிப்பகம்+தலைப்பு books-உடன் பொருந்தாத பதிவுகளைத் தானாகப் பொருத்தும் (நினைவகத்தில் மட்டும்; DB மாறாது):
     1) அதே பதிப்பகத்தில் — Required Qty = books வரிசை எண்ணிக்கை + பெயர் மிகவும் ஒத்தது.
@@ -602,7 +608,17 @@ def canonicalize_report_records(records, auto_fix=True):
             r["Publisher"] = pub_map[npub]
         r["Title"] = title_map.get((npub, _norm_name(r.get("Title"))), r.get("Title"))
         out.append(r)
-    return _auto_match_unmatched_titles(out) if auto_fix else out
+    if not auto_fix:
+        return out
+    try:
+        return _auto_match_unmatched_titles(out)
+    except Exception as _e:
+        # தானியங்கிப் பொருத்தத்தில் பிழை வந்தாலும் பதிவுகள் மறையக்கூடாது
+        try:
+            st.warning(f"⚠️ தானியங்கிப் பொருத்தம் தவிர்க்கப்பட்டது: {_e}")
+        except Exception:
+            pass
+        return out
 
 @st.cache_data
 def load_submitted_reports_from_db():
@@ -834,12 +850,6 @@ def load_neon_database():
         df[pub_c] = new_pub
         df[title_c] = new_title
     return df
-
-def _record_qty(r):
-    try:
-        return int(float(r.get("Received Qty", 0) or 0))
-    except Exception:
-        return 0
 
 def _find_lib_col(df):
     return next((c for c in df.columns if 'library' in c and ('name' in c or 'tm' in c)), None)
