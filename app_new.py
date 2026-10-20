@@ -527,45 +527,67 @@ def _books_title_counts():
         out.setdefault(p, {})[t] = int(n)
     return out
 
-def _auto_match_unmatched_titles(records):
-    """submitted_reports-ல் உள்ள தலைப்பு books-ல் இல்லையெனில் (எழுத்து மாறியிருந்தால்), அதே பதிப்பகத்தில்
-    இன்னும் எந்தப் பதிவும் பொருந்தாத தலைப்புகளில், Required Qty = books வரிசை எண்ணிக்கை ஆகவும்,
-    பெயர் மிகவும் ஒத்ததாகவும் உள்ளதைத் தானாகப் பொருத்தும் (நினைவகத்தில் மட்டும்; DB மாறாது)."""
+def _auto_match_unmatched_titles(records, changes=None):
+    """submitted_reports-ல் பதிப்பகம்+தலைப்பு books-உடன் பொருந்தாத பதிவுகளைத் தானாகப் பொருத்தும் (நினைவகத்தில் மட்டும்; DB மாறாது):
+    1) அதே பதிப்பகத்தில் — Required Qty = books வரிசை எண்ணிக்கை + பெயர் மிகவும் ஒத்தது.
+    2) தவறான பதிப்பகத்தின் கீழ் சமர்ப்பித்திருந்தால் — அதே தலைப்பு (எழுத்தளவில் சரியாக) வேறொரு பதிப்பகத்தில் மட்டும் இருந்து,
+       அங்கே போதுமான நூல்கள் இருந்தால் அந்தப் பதிப்பகத்துக்கு மாற்றும்.
+    changes பட்டியல் கொடுத்தால் ஒவ்வொரு மாற்றமும் அதில் சேர்க்கப்படும்."""
     import difflib
     counts = _books_title_counts()
     if not counts:
         return records
-    covered = {}
+    index = {}
+    for pp, tl in counts.items():
+        for tt in tl:
+            index.setdefault(_norm_name(tt), []).append((pp, tt))
+    covered = set()
     for r in records:
         if r.get("Title") in counts.get(r.get("Publisher"), {}):
-            covered.setdefault(r.get("Publisher"), set()).add(r.get("Title"))
+            covered.add((r.get("Publisher"), r.get("Title")))
+
+    def _log(r, op, ot, np_, nt_, why):
+        if changes is not None:
+            changes.append({"Id": r.get("Id"), "பழைய பதிப்பகம்": op, "பழைய தலைப்பு": ot,
+                            "புதிய பதிப்பகம்": np_, "புதிய தலைப்பு": nt_, "Received Qty": _record_qty(r), "காரணம்": why})
+
     for r in records:
         p, t = r.get("Publisher"), r.get("Title")
-        pool = counts.get(p)
-        if not pool or t in pool:
+        pool = counts.get(p, {})
+        if t in pool:
             continue
+        done = False
         try:
             req = int(float(r.get("Required Qty") or 0))
         except Exception:
             req = 0
-        if req <= 0:
+        if pool and req > 0:
+            cand = [x for x in pool if (p, x) not in covered and pool[x] == req]
+            if cand:
+                nt = _norm_name(t)
+                score, best = max((difflib.SequenceMatcher(None, nt, _norm_name(x)).ratio(), x) for x in cand)
+                if score >= (0.3 if len(cand) == 1 else 0.5):
+                    _log(r, p, t, p, best, "தலைப்பு எழுத்து வேறுபாடு")
+                    r["Title"] = best
+                    covered.add((p, best))
+                    done = True
+        if done:
             continue
-        cand = [x for x in pool if x not in covered.get(p, set()) and pool[x] == req]
-        if not cand:
-            continue
-        nt = _norm_name(t)
-        score, best = max((difflib.SequenceMatcher(None, nt, _norm_name(x)).ratio(), x) for x in cand)
-        if score >= (0.3 if len(cand) == 1 else 0.5):
-            r["Title"] = best
-            covered.setdefault(p, set()).add(best)
+        q = _record_qty(r)
+        hits = [(pp, tt) for (pp, tt) in index.get(_norm_name(t), []) if pp != p and (pp, tt) not in covered and counts[pp][tt] >= q]
+        if len(hits) == 1:
+            pp, tt = hits[0]
+            _log(r, p, t, pp, tt, "தவறான பதிப்பகத்தின் கீழ் சமர்ப்பிக்கப்பட்டது")
+            r["Publisher"], r["Title"] = pp, tt
+            covered.add((pp, tt))
     return records
 
 def clear_books_cache():
     """books / submitted_reports மாறிய பிறகு அனைத்து தொடர்புடைய cache-களையும் அழிக்கும்."""
-    for _f in (_load_books_raw, _books_name_maps, _books_title_counts, load_neon_database, load_submitted_reports_from_db):
+    for _f in (_load_books_raw, _books_name_maps, _books_title_counts, load_neon_database, load_submitted_reports_from_db, load_submitted_reports_unfixed):
         _f.clear()
 
-def canonicalize_report_records(records):
+def canonicalize_report_records(records, auto_fix=True):
     """Neon books அட்டவணை புதிதாக ஏற்றப்பட்டபின் Vendor Name / Title எழுத்துகள் மாறியிருந்தாலும்,
     submitted_reports பதிவுகளின் Publisher / Title-ஐ books அட்டவணையின் சரியான பெயருக்கு மாற்றிக் கொடுக்கும்
     (மெமரியில் மட்டும்; DB-ல் மாற்றம் இல்லை)."""
@@ -580,7 +602,7 @@ def canonicalize_report_records(records):
             r["Publisher"] = pub_map[npub]
         r["Title"] = title_map.get((npub, _norm_name(r.get("Title"))), r.get("Title"))
         out.append(r)
-    return _auto_match_unmatched_titles(out)
+    return _auto_match_unmatched_titles(out) if auto_fix else out
 
 @st.cache_data
 def load_submitted_reports_from_db():
@@ -595,6 +617,17 @@ def load_submitted_reports_from_db():
 # Dispatch is tracked per exact row (book_id + library), not as an aggregate
 # quantity — a row is either dispatched or not. dispatch_key uniquely
 # identifies each (publisher, title, library) occurrence.
+@st.cache_data
+def load_submitted_reports_unfixed():
+    """DB-யில் உள்ளபடி (தானியங்கிப் பொருத்தம் இல்லாமல்; பெயர் வடிவ ஒருங்கிணைப்பு மட்டும்) submitted_reports."""
+    try:
+        conn = psycopg2.connect(DB_URL)
+        df = pd.read_sql("SELECT id as \"Id\", publisher as \"Publisher\", title as \"Title\", author as \"Author\", price as \"Price\", accepted_price as \"Accepted Price\", isbn as \"ISBN\", required_qty as \"Required Qty\", received_qty as \"Received Qty\", date as \"Date\" FROM submitted_reports;", con=conn)
+        conn.close()
+        return canonicalize_report_records(df.to_dict(orient="records"), auto_fix=False)
+    except Exception:
+        return []
+
 @st.cache_data
 def load_dispatch_status_keys():
     try:
@@ -1084,7 +1117,25 @@ elif current == "பிரிக்க":
         )
 
         if selected_publisher != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
-            pub_filtered_df = neon_df[neon_df[pub_col] == selected_publisher].copy()
+            # --- ஒரே Publication Name-ஐப் பகிரும் விற்பனையாளர்கள் (Vendor Name) ஒரே குழுவாகக் கையாளப்படும்.
+            # எ.கா. Himalaya Publishing House Pvt. Ltd., / Himalaya Books Private Limited / Neeraj Books /
+            # Udita Books / Geetanjali Press — எந்த ஒன்றைத் தேர்ந்தெடுத்தாலும் குழுவின் அனைத்துத் தலைப்புகளும் தெரியும்;
+            # சமர்ப்பிக்கும்போது ஒவ்வொரு தலைப்பும் அதற்குரிய சரியான Vendor Name-இன் கீழ் சேமிக்கப்படும். ---
+            _pn_col = next((c for c in neon_df.columns if c == 'publication_name'), None) or next((c for c in neon_df.columns if c == 'publication name'), None)
+            group_vendors = [selected_publisher]
+            if _pn_col:
+                _sel_keys = {_norm_name(x) for x in neon_df.loc[neon_df[pub_col] == selected_publisher, _pn_col].dropna()} - {""}
+                if _sel_keys:
+                    _pn_keys = neon_df[_pn_col].map(_norm_name)
+                    group_vendors = sorted(neon_df.loc[_pn_keys.isin(_sel_keys), pub_col].dropna().unique().tolist())
+                    if selected_publisher not in group_vendors:
+                        group_vendors.append(selected_publisher)
+            pub_filtered_df = neon_df[neon_df[pub_col].isin(group_vendors)].copy()
+            if len(group_vendors) > 1:
+                _gc = pub_filtered_df.groupby(pub_col)[title_col].nunique().to_dict()
+                st.info("ℹ️ இந்த Publication Name-ன் கீழ் " + str(len(group_vendors)) + " விற்பனையாளர்கள் (Vendor Name) உள்ளனர் — அவர்களின் அனைத்துத் தலைப்புகளும் இங்கே காட்டப்படும்: "
+                        + " • ".join(f"{v} ({_gc.get(v, 0)} தலைப்புகள்)" for v in group_vendors))
+            _title_vendor = pub_filtered_df.drop_duplicates(subset=[title_col]).set_index(title_col)[pub_col].to_dict()
 
             total_pub_titles_count = len(pub_filtered_df[title_col].dropna().unique())
             total_pub_books_count = len(pub_filtered_df)
@@ -1096,7 +1147,7 @@ elif current == "பிரிக்க":
             # --- ஒவ்வொரு தலைப்புக்கும் இதுவரை Neon DB-ல் சேமிக்கப்பட்ட received qty (கூட்டுத்தொகை) ---
             received_by_title = {}
             for item in st.session_state["submitted_reports"]:
-                if item.get("Publisher") != selected_publisher:
+                if item.get("Publisher") not in group_vendors:
                     continue
                 try:
                     _rq = int(float(item.get("Received Qty", 0) or 0))
@@ -1108,7 +1159,7 @@ elif current == "பிரிக்க":
             # சேமிக்கப்பட்டுள்ள (staged) எண்ணிக்கை — இதையும் "handled" எனக் கருதவும் ---
             staged_qty_by_title = {}
             for item in st.session_state["temp_distributed_list"]:
-                if item.get("Publisher") != selected_publisher:
+                if item.get("Publisher") not in group_vendors:
                     continue
                 try:
                     _sq = int(float(item.get("Received Qty", 0) or 0))
@@ -1200,6 +1251,8 @@ elif current == "பிரிக்க":
                         already_received_qty = int(received_by_title.get(selected_title, 0))
                         title_remaining_qty = int(remaining_by_title.get(selected_title, title_required_qty))
 
+                        if len(group_vendors) > 1:
+                            st.caption(f"🏷️ Vendor Name: **{_title_vendor.get(selected_title, selected_publisher)}** — இந்தத் தலைப்பு இந்த விற்பனையாளரின் கீழ் சேமிக்கப்படும்.")
                         if already_received_qty > 0:
                             st.info(f"ℹ️ '{selected_title}' — மொத்தம் தேவை: **{title_required_qty}**, ஏற்கனவே பெறப்பட்டது: **{already_received_qty}**, இன்னும் தேவை: **{title_remaining_qty}**.")
 
@@ -1212,7 +1265,7 @@ elif current == "பிரிக்க":
 
                             if submitted_temp:
                                 entry_data = {
-                                    "Publisher": selected_publisher,
+                                    "Publisher": _title_vendor.get(selected_title, selected_publisher),
                                     "Title": selected_title,
                                     "Author": author_name,
                                     "Price": book_price,
@@ -1235,7 +1288,7 @@ elif current == "பிரிக்க":
                 temp_df = pd.DataFrame(st.session_state["temp_distributed_list"])
                 st.dataframe(temp_df, use_container_width=True)
 
-                current_pub_temp_count = len([item for item in st.session_state["temp_distributed_list"] if item["Publisher"] == selected_publisher])
+                current_pub_temp_count = len([item for item in st.session_state["temp_distributed_list"] if item["Publisher"] in group_vendors])
                 remaining_to_add = len(remaining_by_title) - current_pub_temp_count
 
                 if remaining_to_add > 0:
@@ -1292,6 +1345,7 @@ elif current == "பிரிக்க":
                             conn.close()
 
                             load_submitted_reports_from_db.clear()
+                            load_submitted_reports_unfixed.clear()
                             st.session_state["submitted_reports"] = load_submitted_reports_from_db()
                             st.session_state["temp_distributed_list"] = []
 
@@ -2244,60 +2298,126 @@ elif current == "அறிக்கைகள்":
             st.caption("ℹ️ இது படிக்க மட்டுமான (read-only) அறிக்கை — இங்கு எதையும் திருத்தவோ நீக்கவோ முடியாது. பணியைச் செய்ய மேல் மெனுவில் உள்ள அந்தப் பட்டனைப் பயன்படுத்தவும்.")
 
         if report_section == _REP_UNM:
-            st.markdown("### 🔎 பொருந்தாத பதிவுகள் — Ticker-ல் '⚠️ பொருந்தாதவை' வரக் காரணமானவை")
-            st.caption("submitted_reports-ல் உள்ள Received Qty, books அட்டவணையில் உள்ள அந்தப் பதிப்பகம்+தலைப்புடன் பொருந்தவில்லை "
-                       "(தலைப்பு எழுத்து மாறியிருப்பது அல்லது books மீண்டும் upload செய்யப்பட்டது போன்ற காரணங்களால்).")
+            import copy as _copy
+            st.markdown("### 🔎 பொருந்தாத பதிவுகள் — ⚠️ குறிப்புக்குக் காரணமானவை")
+            st.caption("submitted_reports-ல் உள்ள பதிப்பகம்/தலைப்பு, books அட்டவணையுடன் பொருந்தாத பதிவுகள் (தவறான பதிப்பகம் தேர்வு, தலைப்பு எழுத்து மாற்றம் போன்றவை). "
+                       "மேலே Ticker-ல் இவை தானாகப் பொருத்தப்பட்டுக் கணக்கிடப்படுகின்றன; DB-யில் நிரந்தரமாகச் சரிசெய்ய கீழே உள்ள பொத்தானை அழுத்தவும்.")
             _neon_u = load_neon_database()
             _pc_u, _tc_u = _detect_pub_title_cols(_neon_u)
-            _m_u, _raw_u, _probs_u = submitted_match_stats(_neon_u, _pc_u, _tc_u, st.session_state["submitted_reports"])
+            _raw_recs = load_submitted_reports_unfixed()
+            _m_u, _raw_u, _probs_u = submitted_match_stats(_neon_u, _pc_u, _tc_u, _raw_recs)
+            _changes_u = []
+            _auto_match_unmatched_titles(_copy.deepcopy(_raw_recs), _changes_u)
+            _m_f, _raw_f, _probs_f = submitted_match_stats(_neon_u, _pc_u, _tc_u, load_submitted_reports_from_db())
+
             _u1, _u2, _u3 = st.columns(3)
             with _u1:
                 st.metric("📥 மொத்த submitted Qty", _raw_u)
             with _u2:
-                st.metric("✅ books-உடன் பொருந்தியது", _m_u)
+                st.metric("⚠️ DB-யின்படி பொருந்தாதவை", max(_raw_u - _m_u, 0))
             with _u3:
-                st.metric("⚠️ பொருந்தாதவை", max(_raw_u - _m_u, 0))
+                st.metric("✅ தானாகப் பொருத்திய பின்", max(_raw_f - _m_f, 0))
+
+            # --- நகல் பதிவுகள்: அதே தலைப்பு வேறொரு பதிப்பகத்தின் கீழ் ஏற்கனவே (போதுமான அளவு) சமர்ப்பிக்கப்பட்டிருந்தால் ---
+            _idx_u = {}
+            for _pp, _tl in _books_title_counts().items():
+                for _tt in _tl:
+                    _idx_u.setdefault(_norm_name(_tt), []).append((_pp, _tt))
+            _qty_u = {}
+            for _r in _raw_recs:
+                _k = (_norm_name(_r.get("Publisher")), _norm_name(_r.get("Title")))
+                _qty_u[_k] = _qty_u.get(_k, 0) + _record_qty(_r)
+            _dup_ids = {}
+            for _p in _probs_u:
+                if _p["books-ல் உள்ள நூல்கள்"] == 0 and _p["Id"] is not None:
+                    for (_pp, _tt) in _idx_u.get(_norm_name(_p["Title"]), []):
+                        if _norm_name(_pp) != _norm_name(_p["Publisher"]) and _qty_u.get((_norm_name(_pp), _norm_name(_tt)), 0) >= _p["Received Qty"]:
+                            _dup_ids[int(_p["Id"])] = _pp
+                            break
+            for _p in _probs_u:
+                _p["பரிந்துரை"] = (f"🗑️ நகல் — '{_dup_ids[int(_p['Id'])]}' பதிப்பகத்தின் கீழ் ஏற்கனவே சமர்ப்பிக்கப்பட்டுள்ளது"
+                                  if _p["Id"] is not None and int(_p["Id"]) in _dup_ids else "")
+
             if not _probs_u:
                 st.success("🎉 பொருந்தாத பதிவுகள் எதுவும் இல்லை!")
             else:
-                _probs_df = pd.DataFrame(_probs_u)
-                st.dataframe(_probs_df, use_container_width=True, hide_index=True)
-                _cat_downloads(_probs_df, "Unmatched_Submitted_Records", "dl_unmatched")
+                st.dataframe(pd.DataFrame(_probs_u), use_container_width=True, hide_index=True)
+                if _dup_ids:
+                    _dup_total = sum(p["Received Qty"] for p in _probs_u if p["Id"] is not None and int(p["Id"]) in _dup_ids)
+                    st.info(f"ℹ️ இவற்றில் {len(_dup_ids)} பதிவுகள் ({_dup_total} நூல்கள்) நகல் பதிவுகள்: அதே தலைப்புகள் சரியான பதிப்பகத்தின் கீழ் ஏற்கனவே முழுமையாகச் சமர்ப்பிக்கப்பட்டுள்ளன. "
+                            f"எனவே '✅ பிரிக்கப்பட்டது' எண்ணிக்கை சரியானதே; இந்த நகல்களை நீக்கினால் ⚠️ குறிப்பு மறையும்.")
+                    if st.session_state["user_role"] == "Admin":
+                        _confirm_dup = st.checkbox("நகல் பதிவுகளை நீக்க உறுதிசெய்கிறேன்", key="unm_dup_confirm")
+                        if st.button(f"🗑️ {len(_dup_ids)} நகல் பதிவுகளை நீக்கு", type="primary", key="unm_dup_del", disabled=not _confirm_dup):
+                            try:
+                                conn = psycopg2.connect(DB_URL)
+                                cur = conn.cursor()
+                                for _i in _dup_ids:
+                                    cur.execute("DELETE FROM submitted_reports WHERE id = %s;", (_i,))
+                                conn.commit()
+                                cur.close()
+                                conn.close()
+                                clear_books_cache()
+                                st.session_state["submitted_reports"] = load_submitted_reports_from_db()
+                                st.success("✅ நகல் பதிவுகள் நீக்கப்பட்டன!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"❌ Delete error: {e}")
 
+            if _changes_u:
+                st.markdown("#### 🛠️ தானாகப் பொருத்தப்பட்ட பதிவுகள் (பரிந்துரைக்கப்பட்ட திருத்தம்)")
+                _chg_df = pd.DataFrame(_changes_u)
+                st.dataframe(_chg_df, use_container_width=True, hide_index=True)
+                _cat_downloads(_chg_df, "Auto_Matched_Records", "dl_unmatched_auto")
                 if st.session_state["user_role"] == "Admin":
-                    st.markdown("#### 🛠️ தலைப்பைச் சரிசெய்ய (Admin மட்டும்)")
-                    _fixable = [p for p in _probs_u if p["books-ல் உள்ள நூல்கள்"] == 0 and p["Id"] is not None]
-                    if not _fixable:
-                        st.info("ℹ️ தலைப்பு மாற்றிச் சரிசெய்யக்கூடிய பதிவுகள் இல்லை (மீதமுள்ளவை எண்ணிக்கை அதிகமாக இருப்பவை — 'தவறான பதிவு நீக்கம்' மூலம் திருத்தவும்).")
-                    else:
-                        _opts = [f"Id {p['Id']} — {p['Publisher']} — {p['Title']} (Qty {p['Received Qty']})" for p in _fixable]
-                        _pick = st.selectbox("சரிசெய்ய வேண்டிய பதிவு:", ["-- தேர்ந்தெடுக்கவும் --"] + _opts, key="unm_fix_pick")
-                        if _pick != "-- தேர்ந்தெடுக்கவும் --":
-                            _rec = _fixable[_opts.index(_pick)]
-                            _pub_titles = sorted(_neon_u[_neon_u[_pc_u].map(_norm_name) == _norm_name(_rec["Publisher"])][_tc_u].dropna().unique().tolist())
-                            if not _pub_titles:
-                                st.warning("⚠️ இந்தப் பதிப்பகமே books அட்டவணையில் இல்லை — பதிப்பகப் பெயரைச் சரிபார்க்கவும்.")
-                            else:
-                                import difflib as _dl
-                                _sug = _dl.get_close_matches(str(_rec["Title"]), _pub_titles, n=1, cutoff=0.3)
-                                _new_title = st.selectbox(
-                                    "books-ல் உள்ள சரியான தலைப்பு:", _pub_titles,
-                                    index=_pub_titles.index(_sug[0]) if _sug else 0, key=f"unm_fix_title_{_rec['Id']}"
-                                )
-                                if st.button("💾 இந்தத் தலைப்புக்கு மாற்று", type="primary", key="unm_fix_btn"):
-                                    try:
-                                        conn = psycopg2.connect(DB_URL)
-                                        cur = conn.cursor()
-                                        cur.execute("UPDATE submitted_reports SET title = %s WHERE id = %s;", (_new_title, int(_rec["Id"])))
-                                        conn.commit()
-                                        cur.close()
-                                        conn.close()
-                                        clear_books_cache()
-                                        st.session_state["submitted_reports"] = load_submitted_reports_from_db()
-                                        st.success("✅ தலைப்பு மாற்றப்பட்டது!")
-                                        st.rerun()
-                                    except Exception as e:
-                                        st.error(f"❌ Update error: {e}")
+                    if st.button("💾 இந்தத் திருத்தங்களை DB-யில் நிரந்தரமாகச் சேமி", type="primary", key="unm_save_all"):
+                        try:
+                            conn = psycopg2.connect(DB_URL)
+                            cur = conn.cursor()
+                            for c in _changes_u:
+                                cur.execute("UPDATE submitted_reports SET publisher = %s, title = %s WHERE id = %s;",
+                                            (c["புதிய பதிப்பகம்"], c["புதிய தலைப்பு"], int(c["Id"])))
+                            conn.commit()
+                            cur.close()
+                            conn.close()
+                            clear_books_cache()
+                            st.session_state["submitted_reports"] = load_submitted_reports_from_db()
+                            st.success(f"✅ {len(_changes_u)} பதிவுகள் சரிசெய்யப்பட்டன!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Update error: {e}")
+
+            _rest = [p for p in _probs_f]
+            if _rest:
+                st.warning(f"⚠️ தானாகப் பொருத்த முடியாதவை: {len(_rest)} பதிவுகள்")
+                st.dataframe(pd.DataFrame(_rest), use_container_width=True, hide_index=True)
+                if st.session_state["user_role"] == "Admin":
+                    st.markdown("#### ✍️ கைமுறைத் திருத்தம் (Admin)")
+                    _opts = [f"Id {p['Id']} — {p['Publisher']} — {p['Title']} (Qty {p['Received Qty']})" for p in _rest if p["Id"] is not None]
+                    _pick = st.selectbox("சரிசெய்ய வேண்டிய பதிவு:", ["-- தேர்ந்தெடுக்கவும் --"] + _opts, key="unm_fix_pick")
+                    if _pick != "-- தேர்ந்தெடுக்கவும் --":
+                        _rec = [p for p in _rest if p["Id"] is not None][_opts.index(_pick)]
+                        _all_pubs = sorted(_neon_u[_pc_u].dropna().unique().tolist())
+                        _p_default = _all_pubs.index(_rec["Publisher"]) if _rec["Publisher"] in _all_pubs else 0
+                        _new_pub = st.selectbox("books-ல் உள்ள சரியான பதிப்பகம்:", _all_pubs, index=_p_default, key=f"unm_fix_pub_{_rec['Id']}")
+                        _pub_titles = sorted(_neon_u[_neon_u[_pc_u] == _new_pub][_tc_u].dropna().unique().tolist())
+                        _new_title = st.selectbox("books-ல் உள்ள சரியான தலைப்பு:", _pub_titles, key=f"unm_fix_title_{_rec['Id']}_{_new_pub}") if _pub_titles else None
+                        if _new_title and st.button("💾 மாற்று", type="primary", key="unm_fix_btn"):
+                            try:
+                                conn = psycopg2.connect(DB_URL)
+                                cur = conn.cursor()
+                                cur.execute("UPDATE submitted_reports SET publisher = %s, title = %s WHERE id = %s;", (_new_pub, _new_title, int(_rec["Id"])))
+                                conn.commit()
+                                cur.close()
+                                conn.close()
+                                clear_books_cache()
+                                st.session_state["submitted_reports"] = load_submitted_reports_from_db()
+                                st.success("✅ மாற்றப்பட்டது!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"❌ Update error: {e}")
+            elif not _changes_u and not _probs_u:
+                pass
 
         if report_section == _REP_PLACEHOLDER:
             st.info("👆 மேலே உள்ள ஒரே பட்டியலில் ஏதேனும் ஒரு பகுதியைத் தேர்வு செய்தால், அதற்கான அறிக்கை, பதிப்பக வடிகட்டி, பதிவிறக்கம் (CSV / Excel / PDF) அதன் கீழேயே தோன்றும்.")
