@@ -1039,6 +1039,7 @@ _all_records = st.session_state['submitted_reports']
 total_submitted_count = total_submitted_ta = total_submitted_en = 0
 today_submitted_count = today_submitted_ta = today_submitted_en = 0
 unmatched_submitted_count = 0
+short_count = short_ta = short_en = 0
 _today_iso = datetime.now().strftime("%Y-%m-%d")
 
 if _pub_col_ticker and _title_col_ticker and not neon_df_ticker.empty:
@@ -1048,6 +1049,17 @@ if _pub_col_ticker and _title_col_ticker and not neon_df_ticker.empty:
     total_submitted_count = int(_m_all.sum())
     total_submitted_ta = int((_m_all & (_lang_s == "tamil")).sum())
     total_submitted_en = int((_m_all & (_lang_s == "english")).sum())
+
+    # --- குறைவாகப் பெறப்பட்டவை (Shortage): தலைப்பு ஏற்கனவே பிரிக்கப்பட்டு (submit செய்யப்பட்டு) பதிவாகியுள்ளது,
+    # ஆனால் பதிப்பகம் குறைவாக வழங்கியதால் சில நூல்கள் பெறப்படவில்லை. இவை "பிரிக்கப்படாதவை" அல்ல — ஏற்கனவே கையாளப்பட்டவை.
+    _pk_t = neon_df_ticker[_pub_col_ticker].map(_norm_name)
+    _tk_t = neon_df_ticker[_title_col_ticker].map(_norm_name)
+    _rec_keys = {(_norm_name(r.get("Publisher")), _norm_name(r.get("Title"))) for r in _all_records}
+    _has_rec = pd.Series([k in _rec_keys for k in zip(_pk_t, _tk_t)], index=neon_df_ticker.index)
+    _m_short = (~_m_all) & _has_rec
+    short_count = int(_m_short.sum())
+    short_ta = int((_m_short & (_lang_s == "tamil")).sum())
+    short_en = int((_m_short & (_lang_s == "english")).sum())
 
     # இன்று பிரிக்கப்பட்டவை = (இன்று வரை மொத்தம்) − (இன்றைக்கு முந்தைய பதிவுகளால் மட்டும் வந்தவை)
     _before = [r for r in _all_records if str(r.get("Date", ""))[:10] < _today_iso]
@@ -1069,9 +1081,11 @@ if not _dispatch_df_ticker.empty and _book_id_to_lang:
 else:
     total_dispatched_ta = total_dispatched_en = 0
 
-remaining_total = max(total_books_in_db - total_submitted_count, 0)
-remaining_ta = max(total_books_ta - total_submitted_ta, 0)
-remaining_en = max(total_books_en - total_submitted_en, 0)
+# மீதம் பிரிக்க வேண்டியது = இன்னும் எந்தப் பதிவும் செய்யப்படாத தலைப்புகளின் நூல்கள் மட்டும்
+# (குறைவாகப் பெறப்பட்டவை தனியாகக் காட்டப்படும்; அவை ஏற்கனவே கையாளப்பட்டவை)
+remaining_total = max(total_books_in_db - total_submitted_count - short_count, 0)
+remaining_ta = max(total_books_ta - total_submitted_ta - short_ta, 0)
+remaining_en = max(total_books_en - total_submitted_en - short_en, 0)
 
 today_str = datetime.now().strftime("%d/%m/%Y")
 unmatched_html = (f'⚠️ பொருந்தாதவை : <b>{unmatched_submitted_count}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; ' if unmatched_submitted_count else '')
@@ -1084,6 +1098,7 @@ st.markdown(f"""
             📚 பெறப்பட்ட நூல்கள் : <b>{total_books_in_db:,}</b> <span style="font-size:12px;">(தமிழ்: <b>{total_books_ta:,}</b> / ஆங்கிலம்: <b>{total_books_en:,}</b>)</span> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
             ✅ பிரிக்கப்பட்டது : <b>{total_submitted_count}</b> <span style="font-size:12px;">(தமிழ்: <b>{total_submitted_ta}</b> / ஆங்கிலம்: <b>{total_submitted_en}</b>)</span> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
             ⏳ மீதம் பிரிக்க வேண்டியது : <b>{remaining_total:,}</b> <span style="font-size:12px;">(தமிழ்: <b>{remaining_ta}</b> / ஆங்கிலம்: <b>{remaining_en}</b>)</span> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+            📉 குறைவாகப் பெறப்பட்டது : <b>{short_count:,}</b> <span style="font-size:12px;">(தமிழ்: <b>{short_ta}</b> / ஆங்கிலம்: <b>{short_en}</b>)</span> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
             📤 அனுப்பப்பட்டது : <b>{total_dispatched_count}</b> <span style="font-size:12px;">(தமிழ்: <b>{total_dispatched_ta}</b> / ஆங்கிலம்: <b>{total_dispatched_en}</b>)</span> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
             {unmatched_html}🗓️ இன்று ({today_str}) பிரிக்கப்பட்டது : <b>{today_submitted_count}</b> <span style="font-size:12px;">(தமிழ்: <b>{today_submitted_ta}</b> / ஆங்கிலம்: <b>{today_submitted_en}</b>)</span>
         </div>
