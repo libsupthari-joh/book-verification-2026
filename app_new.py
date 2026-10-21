@@ -25,7 +25,7 @@ def _get_db_url():
             _u = st.secrets["DATABASE_URL"]
         except Exception:
             _u = None
-    return _u or "postgresql://neondb_owner:npg_uGTf68JXVjyw@ep-odd-pine-b39tu9yu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+    return _u or "postgresql://neondb_owner:npg_SDNTFqY4fg8W@ep-weathered-firefly-b3swr26t-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 DB_URL = _get_db_url()
 
@@ -1885,6 +1885,7 @@ elif current == "அறிக்கைகள்":
 
         if report_section == _REP_OVR:
             st.markdown("### 📈 ஒட்டுமொத்த அறிக்கை — பதிப்பகம் • தலைப்பு • நூல் • நூலகம்")
+            st.caption("🛠️ பதிப்பு v6 · விவரம் பார்க்கும் டிராப்டவுன்கள் இந்த அறிக்கையின் கீழே உள்ளன")
             _o = load_neon_database()
             _opc, _otc = _detect_pub_title_cols(_o) if not _o.empty else (None, None)
             if _o.empty or not _opc or not _otc:
@@ -1981,6 +1982,110 @@ elif current == "அறிக்கைகள்":
                     _type_df = pd.DataFrame(_type_rows)
                     st.dataframe(_type_df, use_container_width=True, hide_index=True)
                     _report_downloads(_type_df, "Overall_By_LibraryType", "dl_overall_type")
+
+
+                # ================= 🔍 டிராப்டவுன் மூலம் விவரம் பார்க்க =================
+                st.markdown("---")
+                st.markdown("#### 🔍 விவரம் பார்க்க — தேவையானதைத் தேர்ந்தெடுக்கவும்")
+                _opn = next((c for c in _o.columns if c == "publication_name"), None)
+                _det = pd.DataFrame({
+                    "பதிப்பகம்": _o[_opc].astype(str).values,
+                    "Publication Name": (_o[_opn].astype(str).values if _opn else ""),
+                    "தலைப்பு": _o[_otc].astype(str).values,
+                    "மொழி": _olang.map({"tamil": "தமிழ்", "english": "ஆங்கிலம்"}).fillna("").values,
+                    "நூலகம்": (_o[_olib].astype(str).values if _olib else ""),
+                    "நூலக வகை": (_o[_otype].astype(str).values if _otype else ""),
+                    "நிலை": np.where(_fl.values, "received", np.where(_has.values, "shortage", "pending")),
+                })
+                _det["_r"] = (_det["நிலை"] == "received").astype(int)
+                _det["_s"] = (_det["நிலை"] == "shortage").astype(int)
+                _det["_p"] = (_det["நிலை"] == "pending").astype(int)
+
+                _METRICS = [
+                    "🏢 பதிப்பகங்கள்", "📖 தலைப்புகள்", "📚 பெறப்பட வேண்டிய நூல்கள்", "✅ பெறப்பட்ட நூல்கள்",
+                    "📉 குறைவாகப் பெறப்பட்டது", "⏳ இன்னும் பிரிக்கப்படாதது", "🏛️ நூலகங்கள்",
+                    "✔️ முழுவதும் முடிந்த பதிப்பகங்கள்", "🔸 மீதமுள்ள பதிப்பகங்கள்",
+                ]
+                _f1, _f2, _f3, _f4 = st.columns([2, 1, 2, 2])
+                with _f1:
+                    _sel_metric = st.selectbox("📌 எந்த விவரம் வேண்டும்?", _METRICS, key="ovr_metric")
+                with _f2:
+                    _sel_lang = st.selectbox("🔤 மொழி", ["அனைத்தும்", "தமிழ்", "ஆங்கிலம்"], key="ovr_lang")
+                with _f3:
+                    _sel_vendor = st.selectbox("🏢 பதிப்பகம்", ["அனைத்தும்"] + sorted(_det["பதிப்பகம்"].unique().tolist()), key="ovr_vendor")
+                with _f4:
+                    _sel_lib = st.selectbox("🏛️ நூலகம்", ["அனைத்தும்"] + (sorted(_det["நூலகம்"].unique().tolist()) if _olib else []), key="ovr_lib")
+
+                _d = _det
+                if _sel_lang != "அனைத்தும்":
+                    _d = _d[_d["மொழி"] == _sel_lang]
+                if _sel_vendor != "அனைத்தும்":
+                    _d = _d[_d["பதிப்பகம்"] == _sel_vendor]
+                if _sel_lib != "அனைத்தும்":
+                    _d = _d[_d["நூலகம்"] == _sel_lib]
+
+                def _agg(df_, keys):
+                    g = df_.groupby(keys).agg(**{
+                        "நூல்கள்": ("நிலை", "size"), "பெறப்பட்டது": ("_r", "sum"),
+                        "குறைவாகப் பெறப்பட்டது": ("_s", "sum"), "இன்னும் பிரிக்கப்படாதது": ("_p", "sum"),
+                    }).reset_index()
+                    return g
+
+                def _vendor_table(df_):
+                    g = _agg(df_, ["பதிப்பகம்"])
+                    _meta = df_.groupby("பதிப்பகம்").agg(
+                        **{"Publication Name": ("Publication Name", lambda x: ", ".join(sorted(set(map(str, x))))[:90]),
+                           "தலைப்புகள்": ("தலைப்பு", "nunique"), "நூலகங்கள்": ("நூலகம்", "nunique")}).reset_index()
+                    g = _meta.merge(g, on="பதிப்பகம்")
+                    return g[["பதிப்பகம்", "Publication Name", "தலைப்புகள்", "நூலகங்கள்", "நூல்கள்", "பெறப்பட்டது", "குறைவாகப் பெறப்பட்டது", "இன்னும் பிரிக்கப்படாதது"]].sort_values("பதிப்பகம்")
+
+                def _title_table(df_):
+                    return _agg(df_, ["பதிப்பகம்", "தலைப்பு", "மொழி"]).sort_values(["பதிப்பகம்", "தலைப்பு"])
+
+                def _show(df_, name, key, caption=None):
+                    if df_.empty:
+                        st.info("ℹ️ இந்தத் தேர்வுக்குப் பொருந்தும் விவரங்கள் இல்லை.")
+                        return
+                    if caption:
+                        st.caption(caption)
+                    st.dataframe(df_.reset_index(drop=True), use_container_width=True, hide_index=True, height=min(480, 38 * (len(df_) + 1)))
+                    _report_downloads(df_.reset_index(drop=True), name, key)
+
+                _mi = _METRICS.index(_sel_metric)
+                st.markdown(f"##### {_sel_metric}  —  மொழி: {_sel_lang} • பதிப்பகம்: {_sel_vendor} • நூலகம்: {_sel_lib}")
+                if _mi == 0:
+                    _vt = _vendor_table(_d)
+                    _show(_vt, "Detail_Publishers", "dl_det_pub", f"மொத்தம் {len(_vt)} பதிப்பகங்கள்")
+                elif _mi == 1:
+                    _tt = _title_table(_d)
+                    _show(_tt, "Detail_Titles", "dl_det_titles", f"மொத்தம் {len(_tt)} தலைப்புகள்")
+                elif _mi == 2:
+                    _tt = _title_table(_d)
+                    _show(_tt, "Detail_Required_Books", "dl_det_req", f"தலைப்பு வாரியாக — மொத்தம் {int(_tt['நூல்கள்'].sum()):,} நூல்கள்")
+                elif _mi == 3:
+                    _tt = _title_table(_d[_d["_r"] == 1])
+                    _show(_tt, "Detail_Received_Books", "dl_det_rec", f"தலைப்பு வாரியாக — பெறப்பட்ட நூல்கள் {int(_tt['பெறப்பட்டது'].sum()):,}" if not _tt.empty else None)
+                elif _mi in (4, 5):
+                    _flag, _nm = ("_s", "Shortage") if _mi == 4 else ("_p", "Pending")
+                    _sub = _d[_d[_flag] == 1]
+                    _tt = _title_table(_sub)
+                    _show(_tt, f"Detail_{_nm}_Titles", f"dl_det_{_nm}_t", f"தலைப்பு வாரியாக — {len(_sub):,} நூல்கள்" if not _tt.empty else None)
+                    if not _sub.empty:
+                        st.markdown("###### 🏛️ நூலகம் வாரியாக (எந்த நூலகத்தில் எந்தத் தலைப்பு)")
+                        _lt = _sub.groupby(["பதிப்பகம்", "தலைப்பு", "நூலகம்", "நூலக வகை"]).size().reset_index(name="நூல்கள்").sort_values(["பதிப்பகம்", "தலைப்பு", "நூலகம்"])
+                        _show(_lt, f"Detail_{_nm}_ByLibrary", f"dl_det_{_nm}_l")
+                elif _mi == 6:
+                    if not _olib:
+                        st.info("ℹ️ நூலகப் பெயர் நெடுவரிசை கிடைக்கவில்லை.")
+                    else:
+                        _lb = _agg(_d, ["நூலகம்", "நூலக வகை"])
+                        _meta = _d.groupby("நூலகம்").agg(**{"பதிப்பகங்கள்": ("பதிப்பகம்", "nunique"), "தலைப்புகள்": ("தலைப்பு", "nunique")}).reset_index()
+                        _lb = _meta.merge(_lb, on="நூலகம்")[["நூலகம்", "நூலக வகை", "பதிப்பகங்கள்", "தலைப்புகள்", "நூல்கள்", "பெறப்பட்டது", "குறைவாகப் பெறப்பட்டது", "இன்னும் பிரிக்கப்படாதது"]].sort_values("நூலகம்")
+                        _show(_lb, "Detail_Libraries", "dl_det_lib", f"மொத்தம் {len(_lb)} நூலகங்கள்")
+                else:
+                    _vt = _vendor_table(_d)
+                    _vt = _vt[_vt["இன்னும் பிரிக்கப்படாதது"] == 0] if _mi == 7 else _vt[_vt["இன்னும் பிரிக்கப்படாதது"] > 0]
+                    _show(_vt, "Detail_Publishers_Done" if _mi == 7 else "Detail_Publishers_Pending", f"dl_det_pub_{_mi}", f"மொத்தம் {len(_vt)} பதிப்பகங்கள்")
 
         if report_section == _REP_SUMMARY:
             display_df = full_report_df.reset_index(drop=True)
