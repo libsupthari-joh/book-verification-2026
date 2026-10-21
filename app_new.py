@@ -457,6 +457,16 @@ def _norm_name(s):
     s = re.sub(r"\b(pvt|private|ltd|limited)\b", " ", s)
     return re.sub(r"\s+", "", s)
 
+def _norm_vendor(s):
+    """Vendor Name-க்கான மென்மையான normalize: எழுத்துப்பெரிய/சிறிய வேறுபாடு மற்றும் கூடுதல் இடைவெளி மட்டும் புறக்கணிக்கப்படும்.
+    போர்ட்டலில் ஒவ்வொரு Vendor Name-க்கும் தனி Supply Order உள்ளதால், 'A M Book House' / 'AM Book House' போன்றவை
+    தனித்தனி விற்பனையாளர்களாகவே கருதப்படும் (ஒன்றாக்கப்படாது)."""
+    if s is None or (isinstance(s, float) and pd.isna(s)):
+        return ""
+    s = unicodedata.normalize("NFC", str(s)).lower()
+    s = re.sub(r"[\u200b\u200c\u200d\ufeff\u00a0]", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
+
 def _detect_pub_title_cols(df):
     """books அட்டவணையில் பதிப்பகம் / தலைப்பு நெடுவரிசைகளைக் கண்டறியும் (எல்லா இடங்களிலும் ஒரே விதி)."""
     cols = list(df.columns)
@@ -489,7 +499,7 @@ def _canonical_maps_from_df(df):
     if not pub_c or not title_c:
         return {}, {}
     d = df[[pub_c, title_c]].dropna().copy()
-    d["_pk"] = d[pub_c].map(_norm_name)
+    d["_pk"] = d[pub_c].map(_norm_vendor)
     d["_tk"] = d[title_c].map(_norm_name)
     pub_map, title_map = {}, {}
     for pk, g in d.groupby("_pk"):
@@ -518,7 +528,7 @@ def _books_title_counts():
         return {}
     pub_map, title_map = _canonical_maps_from_df(df)
     d = df[[pc, tc]].dropna().copy()
-    pk = d[pc].map(_norm_name)
+    pk = d[pc].map(_norm_vendor)
     tk = d[tc].map(_norm_name)
     d["_p"] = [pub_map.get(a, o) for a, o in zip(pk, d[pc])]
     d["_t"] = [title_map.get((a, b), o) for a, b, o in zip(pk, tk, d[tc])]
@@ -603,7 +613,7 @@ def canonicalize_report_records(records, auto_fix=True):
     out = []
     for r in records:
         r = dict(r)
-        npub = _norm_name(r.get("Publisher"))
+        npub = _norm_vendor(r.get("Publisher"))
         if npub in pub_map:
             r["Publisher"] = pub_map[npub]
         r["Title"] = title_map.get((npub, _norm_name(r.get("Title"))), r.get("Title"))
@@ -843,7 +853,7 @@ def load_neon_database():
     pub_c, title_c = _detect_pub_title_cols(df)
     pub_map, title_map = _canonical_maps_from_df(df)
     if pub_c and title_c and pub_map:
-        pk = df[pub_c].map(_norm_name)
+        pk = df[pub_c].map(_norm_vendor)
         tk = df[title_c].map(_norm_name)
         new_pub = [pub_map.get(a, o) for a, o in zip(pk, df[pub_c])]
         new_title = [title_map.get((a, b), o) for a, b, o in zip(pk, tk, df[title_c])]
@@ -864,9 +874,9 @@ def compute_received_flags(neon_df, pub_col, title_col, records, lib_col=None):
         return pd.Series(dtype=int)
     qty = {}
     for r in (records or []):
-        k = (_norm_name(r.get("Publisher")), _norm_name(r.get("Title")))
+        k = (_norm_vendor(r.get("Publisher")), _norm_name(r.get("Title")))
         qty[k] = qty.get(k, 0) + _record_qty(r)
-    pk = neon_df[pub_col].map(_norm_name).rename("_pk")
+    pk = neon_df[pub_col].map(_norm_vendor).rename("_pk")
     tk = neon_df[title_col].map(_norm_name).rename("_tk")
     keys = list(zip(pk, tk))
     pos = neon_df.groupby([pk, tk]).cumcount().to_numpy()
@@ -916,12 +926,12 @@ def submitted_match_stats(neon_df, pub_col, title_col, records):
     அந்தப் பதிப்பகம்+தலைப்பு books-ல் இல்லை."""
     sizes = {}
     if neon_df is not None and not neon_df.empty and pub_col and title_col:
-        pk = neon_df[pub_col].map(_norm_name).rename("_pk")
+        pk = neon_df[pub_col].map(_norm_vendor).rename("_pk")
         tk = neon_df[title_col].map(_norm_name).rename("_tk")
         sizes = neon_df.groupby([pk, tk]).size().to_dict()
     qty, by_key = {}, {}
     for r in (records or []):
-        k = (_norm_name(r.get("Publisher")), _norm_name(r.get("Title")))
+        k = (_norm_vendor(r.get("Publisher")), _norm_name(r.get("Title")))
         qty[k] = qty.get(k, 0) + _record_qty(r)
         by_key.setdefault(k, []).append(r)
     matched = sum(min(q, sizes.get(k, 0)) for k, q in qty.items())
@@ -941,7 +951,7 @@ def submitted_match_stats(neon_df, pub_col, title_col, records):
 
 def build_pub_stats_df(pub_name, source_neon_df, source_rep_df, pub_col, title_col):
     """ஒரு பதிப்பகத்தின் வரிசைகள் + received_stats (1 = பெறப்பட்டது). Master Data & நூலகர் சான்று இரண்டுக்கும்."""
-    mask = source_neon_df[pub_col].map(_norm_name) == _norm_name(pub_name)
+    mask = source_neon_df[pub_col].map(_norm_vendor) == _norm_vendor(pub_name)
     p_neon_df = source_neon_df[mask].copy()
     records = source_rep_df.to_dict(orient="records") if (source_rep_df is not None and not source_rep_df.empty) else []
     p_neon_df["received_stats"] = compute_received_flags(p_neon_df, pub_col, title_col, records)
@@ -1052,9 +1062,9 @@ if _pub_col_ticker and _title_col_ticker and not neon_df_ticker.empty:
 
     # --- குறைவாகப் பெறப்பட்டவை (Shortage): தலைப்பு ஏற்கனவே பிரிக்கப்பட்டு (submit செய்யப்பட்டு) பதிவாகியுள்ளது,
     # ஆனால் பதிப்பகம் குறைவாக வழங்கியதால் சில நூல்கள் பெறப்படவில்லை. இவை "பிரிக்கப்படாதவை" அல்ல — ஏற்கனவே கையாளப்பட்டவை.
-    _pk_t = neon_df_ticker[_pub_col_ticker].map(_norm_name)
+    _pk_t = neon_df_ticker[_pub_col_ticker].map(_norm_vendor)
     _tk_t = neon_df_ticker[_title_col_ticker].map(_norm_name)
-    _rec_keys = {(_norm_name(r.get("Publisher")), _norm_name(r.get("Title"))) for r in _all_records}
+    _rec_keys = {(_norm_vendor(r.get("Publisher")), _norm_name(r.get("Title"))) for r in _all_records}
     _has_rec = pd.Series([k in _rec_keys for k in zip(_pk_t, _tk_t)], index=neon_df_ticker.index)
     _m_short = (~_m_all) & _has_rec
     short_count = int(_m_short.sum())
@@ -1161,6 +1171,10 @@ elif current == "பிரிக்க":
                 st.info("ℹ️ இந்த Publication Name-ன் கீழ் " + str(len(group_vendors)) + " விற்பனையாளர்கள் (Vendor Name) உள்ளனர் — அவர்களின் அனைத்துத் தலைப்புகளும் இங்கே காட்டப்படும்: "
                         + " • ".join(f"{v} ({_gc.get(v, 0)} தலைப்புகள்)" for v in group_vendors))
             _title_vendor = pub_filtered_df.drop_duplicates(subset=[title_col]).set_index(title_col)[pub_col].to_dict()
+            if _pn_col:
+                _pns = sorted(pub_filtered_df[_pn_col].dropna().astype(str).unique().tolist())
+                if _pns:
+                    st.caption("📖 Publication Name: " + " • ".join(_pns[:6]) + (" …" if len(_pns) > 6 else ""))
 
             total_pub_titles_count = len(pub_filtered_df[title_col].dropna().unique())
             total_pub_books_count = len(pub_filtered_df)
@@ -1797,7 +1811,7 @@ elif current == "அறிக்கைகள்":
             b["_ta"] = (_lang == "tamil").astype(int)
             b["_en"] = (_lang == "english").astype(int)
             b = b.dropna(subset=["Publisher", "Title"])
-            b["_pk"] = b["Publisher"].map(_norm_name)
+            b["_pk"] = b["Publisher"].map(_norm_vendor)
             b["_tk"] = b["Title"].map(_norm_name)
             T = b.groupby(["_pk", "_tk"], sort=False).agg(
                 Publisher=("Publisher", "first"), Title=("Title", "first"), Author=("Author", "first"), ISBN=("ISBN", "first"),
@@ -1805,7 +1819,7 @@ elif current == "அறிக்கைகள்":
             ).reset_index()
             sub = {}
             for r in (records or []):
-                k = (_norm_name(r.get("Publisher")), _norm_name(r.get("Title")))
+                k = (_norm_vendor(r.get("Publisher")), _norm_name(r.get("Title")))
                 try:
                     q = int(float(r.get("Received Qty", 0) or 0))
                 except Exception:
@@ -1864,7 +1878,15 @@ elif current == "அறிக்கைகள்":
 
         if report_section == _REP_PUB:
             st.caption("தேவையான அறிக்கை வகையைத் தேர்ந்தெடுக்கவும் — அதற்கேற்ப அட்டவணையும் பதிவிறக்க பட்டன்களும் கீழே வரும்.")
-            st.caption("🛠️ Build 16-10-2026 v4 · எல்லா எண்ணிக்கைகளும் ஒரே கணக்கு")
+            st.caption("🛠️ Build 21-10-2026 v5 · Vendor Name + Publication Name")
+            _nv = load_neon_database()
+            if not _nv.empty:
+                _vpc, _ = _detect_pub_title_cols(_nv)
+                _pnc = next((c for c in _nv.columns if c == 'publication_name'), None)
+                if _vpc:
+                    st.caption(f"🏢 books தரவில் Vendor Name: **{_nv[_vpc].nunique()}**"
+                               + (f"  •  Publication Name: **{_nv[_pnc].map(_norm_name).nunique()}**" if _pnc else "")
+                               + "  (போர்ட்டலின் 'Vendor Wise Supply Order List' எண்ணிக்கையுடன் ஒப்பிட Vendor Name எண்ணைப் பயன்படுத்தவும்)")
 
             _T = _build_title_status(load_neon_database(), st.session_state.get("submitted_reports", []))
             if _T.empty:
@@ -2350,13 +2372,13 @@ elif current == "அறிக்கைகள்":
                     _idx_u.setdefault(_norm_name(_tt), []).append((_pp, _tt))
             _qty_u = {}
             for _r in _raw_recs:
-                _k = (_norm_name(_r.get("Publisher")), _norm_name(_r.get("Title")))
+                _k = (_norm_vendor(_r.get("Publisher")), _norm_name(_r.get("Title")))
                 _qty_u[_k] = _qty_u.get(_k, 0) + _record_qty(_r)
             _dup_ids = {}
             for _p in _probs_u:
                 if _p["books-ல் உள்ள நூல்கள்"] == 0 and _p["Id"] is not None:
                     for (_pp, _tt) in _idx_u.get(_norm_name(_p["Title"]), []):
-                        if _norm_name(_pp) != _norm_name(_p["Publisher"]) and _qty_u.get((_norm_name(_pp), _norm_name(_tt)), 0) >= _p["Received Qty"]:
+                        if _norm_vendor(_pp) != _norm_vendor(_p["Publisher"]) and _qty_u.get((_norm_vendor(_pp), _norm_name(_tt)), 0) >= _p["Received Qty"]:
                             _dup_ids[int(_p["Id"])] = _pp
                             break
             for _p in _probs_u:
