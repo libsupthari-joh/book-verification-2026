@@ -1855,6 +1855,7 @@ elif current == "அறிக்கைகள்":
             return T
 
         _REP_PLACEHOLDER = "-- பகுதியைத் தேர்ந்தெடுக்கவும் --"
+        _REP_OVR = "📈 ஒட்டுமொத்த அறிக்கை (Overall Summary)"
         _REP_SUMMARY = "📋 சுருக்க அறிக்கை (Summary)"
         _REP_PUB = "🧾 பதிப்பக தொகுப்பு (Publisher Summary)"
         _REP_LIB = "🏛️ நூலக விவரம் (Library Detail)"
@@ -1874,13 +1875,112 @@ elif current == "அறிக்கைகள்":
         report_section = st.selectbox(
             "📌 எந்தப் பகுதியின் அறிக்கை வேண்டும் என்பதைத் தேர்ந்தெடுக்கவும்:",
             [
-                _REP_PLACEHOLDER, _REP_SUMMARY, _REP_PUB, _REP_LIB, _REP_UNM,
+                _REP_PLACEHOLDER, _REP_OVR, _REP_SUMMARY, _REP_PUB, _REP_LIB, _REP_UNM,
                 _REP_T1, _REP_T2, _REP_T3, _REP_T4, _REP_T5, _REP_T6,
                 _REP_T7, _REP_T8, _REP_T9, _REP_T10, _REP_T11, _REP_T12,
             ],
             key="main_report_section_menu"
         )
         st.markdown("---")
+
+        if report_section == _REP_OVR:
+            st.markdown("### 📈 ஒட்டுமொத்த அறிக்கை — பதிப்பகம் • தலைப்பு • நூல் • நூலகம்")
+            _o = load_neon_database()
+            _opc, _otc = _detect_pub_title_cols(_o) if not _o.empty else (None, None)
+            if _o.empty or not _opc or not _otc:
+                st.warning("⚠️ books தரவு கிடைக்கவில்லை.")
+            else:
+                _olang = _o["language"].astype(str).str.strip().str.lower() if "language" in _o.columns else pd.Series("", index=_o.index)
+                _olib = _find_lib_col(_o)
+                _otype = "library_type" if "library_type" in _o.columns else None
+                _orecs = st.session_state["submitted_reports"]
+                _fl = compute_received_flags(_o, _opc, _otc, _orecs, _olib) == 1
+                _okeys = {(_norm_vendor(r.get("Publisher")), _norm_name(r.get("Title"))) for r in _orecs}
+                _has = pd.Series([k in _okeys for k in zip(_o[_opc].map(_norm_vendor), _o[_otc].map(_norm_name))], index=_o.index)
+                _sh = (~_fl) & _has          # குறைவாகப் பெறப்பட்டது (தலைப்பு கையாளப்பட்டது)
+                _pe = (~_fl) & (~_has)       # இன்னும் பிரிக்கப்படாதது
+
+                def _ovr_row(label, mask):
+                    sub = _o[mask]
+                    n_req = int(mask.sum())
+                    n_rec = int((_fl & mask).sum())
+                    pend_by_v = _pe[mask].groupby(sub[_opc]).sum()
+                    n_pub = int(sub[_opc].nunique())
+                    n_pending_pub = int((pend_by_v > 0).sum())
+                    return {
+                        "பிரிவு": label,
+                        "பதிப்பகங்கள்": n_pub,
+                        "தலைப்புகள்": int(sub.groupby([_opc, _otc]).ngroups),
+                        "பெறப்பட வேண்டிய நூல்கள்": n_req,
+                        "பெறப்பட்ட நூல்கள்": n_rec,
+                        "குறைவாகப் பெறப்பட்டது": int((_sh & mask).sum()),
+                        "இன்னும் பிரிக்கப்படாதது": int((_pe & mask).sum()),
+                        "பெறப்பட்ட %": round(100 * n_rec / n_req, 1) if n_req else 0.0,
+                        "நூலகங்கள்": int(sub[_olib].nunique()) if _olib else 0,
+                        "முடிந்த பதிப்பகங்கள்": n_pub - n_pending_pub,
+                        "மீதமுள்ள பதிப்பகங்கள்": n_pending_pub,
+                    }
+
+                _all_mask = pd.Series(True, index=_o.index)
+                _rT = _ovr_row("மொத்தம்", _all_mask)
+                _rA = _ovr_row("தமிழ்", _olang == "tamil")
+                _rE = _ovr_row("ஆங்கிலம்", _olang == "english")
+
+                def _fmt(v):
+                    return f"{int(v):,}"
+
+                _m1, _m2, _m3, _m4, _m5 = st.columns(5)
+                with _m1:
+                    st.metric("🏢 பதிப்பகங்கள்", _fmt(_rT["பதிப்பகங்கள்"]))
+                with _m2:
+                    st.metric("📖 தலைப்புகள்", _fmt(_rT["தலைப்புகள்"]))
+                    st.caption(f"தமிழ்: {_fmt(_rA['தலைப்புகள்'])} / ஆங்கிலம்: {_fmt(_rE['தலைப்புகள்'])}")
+                with _m3:
+                    st.metric("📚 பெறப்பட வேண்டிய நூல்கள்", _fmt(_rT["பெறப்பட வேண்டிய நூல்கள்"]))
+                    st.caption(f"தமிழ்: {_fmt(_rA['பெறப்பட வேண்டிய நூல்கள்'])} / ஆங்கிலம்: {_fmt(_rE['பெறப்பட வேண்டிய நூல்கள்'])}")
+                with _m4:
+                    st.metric("✅ பெறப்பட்ட நூல்கள்", _fmt(_rT["பெறப்பட்ட நூல்கள்"]))
+                    st.caption(f"தமிழ்: {_fmt(_rA['பெறப்பட்ட நூல்கள்'])} / ஆங்கிலம்: {_fmt(_rE['பெறப்பட்ட நூல்கள்'])}")
+                with _m5:
+                    st.metric("🏛️ நூலகங்கள்", _fmt(_rT["நூலகங்கள்"]))
+                    st.caption("நூல்கள் பெற்ற நூலகங்கள்")
+
+                # பதிப்பகம்/நூலக எண்ணிக்கை மொழி வாரியாகப் பிரிக்கப்படாது (ஒரு பதிப்பகம் இரு மொழிகளிலும் நூல்கள் வழங்கலாம்)
+                _rows_ovr = [
+                    ("🏢 பதிப்பகங்கள்", _fmt(_rT["பதிப்பகங்கள்"]), "", ""),
+                    ("📖 தலைப்புகள்", _fmt(_rT["தலைப்புகள்"]), _fmt(_rA["தலைப்புகள்"]), _fmt(_rE["தலைப்புகள்"])),
+                    ("📚 பெறப்பட வேண்டிய நூல்கள்", _fmt(_rT["பெறப்பட வேண்டிய நூல்கள்"]), _fmt(_rA["பெறப்பட வேண்டிய நூல்கள்"]), _fmt(_rE["பெறப்பட வேண்டிய நூல்கள்"])),
+                    ("✅ பெறப்பட்ட நூல்கள்", _fmt(_rT["பெறப்பட்ட நூல்கள்"]), _fmt(_rA["பெறப்பட்ட நூல்கள்"]), _fmt(_rE["பெறப்பட்ட நூல்கள்"])),
+                    ("📉 குறைவாகப் பெறப்பட்டது", _fmt(_rT["குறைவாகப் பெறப்பட்டது"]), _fmt(_rA["குறைவாகப் பெறப்பட்டது"]), _fmt(_rE["குறைவாகப் பெறப்பட்டது"])),
+                    ("⏳ இன்னும் பிரிக்கப்படாதது", _fmt(_rT["இன்னும் பிரிக்கப்படாதது"]), _fmt(_rA["இன்னும் பிரிக்கப்படாதது"]), _fmt(_rE["இன்னும் பிரிக்கப்படாதது"])),
+                    ("📊 பெறப்பட்ட %", f"{_rT['பெறப்பட்ட %']}%", f"{_rA['பெறப்பட்ட %']}%", f"{_rE['பெறப்பட்ட %']}%"),
+                    ("🏛️ நூலகங்கள் (நூல்கள் பெற்றவை)", _fmt(_rT["நூலகங்கள்"]), "", ""),
+                    ("✔️ முழுவதும் முடிந்த பதிப்பகங்கள்", _fmt(_rT["முடிந்த பதிப்பகங்கள்"]), "", ""),
+                    ("🔸 மீதமுள்ள பதிப்பகங்கள்", _fmt(_rT["மீதமுள்ள பதிப்பகங்கள்"]), "", ""),
+                ]
+                _ovr_df = pd.DataFrame(_rows_ovr, columns=["விவரம்", "மொத்தம்", "தமிழ்", "ஆங்கிலம்"])
+                st.markdown("#### 📋 ஒட்டுமொத்தச் சுருக்கம்")
+                st.dataframe(_ovr_df, use_container_width=True, hide_index=True)
+                st.caption("ℹ️ 'பெறப்பட வேண்டிய நூல்கள்' = books தரவில் உள்ள நூல்கள்; 'குறைவாகப் பெறப்பட்டது' = தலைப்பு பிரிக்கப்பட்டு ஆனால் பதிப்பகம் குறைவாக வழங்கியவை; "
+                           "'இன்னும் பிரிக்கப்படாதது' = எந்தப் பதிவும் செய்யப்படாத தலைப்புகளின் நூல்கள். "
+                           "நூலகங்கள்: TNDPL-இல் 105; இவற்றில் மாவட்ட நூலக அலுவலகம் மற்றும் சிறப்பு நூலகத்துக்கு நூல்கள் இல்லை என்பதால் நூல்கள் பெற்ற நூலகங்கள் 103.")
+                _report_downloads(_ovr_df, "Overall_Summary", "dl_overall")
+
+                if _otype:
+                    st.markdown("#### 🏛️ நூலக வகை வாரியாக")
+                    _type_rows = []
+                    for _t in sorted(_o[_otype].dropna().astype(str).unique().tolist()):
+                        _mk = _o[_otype].astype(str) == _t
+                        _r = _ovr_row(_t, _mk)
+                        _type_rows.append({
+                            "நூலக வகை": _t, "நூலகங்கள்": _r["நூலகங்கள்"], "பதிப்பகங்கள்": _r["பதிப்பகங்கள்"],
+                            "தலைப்புகள்": _r["தலைப்புகள்"], "பெறப்பட வேண்டிய நூல்கள்": _r["பெறப்பட வேண்டிய நூல்கள்"],
+                            "பெறப்பட்ட நூல்கள்": _r["பெறப்பட்ட நூல்கள்"], "குறைவாகப் பெறப்பட்டது": _r["குறைவாகப் பெறப்பட்டது"],
+                            "இன்னும் பிரிக்கப்படாதது": _r["இன்னும் பிரிக்கப்படாதது"],
+                        })
+                    _type_df = pd.DataFrame(_type_rows)
+                    st.dataframe(_type_df, use_container_width=True, hide_index=True)
+                    _report_downloads(_type_df, "Overall_By_LibraryType", "dl_overall_type")
 
         if report_section == _REP_SUMMARY:
             display_df = full_report_df.reset_index(drop=True)
