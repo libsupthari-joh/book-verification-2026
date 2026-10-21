@@ -1050,6 +1050,7 @@ total_submitted_count = total_submitted_ta = total_submitted_en = 0
 today_submitted_count = today_submitted_ta = today_submitted_en = 0
 unmatched_submitted_count = 0
 short_count = short_ta = short_en = 0
+pubs_total = pubs_done = pubs_pending = pubs_short = today_pubs = 0
 _today_iso = datetime.now().strftime("%Y-%m-%d")
 
 if _pub_col_ticker and _title_col_ticker and not neon_df_ticker.empty:
@@ -1070,6 +1071,18 @@ if _pub_col_ticker and _title_col_ticker and not neon_df_ticker.empty:
     short_count = int(_m_short.sum())
     short_ta = int((_m_short & (_lang_s == "tamil")).sum())
     short_en = int((_m_short & (_lang_s == "english")).sum())
+
+    # --- பதிப்பக (Vendor Name) வாரி எண்ணிக்கை ---
+    # மீதம்: குறைந்தது ஒரு தலைப்பு இன்னும் பிரிக்கப்படாத பதிப்பகம்; பிரிக்கப்பட்டது: அனைத்துத் தலைப்புகளும் கையாளப்பட்டவை;
+    # குறைவு: குறைவாகப் பெறப்பட்ட நூல்கள் உள்ள பதிப்பகம்.
+    _vend = neon_df_ticker[_pub_col_ticker]
+    _pend_by_vendor = ((~_m_all) & (~_has_rec)).groupby(_vend).sum()
+    _short_by_vendor = _m_short.groupby(_vend).sum()
+    pubs_total = int(_vend.nunique())
+    pubs_pending = int((_pend_by_vendor > 0).sum())
+    pubs_done = pubs_total - pubs_pending
+    pubs_short = int((_short_by_vendor > 0).sum())
+    today_pubs = len({r.get("Publisher") for r in _all_records if str(r.get("Date", ""))[:10] == _today_iso})
 
     # இன்று பிரிக்கப்பட்டவை = (இன்று வரை மொத்தம்) − (இன்றைக்கு முந்தைய பதிவுகளால் மட்டும் வந்தவை)
     _before = [r for r in _all_records if str(r.get("Date", ""))[:10] < _today_iso]
@@ -1105,12 +1118,12 @@ st.markdown(f"""
     <div class="ticker-badge">🔴 Live News</div>
     <div style="overflow: hidden; width: 100%;">
         <div class="marquee-text">
-            📚 பெறப்பட்ட நூல்கள் : <b>{total_books_in_db:,}</b> <span style="font-size:12px;">(தமிழ்: <b>{total_books_ta:,}</b> / ஆங்கிலம்: <b>{total_books_en:,}</b>)</span> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-            ✅ பிரிக்கப்பட்டது : <b>{total_submitted_count}</b> <span style="font-size:12px;">(தமிழ்: <b>{total_submitted_ta}</b> / ஆங்கிலம்: <b>{total_submitted_en}</b>)</span> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-            ⏳ மீதம் பிரிக்க வேண்டியது : <b>{remaining_total:,}</b> <span style="font-size:12px;">(தமிழ்: <b>{remaining_ta}</b> / ஆங்கிலம்: <b>{remaining_en}</b>)</span> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-            📉 குறைவாகப் பெறப்பட்டது : <b>{short_count:,}</b> <span style="font-size:12px;">(தமிழ்: <b>{short_ta}</b> / ஆங்கிலம்: <b>{short_en}</b>)</span> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-            📤 அனுப்பப்பட்டது : <b>{total_dispatched_count}</b> <span style="font-size:12px;">(தமிழ்: <b>{total_dispatched_ta}</b> / ஆங்கிலம்: <b>{total_dispatched_en}</b>)</span> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
-            {unmatched_html}🗓️ இன்று ({today_str}) பிரிக்கப்பட்டது : <b>{today_submitted_count}</b> <span style="font-size:12px;">(தமிழ்: <b>{today_submitted_ta}</b> / ஆங்கிலம்: <b>{today_submitted_en}</b>)</span>
+            📚 பெறப்பட்ட நூல்கள் : <b>{total_books_in_db:,}</b> <span style="font-size:12px;">(தமிழ்: <b>{total_books_ta:,}</b> / ஆங்கிலம்: <b>{total_books_en:,}</b>)</span> &nbsp;•&nbsp; 🏢 பதிப்பகங்கள் : <b>{pubs_total}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+            ✅ பிரிக்கப்பட்டது : <b>{total_submitted_count:,}</b> <span style="font-size:12px;">(தமிழ்: <b>{total_submitted_ta:,}</b> / ஆங்கிலம்: <b>{total_submitted_en:,}</b>)</span> &nbsp;•&nbsp; 🏢 பதிப்பகங்கள் : <b>{pubs_done}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+            ⏳ மீதம் பிரிக்க வேண்டியது : <b>{remaining_total:,}</b> <span style="font-size:12px;">(தமிழ்: <b>{remaining_ta:,}</b> / ஆங்கிலம்: <b>{remaining_en:,}</b>)</span> &nbsp;•&nbsp; 🏢 பதிப்பகங்கள் : <b>{pubs_pending}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+            📉 குறைவாகப் பெறப்பட்டது : <b>{short_count:,}</b> <span style="font-size:12px;">(தமிழ்: <b>{short_ta:,}</b> / ஆங்கிலம்: <b>{short_en:,}</b>)</span> &nbsp;•&nbsp; 🏢 பதிப்பகங்கள் : <b>{pubs_short}</b> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+            📤 அனுப்பப்பட்டது : <b>{total_dispatched_count:,}</b> <span style="font-size:12px;">(தமிழ்: <b>{total_dispatched_ta:,}</b> / ஆங்கிலம்: <b>{total_dispatched_en:,}</b>)</span> &nbsp;&nbsp;&nbsp;&nbsp;◆&nbsp;&nbsp;&nbsp;&nbsp; 
+            {unmatched_html}🗓️ இன்று ({today_str}) பிரிக்கப்பட்டது : <b>{today_submitted_count:,}</b> <span style="font-size:12px;">(தமிழ்: <b>{today_submitted_ta:,}</b> / ஆங்கிலம்: <b>{today_submitted_en:,}</b>)</span> &nbsp;•&nbsp; 🏢 பதிப்பகங்கள் : <b>{today_pubs}</b>
         </div>
     </div>
 </div>
