@@ -811,7 +811,7 @@ ALL_MENU_OPTIONS = [
     ("🔀", "பிரிக்க"), ("📜", "நூலகர் சான்று"), ("📊", "அறிக்கைகள்"), ("⚠️", "கவனிக்க"),
     ("🔢", "பதிவெண் மாற்ற"), ("🗂️", "Master Data"), ("❌", "தவறான பதிவு நீக்கம்"),
     ("🔑", "கடவுச்சொல் மாற்ற"), ("📥", "Excel பதிவிறக்கம்"), ("👥", "நூலகர் பார்வை ஆண்டு"),
-    ("📂", "Excel அப்லோடு"), ("🏷️", "பகுப்பு எண் புதுப்பி"), ("🔗", "நூலக பொருத்தம்")
+    ("📂", "Excel அப்லோடு"), ("🏷️", "பகுப்பு எண் புதுப்பி"), ("🔗", "நூலக பொருத்தம்"), ("🧾", "மாநில பதிவெண் ஏற்ற")
 ]
 
 # பங்கு அடிப்படையில் மெனு கட்டுப்பாடு:
@@ -860,6 +860,91 @@ def load_neon_database():
         df[pub_c] = new_pub
         df[title_c] = new_title
     return df
+
+# ===================== மாநில பதிவெண் (DCAn Number) ஏற்றுதல் =====================
+DCAN_COLS = ['S.No', 'Title', 'Number of copies', 'Multi Volume', 'Vendor Name', 'Publication Name',
+             'User Type', 'Order Id', 'DCAn Number', 'Library Id', 'Dlo Id', 'Library Type']
+
+def parse_dcan_excel(file_obj):
+    """State Accession Number Excel-ஐப் படிக்கும். தலைப்பில் காற்புள்ளி (,) இருந்ததால் நெடுவரிசைகள் வலப்புறம்
+    நகர்ந்த வரிசைகளையும் (தலைப்பு பல கலங்களாகப் பிரிந்தவை) தானாகச் சரிசெய்யும்.
+    திரும்புவது: (DataFrame, சரிசெய்த வரிசை எண்ணிக்கை, தவிர்த்த வரிசை எண்ணிக்கை)"""
+    raw = pd.read_excel(file_obj, header=None, dtype=str)
+    head = [str(x).strip() for x in raw.iloc[0].tolist()[:12]]
+    missing = [c for c in DCAN_COLS if c not in head]
+    if missing:
+        raise ValueError("Excel தலைப்பு வரிசையில் இவை இல்லை: " + ", ".join(missing))
+    body = raw.iloc[1:]
+    rows, fixed, skipped = [], 0, 0
+    for vals in body.itertuples(index=False):
+        vals = list(vals)
+        extra = [v for v in vals[12:] if str(v) != "nan" and str(v).strip() != ""]
+        if extra:
+            cells = [str(v).strip() for v in vals if str(v) != "nan" and str(v).strip() != ""]
+            if len(cells) < 12:
+                skipped += 1
+                continue
+            cells = [cells[0], ", ".join(cells[1:len(cells) - 10]).strip()] + cells[-10:]
+            fixed += 1
+        else:
+            cells = [("" if str(v) == "nan" else str(v).strip()) for v in vals[:12]]
+            if not cells or not cells[8]:
+                skipped += 1
+                continue
+        rows.append(cells)
+    return pd.DataFrame(rows, columns=head[:12] if head[:12] == DCAN_COLS else DCAN_COLS), fixed, skipped
+
+def match_dcan_to_books(excel_df, books_raw):
+    """Excel வரிசைகளை books நூல்களுடன் பொருத்தும்.
+    நிலை 1: Vendor Name + Title + Library Id (ஒரே தலைப்பின் பல பிரதிகள் வரிசைப்படி)
+    நிலை 2: அதே Vendor + Library-ல் தலைப்பு எழுத்து ஒத்திருந்தால் (≥ 0.75)
+    நிலை 3: அதே Vendor + Library-ல் இரு பக்கமும் தலா ஒரே ஒரு நூல் மட்டும் மீதமிருந்தால் (மதிப்பாய்வுக்குரியது)
+    திரும்புவது: (books-க்கான பொருத்த DataFrame, பொருந்தாத Excel வரிசைகள்)"""
+    import difflib
+    e = excel_df.copy()
+    b = books_raw.copy()
+    e["_v"] = e["Vendor Name"].map(_norm_vendor)
+    e["_t"] = e["Title"].map(_norm_name)
+    e["_l"] = e["Library Id"].astype(str).str.strip()
+    e["_o"] = np.arange(len(e))
+    b["_v"] = b["vendor_name"].map(_norm_vendor)
+    b["_t"] = b["title"].map(_norm_name)
+    b["_l"] = b["librarian_id"].astype(str).str.strip()
+    b = b.sort_values("id").reset_index(drop=True)
+    e["_k"] = e.groupby(["_v", "_t", "_l"]).cumcount()
+    b["_k"] = b.groupby(["_v", "_t", "_l"]).cumcount()
+    m = b.merge(e[["_v", "_t", "_l", "_k", "DCAn Number", "Order Id", "Title", "Publication Name", "Library Type", "_o"]]
+                .rename(columns={"Title": "excel_title", "Publication Name": "excel_pub", "Library Type": "excel_libtype", "Order Id": "order_id"}),
+                on=["_v", "_t", "_l", "_k"], how="left")
+    m["match_stage"] = np.where(m["DCAn Number"].notna(), "1-சரியான பொருத்தம்", "")
+    used = set(m["_o"].dropna().astype(int))
+    ue = e[~e["_o"].isin(used)].copy()
+    cols_fill = ["DCAn Number", "order_id", "excel_title", "excel_pub", "excel_libtype", "_o"]
+    # நிலை 2
+    for idx in m.index[m["DCAn Number"].isna()]:
+        if ue.empty:
+            break
+        cand = ue[(ue["_v"] == m.at[idx, "_v"]) & (ue["_l"] == m.at[idx, "_l"])]
+        if cand.empty:
+            continue
+        sc, i = max((difflib.SequenceMatcher(None, m.at[idx, "_t"], t).ratio(), j) for j, t in cand["_t"].items())
+        if sc >= 0.75:
+            r = ue.loc[i]
+            for c, src_c in zip(cols_fill, ["DCAn Number", "Order Id", "Title", "Publication Name", "Library Type", "_o"]):
+                m.at[idx, c] = r[src_c]
+            m.at[idx, "match_stage"] = f"2-தலைப்பு ஒத்தது ({sc:.2f})"
+            ue = ue.drop(i)
+    # நிலை 3
+    left_b = m[m["DCAn Number"].isna()]
+    for (v, l), gb in left_b.groupby(["_v", "_l"]):
+        ge = ue[(ue["_v"] == v) & (ue["_l"] == l)]
+        if len(gb) == 1 and len(ge) == 1:
+            idx, r = gb.index[0], ge.iloc[0]
+            for c, src_c in zip(cols_fill, ["DCAn Number", "Order Id", "Title", "Publication Name", "Library Type", "_o"]):
+                m.at[idx, c] = r[src_c]
+            m.at[idx, "match_stage"] = "3-ஒரே ஒரு மீதம் (மதிப்பாய்வு தேவை)"
+            ue = ue.drop(ge.index[0])
+    return m, ue
 
 def _find_lib_col(df):
     return next((c for c in df.columns if 'library' in c and ('name' in c or 'tm' in c)), None)
@@ -3422,6 +3507,109 @@ elif current == "பகுப்பு எண் புதுப்பி":
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"❌ Update error: {e}")
+
+elif current == "மாநில பதிவெண் ஏற்ற":
+    st.subheader("🧾 மாநில பதிவெண் (State Accession Number / DCAn Number) ஏற்றுதல்")
+    if st.session_state["user_role"] != "Admin":
+        st.warning("⚠️ இந்தப் பகுதி Admin-க்கு மட்டும்.")
+        st.stop()
+    st.caption("State Accession Number Excel-ல் உள்ள DCAn Number, books அட்டவணையின் `state_accession_number` நெடுவரிசையில் "
+               "Vendor Name + Title + Library Id (மற்றும் Publication Name, Library Type, Order Id சரிபார்ப்புடன்) அடிப்படையில் ஏற்றப்படும். "
+               "எதையும் எழுதும் முன் முன்னோட்டம் காட்டப்படும்.")
+    _up = st.file_uploader("📂 State Accession Number Excel (.xlsx)", type=["xlsx"], key="dcan_upload")
+    if _up is not None:
+        try:
+            _ex, _fixed, _skipped = parse_dcan_excel(_up)
+        except Exception as e:
+            st.error(f"❌ கோப்பைப் படிக்க முடியவில்லை: {e}")
+            st.stop()
+        _bk = _load_books_raw()
+        if _bk.empty or "id" not in _bk.columns:
+            st.error("❌ books தரவு / id நெடுவரிசை கிடைக்கவில்லை.")
+            st.stop()
+        _map, _unm_ex = match_dcan_to_books(_ex, _bk)
+        _ok = _map[_map["DCAn Number"].notna()].copy()
+
+        _exist_col = "state_accession_number" if "state_accession_number" in _bk.columns else None
+        _already = int(_map[_exist_col].notna().sum()) if _exist_col else 0
+        _lt_bad = int((_ok["library_type"].astype(str).str.strip() != _ok["excel_libtype"].astype(str).str.strip()).sum())
+        _pn_bad = int((_ok["publication_name"].map(_norm_vendor) != _ok["excel_pub"].map(_norm_vendor)).sum())
+        _ord_v = _ex.assign(_v=_ex["Vendor Name"].map(_norm_vendor)).groupby("Order Id")["_v"].nunique()
+        _ord_bad = int((_ord_v > 1).sum())
+        _dup_dcan = int(_ex["DCAn Number"].duplicated().sum())
+
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            st.metric("📄 Excel வரிசைகள்", f"{len(_ex):,}")
+        with c2:
+            st.metric("📚 books நூல்கள்", f"{len(_map):,}")
+        with c3:
+            st.metric("✅ பொருந்தியவை", f"{len(_ok):,}")
+        with c4:
+            st.metric("❌ பொருந்தாதவை (books)", f"{len(_map) - len(_ok):,}")
+        _st_counts = _ok["match_stage"].str[:1].value_counts().to_dict()
+        st.caption(f"நிலை 1 (சரியான): {_st_counts.get('1', 0):,} • நிலை 2 (தலைப்பு ஒத்தது): {_st_counts.get('2', 0):,} • "
+                   f"நிலை 3 (ஒரே ஒரு மீதம்): {_st_counts.get('3', 0):,}")
+        if _fixed:
+            st.info(f"ℹ️ தலைப்பில் காற்புள்ளி இருந்ததால் நகர்ந்த {_fixed} வரிசைகள் தானாகச் சரிசெய்யப்பட்டன.")
+        if _skipped:
+            st.warning(f"⚠️ {_skipped} வரிசைகள் படிக்க இயலாததால் தவிர்க்கப்பட்டன.")
+        _chk = {"Library Type வேறுபாடு": _lt_bad, "Publication Name வேறுபாடு": _pn_bad,
+                "ஒரே Order Id-க்கு பல Vendor": _ord_bad, "Excel-ல் நகல் DCAn Number": _dup_dcan,
+                "books-ல் ஏற்கனவே பதிவெண் உள்ளவை": _already}
+        st.dataframe(pd.DataFrame({"சரிபார்ப்பு": list(_chk.keys()), "எண்ணிக்கை": list(_chk.values())}), hide_index=True, use_container_width=True)
+
+        _full = _ok[["id", "vendor_name", "title", "librarian_id", "library_type", "DCAn Number", "order_id", "match_stage"]].rename(
+            columns={"id": "books id", "DCAn Number": "State Accession Number"})
+        _review = _ok[_ok["match_stage"].str[:1].isin(["2", "3"])][
+            ["id", "vendor_name", "librarian_id", "title", "excel_title", "DCAn Number", "match_stage"]].rename(columns={"title": "books தலைப்பு", "excel_title": "Excel தலைப்பு"})
+        if not _review.empty:
+            st.markdown("#### 🔎 மதிப்பாய்வுக்கு (தலைப்பு எழுத்து வேறுபட்டவை)")
+            st.dataframe(_review, hide_index=True, use_container_width=True, height=min(400, 38 * (len(_review) + 1)))
+            _report_downloads(_review, "DCAn_Review", "dl_dcan_review")
+        _left_b = _map[_map["DCAn Number"].isna()][["id", "vendor_name", "title", "librarian_id", "library_type"]]
+        if not _left_b.empty or not _unm_ex.empty:
+            st.markdown("#### ❌ பொருந்தாதவை")
+            if not _left_b.empty:
+                st.caption(f"books-ல் உள்ளவை ({len(_left_b)})")
+                st.dataframe(_left_b, hide_index=True, use_container_width=True)
+            if not _unm_ex.empty:
+                st.caption(f"Excel-ல் உள்ளவை ({len(_unm_ex)})")
+                st.dataframe(_unm_ex[["S.No", "Vendor Name", "Title", "Library Id", "DCAn Number"]], hide_index=True, use_container_width=True)
+        _report_downloads(_full, "State_Accession_Mapping", "dl_dcan_full")
+
+        st.markdown("---")
+        _only_empty = st.checkbox("பதிவெண் காலியாக உள்ள நூல்களில் மட்டும் ஏற்று (ஏற்கனவே உள்ளவற்றை மாற்றாதே)", value=True, key="dcan_only_empty")
+        _yes = st.checkbox(f"✅ {len(_ok):,} நூல்களில் State Accession Number ஏற்றுவதை உறுதிசெய்கிறேன்", key="dcan_confirm")
+        if st.button("💾 DB-யில் ஏற்று", type="primary", disabled=not _yes, key="dcan_apply"):
+            try:
+                from psycopg2.extras import execute_values
+                conn = psycopg2.connect(DB_URL)
+                cur = conn.cursor()
+                cur.execute("SELECT data_type FROM information_schema.columns WHERE table_name='books' AND column_name='state_accession_number';")
+                _r = cur.fetchone()
+                if _r is None:
+                    cur.execute("ALTER TABLE books ADD COLUMN state_accession_number TEXT;")
+                elif _r[0] != "text":
+                    cur.execute("ALTER TABLE books ALTER COLUMN state_accession_number TYPE TEXT USING state_accession_number::text;")
+                _pairs = [(int(i), str(a)) for i, a in zip(_ok["id"], _ok["DCAn Number"])]
+                _where = " AND (b.state_accession_number IS NULL OR b.state_accession_number = '')" if _only_empty else ""
+                _updated = 0
+                for s in range(0, len(_pairs), 2000):
+                    chunk = _pairs[s:s + 2000]
+                    execute_values(
+                        cur,
+                        "UPDATE books AS b SET state_accession_number = v.acc FROM (VALUES %s) AS v(id, acc) WHERE b.id = v.id" + _where,
+                        chunk, template="(%s, %s)", page_size=2000)
+                    _updated += cur.rowcount
+                conn.commit()
+                cur.close()
+                conn.close()
+                clear_books_cache()
+                st.session_state["submitted_reports"] = load_submitted_reports_from_db()
+                st.success(f"✅ {_updated:,} நூல்களில் State Accession Number ஏற்றப்பட்டது!")
+            except Exception as e:
+                st.error(f"❌ ஏற்றுவதில் பிழை: {e}")
 
 elif current == "நூலக பொருத்தம்":
     st.subheader("🔗 நூலக பொருத்தம் (Library ↔ TNDPL Matching)")
