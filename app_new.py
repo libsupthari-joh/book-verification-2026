@@ -862,6 +862,21 @@ def load_neon_database():
     return df
 
 # ===================== மாநில பதிவெண் (DCAn Number) ஏற்றுதல் =====================
+def _simple_downloads(df, base_name, key):
+    """எந்தப் பகுதியிலும் பயன்படுத்தக்கூடிய CSV / Excel பதிவிறக்கப் பொத்தான்கள்."""
+    import io
+    ts = datetime.now().strftime("%Y%m%d_%H%M")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.download_button("📥 CSV", df.to_csv(index=False).encode("utf-8-sig"),
+                           file_name=f"{base_name}_{ts}.csv", mime="text/csv", key=f"{key}_csv", use_container_width=True)
+    with c2:
+        _buf = io.BytesIO()
+        with pd.ExcelWriter(_buf, engine="openpyxl") as _w:
+            df.to_excel(_w, index=False, sheet_name="Data")
+        st.download_button("📥 Excel", _buf.getvalue(), file_name=f"{base_name}_{ts}.xlsx",
+                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key=f"{key}_xlsx", use_container_width=True)
+
 DCAN_COLS = ['S.No', 'Title', 'Number of copies', 'Multi Volume', 'Vendor Name', 'Publication Name',
              'User Type', 'Order Id', 'DCAn Number', 'Library Id', 'Dlo Id', 'Library Type']
 
@@ -3566,7 +3581,7 @@ elif current == "மாநில பதிவெண் ஏற்ற":
         if not _review.empty:
             st.markdown("#### 🔎 மதிப்பாய்வுக்கு (தலைப்பு எழுத்து வேறுபட்டவை)")
             st.dataframe(_review, hide_index=True, use_container_width=True, height=min(400, 38 * (len(_review) + 1)))
-            _report_downloads(_review, "DCAn_Review", "dl_dcan_review")
+            _simple_downloads(_review, "DCAn_Review", "dl_dcan_review")
         _left_b = _map[_map["DCAn Number"].isna()][["id", "vendor_name", "title", "librarian_id", "library_type"]]
         if not _left_b.empty or not _unm_ex.empty:
             st.markdown("#### ❌ பொருந்தாதவை")
@@ -3576,7 +3591,7 @@ elif current == "மாநில பதிவெண் ஏற்ற":
             if not _unm_ex.empty:
                 st.caption(f"Excel-ல் உள்ளவை ({len(_unm_ex)})")
                 st.dataframe(_unm_ex[["S.No", "Vendor Name", "Title", "Library Id", "DCAn Number"]], hide_index=True, use_container_width=True)
-        _report_downloads(_full, "State_Accession_Mapping", "dl_dcan_full")
+        _simple_downloads(_full, "State_Accession_Mapping", "dl_dcan_full")
 
         st.markdown("---")
         _only_empty = st.checkbox("பதிவெண் காலியாக உள்ள நூல்களில் மட்டும் ஏற்று (ஏற்கனவே உள்ளவற்றை மாற்றாதே)", value=True, key="dcan_only_empty")
