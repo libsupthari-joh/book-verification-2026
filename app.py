@@ -467,6 +467,12 @@ def _norm_vendor(s):
     s = re.sub(r"[\u200b\u200c\u200d\ufeff\u00a0]", " ", s)
     return re.sub(r"\s+", " ", s).strip()
 
+def _fast_map(series, fn):
+    """Series-ன் தனித்த மதிப்புகளுக்கு மட்டும் fn செயல்படுத்தி வரைபடமாக்கும் (48,000 வரிசைகளுக்குப் பதில் ~6,000 முறை மட்டும்)."""
+    uniq = series.dropna().unique()
+    mapping = {u: fn(u) for u in uniq}
+    return series.map(mapping).fillna("")
+
 def _detect_pub_title_cols(df):
     """books அட்டவணையில் பதிப்பகம் / தலைப்பு நெடுவரிசைகளைக் கண்டறியும் (எல்லா இடங்களிலும் ஒரே விதி)."""
     cols = list(df.columns)
@@ -489,27 +495,22 @@ def _load_books_raw():
     return pd.DataFrame()
 
 def _canonical_maps_from_df(df):
-    """ஒரே பெயரின் வேறுபட்ட எழுத்து வடிவங்களை (இடைவெளி/குறியீடு/Pvt.-Ltd. வேறுபாடு,
-    எ.கா. 'A M Book House' / 'AM Book House', 'தப்புக் கணக்கு' / 'தப்புக்கணக்கு')
-    ஒரே 'சரியான' பெயராக்க வரைபடம். அதிகம் பயன்படுத்தப்பட்ட வடிவமே சரியான பெயர்;
-    சமமாக இருந்தால் அகரவரிசையில் முதலில் வருவது (எப்போதும் ஒரே முடிவு)."""
+    """ஒரே பெயரின் வேறுபட்ட எழுத்து வடிவங்களை ஒரே 'சரியான' பெயராக்க வரைபடம்.
+    அதிகம் பயன்படுத்தப்பட்ட வடிவமே சரியான பெயர்; சமமாக இருந்தால் அகரவரிசையில் முதலில் வருவது."""
     if df is None or df.empty:
         return {}, {}
     pub_c, title_c = _detect_pub_title_cols(df)
     if not pub_c or not title_c:
         return {}, {}
     d = df[[pub_c, title_c]].dropna().copy()
-    d["_pk"] = d[pub_c].map(_norm_vendor)
-    d["_tk"] = d[title_c].map(_norm_name)
-    pub_map, title_map = {}, {}
-    for pk, g in d.groupby("_pk"):
-        vc = g[pub_c].value_counts()
-        top = vc[vc == vc.max()].index.tolist()
-        pub_map[pk] = sorted(top)[0]
-    for (pk, tk), g in d.groupby(["_pk", "_tk"]):
-        vc = g[title_c].value_counts()
-        top = vc[vc == vc.max()].index.tolist()
-        title_map[(pk, tk)] = sorted(top)[0]
+    d["_pk"] = _fast_map(d[pub_c], _norm_vendor)
+    d["_tk"] = _fast_map(d[title_c], _norm_name)
+    pc_ = (d.groupby(["_pk", pub_c]).size().reset_index(name="n")
+           .sort_values(["_pk", "n", pub_c], ascending=[True, False, True]).drop_duplicates("_pk"))
+    pub_map = dict(zip(pc_["_pk"], pc_[pub_c]))
+    tc_ = (d.groupby(["_pk", "_tk", title_c]).size().reset_index(name="n")
+           .sort_values(["_pk", "_tk", "n", title_c], ascending=[True, True, False, True]).drop_duplicates(["_pk", "_tk"]))
+    title_map = dict(zip(zip(tc_["_pk"], tc_["_tk"]), tc_[title_c]))
     return pub_map, title_map
 
 @st.cache_data
@@ -519,21 +520,23 @@ def _books_name_maps():
 
 @st.cache_data
 def _books_title_counts():
-    """{சரியான பதிப்பகம்: {சரியான தலைப்பு: books-ல் உள்ள வரிசைகள்}}"""
+    """{சரியான பதிப்பகம்: {சரியான தலைப்பு: books-ல் உள்ள வரிசைகள்}} (ஆப் தொடங்கும்போதே தேவைப்படுவதால் _load_books_raw-ஐ நேரடியாகப் பயன்படுத்துகிறது)"""
     df = _load_books_raw()
     if df.empty:
         return {}
     pc, tc = _detect_pub_title_cols(df)
-    if not pc or not tc:
+    pub_map, title_map = _books_name_maps()
+    if not pc or not tc or not pub_map:
         return {}
-    pub_map, title_map = _canonical_maps_from_df(df)
-    d = df[[pc, tc]].dropna().copy()
-    pk = d[pc].map(_norm_vendor)
-    tk = d[tc].map(_norm_name)
-    d["_p"] = [pub_map.get(a, o) for a, o in zip(pk, d[pc])]
-    d["_t"] = [title_map.get((a, b), o) for a, b, o in zip(pk, tk, d[tc])]
+    d = df[[pc, tc]].dropna()
+    pk = _fast_map(d[pc], _norm_vendor)
+    tk = _fast_map(d[tc], _norm_name)
+    tmp = pd.DataFrame({
+        "p": [pub_map.get(a, o) for a, o in zip(pk, d[pc])],
+        "t": [title_map.get((a, b), o) for a, b, o in zip(pk, tk, d[tc])],
+    })
     out = {}
-    for (p, t), n in d.groupby(["_p", "_t"]).size().items():
+    for (p, t), n in tmp.groupby(["p", "t"]).size().items():
         out.setdefault(p, {})[t] = int(n)
     return out
 
@@ -600,7 +603,7 @@ def _auto_match_unmatched_titles(records, changes=None):
 
 def clear_books_cache():
     """books / submitted_reports மாறிய பிறகு அனைத்து தொடர்புடைய cache-களையும் அழிக்கும்."""
-    for _f in (_load_books_raw, _books_name_maps, _books_title_counts, load_neon_database, load_submitted_reports_from_db, load_submitted_reports_unfixed):
+    for _f in (_load_books_raw, _books_name_maps, _books_title_counts, load_neon_database, _flags_cached, load_submitted_reports_from_db, load_submitted_reports_unfixed):
         _f.clear()
 
 def canonicalize_report_records(records, auto_fix=True):
@@ -843,25 +846,36 @@ st.markdown("---")
 
 @st.cache_data
 def load_neon_database():
-    """books அட்டவணை — பதிப்பகம்/தலைப்பு எழுத்து வேறுபாடுகள் ஒரே சரியான பெயராக்கப்பட்டு.
-    இதனால் ஆப்பின் எல்லாப் பகுதிகளிலும் (Ticker, பிரிக்க, Master Data, அறிக்கைகள்) எண்ணிக்கை ஒன்றாகவே இருக்கும்.
-    (DB-ல் உள்ள மூலத் தரவு மாறாது.)"""
+    """books அட்டவணை — பதிப்பகம்/தலைப்பு எழுத்து வேறுபாடுகள் ஒரே சரியான பெயராக்கப்பட்டு (DB மூலத் தரவு மாறாது)."""
     df = _load_books_raw()
     if df.empty:
         return pd.DataFrame()
     df = df.copy()
     pub_c, title_c = _detect_pub_title_cols(df)
-    pub_map, title_map = _canonical_maps_from_df(df)
+    pub_map, title_map = _books_name_maps()
     if pub_c and title_c and pub_map:
-        pk = df[pub_c].map(_norm_vendor)
-        tk = df[title_c].map(_norm_name)
-        new_pub = [pub_map.get(a, o) for a, o in zip(pk, df[pub_c])]
-        new_title = [title_map.get((a, b), o) for a, b, o in zip(pk, tk, df[title_c])]
-        df[pub_c] = new_pub
-        df[title_c] = new_title
+        pk = _fast_map(df[pub_c], _norm_vendor)
+        tk = _fast_map(df[title_c], _norm_name)
+        df[pub_c] = [pub_map.get(a, o) for a, o in zip(pk, df[pub_c])]
+        df[title_c] = [title_map.get((a, b), o) for a, b, o in zip(pk, tk, df[title_c])]
     return df
 
 # ===================== மாநில பதிவெண் (DCAn Number) ஏற்றுதல் =====================
+def _simple_downloads(df, base_name, key):
+    """எந்தப் பகுதியிலும் பயன்படுத்தக்கூடிய CSV / Excel பதிவிறக்கப் பொத்தான்கள்."""
+    import io
+    ts = datetime.now().strftime("%Y%m%d_%H%M")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.download_button("📥 CSV", df.to_csv(index=False).encode("utf-8-sig"),
+                           file_name=f"{base_name}_{ts}.csv", mime="text/csv", key=f"{key}_csv", use_container_width=True)
+    with c2:
+        _buf = io.BytesIO()
+        with pd.ExcelWriter(_buf, engine="openpyxl") as _w:
+            df.to_excel(_w, index=False, sheet_name="Data")
+        st.download_button("📥 Excel", _buf.getvalue(), file_name=f"{base_name}_{ts}.xlsx",
+                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key=f"{key}_xlsx", use_container_width=True)
+
 DCAN_COLS = ['S.No', 'Title', 'Number of copies', 'Multi Volume', 'Vendor Name', 'Publication Name',
              'User Type', 'Order Id', 'DCAn Number', 'Library Id', 'Dlo Id', 'Library Type']
 
@@ -949,6 +963,10 @@ def match_dcan_to_books(excel_df, books_raw):
 def _find_lib_col(df):
     return next((c for c in df.columns if 'library' in c and ('name' in c or 'tm' in c)), None)
 
+def _records_sig(records):
+    import hashlib
+    return hashlib.md5(repr([(r.get("Id"), r.get("Publisher"), r.get("Title"), r.get("Received Qty"), r.get("Date")) for r in (records or [])]).encode("utf-8")).hexdigest()
+
 def compute_received_flags(neon_df, pub_col, title_col, records, lib_col=None):
     """ஒவ்வொரு (பதிப்பகம் + தலைப்பு)-க்கும் submitted Received Qty கூட்டி received_stats (1/0) தரும்.
     மொத்த எண்ணிக்கை = min(Received Qty, books-ல் உள்ள வரிசைகள்) — இது முன்பு போலவே, மாறாது.
@@ -961,8 +979,8 @@ def compute_received_flags(neon_df, pub_col, title_col, records, lib_col=None):
     for r in (records or []):
         k = (_norm_vendor(r.get("Publisher")), _norm_name(r.get("Title")))
         qty[k] = qty.get(k, 0) + _record_qty(r)
-    pk = neon_df[pub_col].map(_norm_vendor).rename("_pk")
-    tk = neon_df[title_col].map(_norm_name).rename("_tk")
+    pk = _fast_map(neon_df[pub_col], _norm_vendor).rename("_pk")
+    tk = _fast_map(neon_df[title_col], _norm_name).rename("_tk")
     keys = list(zip(pk, tk))
     pos = neon_df.groupby([pk, tk]).cumcount().to_numpy()
     limit = np.array([qty.get(k, 0) for k in keys])
@@ -1005,14 +1023,19 @@ def compute_received_flags(neon_df, pub_col, title_col, records, lib_col=None):
                     rem -= 1
     return pd.Series(flags, index=neon_df.index)
 
+@st.cache_data(show_spinner=False)
+def _flags_cached(sig, _neon_df, pub_col, title_col, _records):
+    """Ticker-க்கான received flags — பதிவுகள் மாறும்போது மட்டுமே மீண்டும் கணக்கிடப்படும்."""
+    return compute_received_flags(_neon_df, pub_col, title_col, _records)
+
 def submitted_match_stats(neon_df, pub_col, title_col, records):
     """(பொருந்திய Qty, மொத்த submitted Qty, பொருந்தாத பதிவுகளின் பட்டியல்).
     பொருந்தாதது = submitted Received Qty, books-ல் உள்ள அந்தத் தலைப்பின் வரிசைகளை விட அதிகம் அல்லது
     அந்தப் பதிப்பகம்+தலைப்பு books-ல் இல்லை."""
     sizes = {}
     if neon_df is not None and not neon_df.empty and pub_col and title_col:
-        pk = neon_df[pub_col].map(_norm_vendor).rename("_pk")
-        tk = neon_df[title_col].map(_norm_name).rename("_tk")
+        pk = _fast_map(neon_df[pub_col], _norm_vendor).rename("_pk")
+        tk = _fast_map(neon_df[title_col], _norm_name).rename("_tk")
         sizes = neon_df.groupby([pk, tk]).size().to_dict()
     qty, by_key = {}, {}
     for r in (records or []):
@@ -1140,7 +1163,7 @@ _today_iso = datetime.now().strftime("%Y-%m-%d")
 
 if _pub_col_ticker and _title_col_ticker and not neon_df_ticker.empty:
     _lang_s = _norm_lang(neon_df_ticker[_lang_col_ticker]) if _lang_col_ticker else pd.Series("", index=neon_df_ticker.index)
-    _flags_all = compute_received_flags(neon_df_ticker, _pub_col_ticker, _title_col_ticker, _all_records)
+    _flags_all = _flags_cached(_records_sig(_all_records), neon_df_ticker, _pub_col_ticker, _title_col_ticker, _all_records)
     _m_all = _flags_all == 1
     total_submitted_count = int(_m_all.sum())
     total_submitted_ta = int((_m_all & (_lang_s == "tamil")).sum())
@@ -1148,8 +1171,8 @@ if _pub_col_ticker and _title_col_ticker and not neon_df_ticker.empty:
 
     # --- குறைவாகப் பெறப்பட்டவை (Shortage): தலைப்பு ஏற்கனவே பிரிக்கப்பட்டு (submit செய்யப்பட்டு) பதிவாகியுள்ளது,
     # ஆனால் பதிப்பகம் குறைவாக வழங்கியதால் சில நூல்கள் பெறப்படவில்லை. இவை "பிரிக்கப்படாதவை" அல்ல — ஏற்கனவே கையாளப்பட்டவை.
-    _pk_t = neon_df_ticker[_pub_col_ticker].map(_norm_vendor)
-    _tk_t = neon_df_ticker[_title_col_ticker].map(_norm_name)
+    _pk_t = _fast_map(neon_df_ticker[_pub_col_ticker], _norm_vendor)
+    _tk_t = _fast_map(neon_df_ticker[_title_col_ticker], _norm_name)
     _rec_keys = {(_norm_vendor(r.get("Publisher")), _norm_name(r.get("Title"))) for r in _all_records}
     _has_rec = pd.Series([k in _rec_keys for k in zip(_pk_t, _tk_t)], index=neon_df_ticker.index)
     _m_short = (~_m_all) & _has_rec
@@ -1171,7 +1194,7 @@ if _pub_col_ticker and _title_col_ticker and not neon_df_ticker.empty:
 
     # இன்று பிரிக்கப்பட்டவை = (இன்று வரை மொத்தம்) − (இன்றைக்கு முந்தைய பதிவுகளால் மட்டும் வந்தவை)
     _before = [r for r in _all_records if str(r.get("Date", ""))[:10] < _today_iso]
-    _flags_before = compute_received_flags(neon_df_ticker, _pub_col_ticker, _title_col_ticker, _before)
+    _flags_before = _flags_cached(_records_sig(_before), neon_df_ticker, _pub_col_ticker, _title_col_ticker, _before)
     _m_before = _flags_before == 1
     today_submitted_count = max(int(_m_all.sum()) - int(_m_before.sum()), 0)
     today_submitted_ta = max(int((_m_all & (_lang_s == "tamil")).sum()) - int((_m_before & (_lang_s == "tamil")).sum()), 0)
@@ -3566,7 +3589,7 @@ elif current == "மாநில பதிவெண் ஏற்ற":
         if not _review.empty:
             st.markdown("#### 🔎 மதிப்பாய்வுக்கு (தலைப்பு எழுத்து வேறுபட்டவை)")
             st.dataframe(_review, hide_index=True, use_container_width=True, height=min(400, 38 * (len(_review) + 1)))
-            _report_downloads(_review, "DCAn_Review", "dl_dcan_review")
+            _simple_downloads(_review, "DCAn_Review", "dl_dcan_review")
         _left_b = _map[_map["DCAn Number"].isna()][["id", "vendor_name", "title", "librarian_id", "library_type"]]
         if not _left_b.empty or not _unm_ex.empty:
             st.markdown("#### ❌ பொருந்தாதவை")
@@ -3576,7 +3599,7 @@ elif current == "மாநில பதிவெண் ஏற்ற":
             if not _unm_ex.empty:
                 st.caption(f"Excel-ல் உள்ளவை ({len(_unm_ex)})")
                 st.dataframe(_unm_ex[["S.No", "Vendor Name", "Title", "Library Id", "DCAn Number"]], hide_index=True, use_container_width=True)
-        _report_downloads(_full, "State_Accession_Mapping", "dl_dcan_full")
+        _simple_downloads(_full, "State_Accession_Mapping", "dl_dcan_full")
 
         st.markdown("---")
         _only_empty = st.checkbox("பதிவெண் காலியாக உள்ள நூல்களில் மட்டும் ஏற்று (ஏற்கனவே உள்ளவற்றை மாற்றாதே)", value=True, key="dcan_only_empty")
