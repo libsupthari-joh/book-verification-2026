@@ -1057,25 +1057,37 @@ def submitted_match_stats(neon_df, pub_col, title_col, records):
                 })
     return matched, raw, problems
 
+def _all_received_flags(source_neon_df, pub_col, title_col, records):
+    """முழு books அட்டவணைக்கும் ஒரே முறை (cache செய்து) received flags கணக்கிடும்."""
+    return _flags_cached(_records_sig(records), source_neon_df, pub_col, title_col, records)
+
 def build_pub_stats_df(pub_name, source_neon_df, source_rep_df, pub_col, title_col):
     """ஒரு பதிப்பகத்தின் வரிசைகள் + received_stats (1 = பெறப்பட்டது). Master Data & நூலகர் சான்று இரண்டுக்கும்."""
-    mask = source_neon_df[pub_col].map(_norm_vendor) == _norm_vendor(pub_name)
+    mask = source_neon_df[pub_col] == pub_name
+    if not mask.any():
+        mask = _fast_map(source_neon_df[pub_col], _norm_vendor) == _norm_vendor(pub_name)
     p_neon_df = source_neon_df[mask].copy()
     records = source_rep_df.to_dict(orient="records") if (source_rep_df is not None and not source_rep_df.empty) else []
-    p_neon_df["received_stats"] = compute_received_flags(p_neon_df, pub_col, title_col, records)
+    flags = _all_received_flags(source_neon_df, pub_col, title_col, records)
+    p_neon_df["received_stats"] = flags.loc[p_neon_df.index].values if len(flags) else 0
     return p_neon_df
 
 def compute_all_received_rows(submitted_pubs, pub_col, title_col):
-    """Combines build_pub_stats_df across every submitted publisher and keeps only
-    the rows actually marked as received (received_stats == 1) — these are the
-    rows eligible for dispatch."""
+    """சமர்ப்பிக்கப்பட்ட எல்லாப் பதிப்பகங்களிலும் பெறப்பட்ட (received_stats == 1) வரிசைகள் மட்டும் —
+    அனுப்புதலுக்குத் தகுதியானவை. (எல்லா books-க்கும் ஒரே முறை கணக்கிடப்படுகிறது.)"""
     neon_df_local = load_neon_database()
-    rep_df_local = pd.DataFrame(st.session_state["submitted_reports"])
-    frames = [build_pub_stats_df(p, neon_df_local, rep_df_local, pub_col, title_col) for p in submitted_pubs]
-    combined = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
-    if not combined.empty and "received_stats" in combined.columns:
-        combined = combined[combined["received_stats"] == 1].reset_index(drop=True)
-    return combined
+    records = st.session_state["submitted_reports"]
+    if neon_df_local.empty:
+        return pd.DataFrame()
+    flags = _all_received_flags(neon_df_local, pub_col, title_col, records)
+    combined = neon_df_local[neon_df_local[pub_col].isin(set(submitted_pubs))].copy()
+    combined["received_stats"] = flags.loc[combined.index].values
+    return combined[combined["received_stats"] == 1].reset_index(drop=True)
+
+@st.cache_data(show_spinner=False)
+def _csv_bytes_cached(key, _df):
+    """பெரிய அட்டவணையின் CSV-ஐ ஒருமுறை மட்டும் உருவாக்கி நினைவில் வைக்கும்."""
+    return _df.to_csv(index=False).encode("utf-8-sig")
 
 def _find_tamil_font_path():
     """Looks for the Tamil font in a few likely spots so it works whichever
@@ -3044,7 +3056,8 @@ elif current == "Master Data":
             title_col = next((c for c in neon_df.columns if 'title' in c), neon_df.columns[2])
             
         submitted_pubs = list(set([item["Publisher"] for item in st.session_state["submitted_reports"]]))
-        submitted_pubs = sorted([p for p in submitted_pubs if p in neon_df[pub_col].values]) if pub_col else []
+        _pub_set = set(neon_df[pub_col].unique()) if pub_col else set()
+        submitted_pubs = sorted([p for p in submitted_pubs if p in _pub_set]) if pub_col else []
         
         _excluded_rows = len(neon_df) - int(neon_df[pub_col].isin(submitted_pubs).sum()) if pub_col else 0
         st.caption(
@@ -3074,16 +3087,15 @@ elif current == "Master Data":
                 )
 
                 if sel_master_pub == ALL_PUBS_LABEL:
-                    rep_df = pd.DataFrame(st.session_state["submitted_reports"])
-
-                    # Build stats for every submitted publisher and stack them into one table.
-                    all_pub_frames = [build_pub_stats_df(p, neon_df, rep_df, pub_col, title_col) for p in submitted_pubs]
-                    final_all_df = pd.concat(all_pub_frames, ignore_index=True) if all_pub_frames else pd.DataFrame()
+                    _recs_all = st.session_state["submitted_reports"]
+                    _fl_all = _all_received_flags(neon_df, pub_col, title_col, _recs_all)
+                    final_all_df = neon_df[neon_df[pub_col].isin(set(submitted_pubs))].copy()
+                    final_all_df["received_stats"] = _fl_all.loc[final_all_df.index].values
 
                     total_pubs = len(submitted_pubs)
-                    total_titles = final_all_df[title_col].nunique() if not final_all_df.empty else 0
+                    total_titles = final_all_df.groupby([pub_col, title_col]).ngroups if not final_all_df.empty else 0
                     total_books = len(final_all_df)
-                    total_rec_books = final_all_df["received_stats"].sum() if "received_stats" in final_all_df.columns else 0
+                    total_rec_books = int(final_all_df["received_stats"].sum()) if not final_all_df.empty else 0
                     total_not_rec_books = total_books - total_rec_books
 
                     col1, col2, col3, col4 = st.columns(4)
@@ -3096,10 +3108,19 @@ elif current == "Master Data":
                     with col4:
                         st.metric("⏳ பெறப்படாத நூல்கள்", int(total_not_rec_books))
 
-                    st.markdown("### 🌐 அனைத்து பதிப்பகங்களும் — ஒருங்கிணைந்த முழு அட்டவணை விவரங்கள்")
-                    st.dataframe(final_all_df, use_container_width=True)
+                    st.markdown("### 🌐 அனைத்து பதிப்பகங்களும் — பதிப்பகம் வாரிச் சுருக்கம்")
+                    _pub_sum = final_all_df.groupby(pub_col).agg(
+                        **{"தலைப்புகள்": (title_col, "nunique"), "நூல்கள்": (title_col, "size"),
+                           "பெறப்பட்டது": ("received_stats", "sum")}).reset_index()
+                    _pub_sum["பெறப்படாதது"] = _pub_sum["நூல்கள்"] - _pub_sum["பெறப்பட்டது"]
+                    st.dataframe(_pub_sum, use_container_width=True, hide_index=True, height=420)
 
-                    csv_all_master = final_all_df.to_csv(index=False).encode('utf-8-sig')
+                    st.markdown("### 🌐 முழு அட்டவணை விவரங்கள் (முதல் 1,000 வரிசைகள் மட்டும் திரையில்)")
+                    st.caption(f"ℹ️ மொத்தம் {len(final_all_df):,} வரிசைகள். திரை வேகமாக இருக்க முதல் 1,000 மட்டுமே காட்டப்படுகிறது; முழுத் தரவும் கீழே உள்ள பொத்தானில் CSV-ஆகக் கிடைக்கும். "
+                               "ஒரு குறிப்பிட்ட பதிப்பகத்தின் முழு விவரத்தைப் பார்க்க மேலே பட்டியலில் அதைத் தேர்ந்தெடுக்கவும்.")
+                    st.dataframe(final_all_df.head(1000), use_container_width=True)
+
+                    csv_all_master = _csv_bytes_cached(f"master_all_{_records_sig(_recs_all)}", final_all_df)
                     st.download_button(
                         label="📥 அனைத்து பதிப்பகங்களின் Master Data பதிவிறக்கம் (ஒரே CSV)",
                         data=csv_all_master,
@@ -3150,9 +3171,10 @@ elif current == "Master Data":
 
                 if sel_lib == ALL_LIBS_LABEL:
                     st.markdown(f"### 🌐 அனைத்து நூலகங்களும் (மொத்த நூல்கள்: {len(submitted_neon_df)})")
-                    st.dataframe(submitted_neon_df, use_container_width=True)
+                    st.caption(f"ℹ️ திரை வேகமாக இருக்க முதல் 1,000 வரிசைகள் மட்டும் காட்டப்படுகின்றன; முழுத் தரவு CSV-ஆகக் கிடைக்கும். ஒரு நூலகத்தின் முழு விவரத்துக்கு மேலே அதைத் தேர்ந்தெடுக்கவும்.")
+                    st.dataframe(submitted_neon_df.head(1000), use_container_width=True)
 
-                    csv_all_lib = submitted_neon_df.to_csv(index=False).encode('utf-8-sig')
+                    csv_all_lib = _csv_bytes_cached(f"lib_all_{len(submitted_neon_df)}_{len(submitted_pubs)}", submitted_neon_df)
                     st.download_button(
                         label="📥 அனைத்து நூலகங்களின் Master Data பதிவிறக்கம் (ஒரே CSV)",
                         data=csv_all_lib,
