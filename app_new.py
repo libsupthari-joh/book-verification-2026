@@ -3576,7 +3576,7 @@ elif current == "மாநில பதிவெண் ஏற்ற":
         _ok = _map[_map["DCAn Number"].notna()].copy()
 
         _exist_col = "state_accession_number" if "state_accession_number" in _bk.columns else None
-        _already = int(_map[_exist_col].notna().sum()) if _exist_col else 0
+        _already = int((~_map[_exist_col].astype(str).str.strip().str.lower().isin(["", "nan", "none", "null"])).sum()) if _exist_col else 0
         _lt_bad = int((_ok["library_type"].astype(str).str.strip() != _ok["excel_libtype"].astype(str).str.strip()).sum())
         _pn_bad = int((_ok["publication_name"].map(_norm_vendor) != _ok["excel_pub"].map(_norm_vendor)).sum())
         _ord_v = _ex.assign(_v=_ex["Vendor Name"].map(_norm_vendor)).groupby("Order Id")["_v"].nunique()
@@ -3638,7 +3638,7 @@ elif current == "மாநில பதிவெண் ஏற்ற":
                 elif _r[0] != "text":
                     cur.execute("ALTER TABLE books ALTER COLUMN state_accession_number TYPE TEXT USING state_accession_number::text;")
                 _pairs = [(int(i), str(a)) for i, a in zip(_ok["id"], _ok["DCAn Number"])]
-                _where = " AND (b.state_accession_number IS NULL OR b.state_accession_number = '')" if _only_empty else ""
+               _where = " AND (b.state_accession_number IS NULL OR btrim(b.state_accession_number) = '' OR lower(btrim(b.state_accession_number)) IN ('nan','none','null'))" if _only_empty else ""
                 _updated = 0
                 for s in range(0, len(_pairs), 2000):
                     chunk = _pairs[s:s + 2000]
