@@ -3638,7 +3638,7 @@ elif current == "மாநில பதிவெண் ஏற்ற":
                 elif _r[0] != "text":
                     cur.execute("ALTER TABLE books ALTER COLUMN state_accession_number TYPE TEXT USING state_accession_number::text;")
                 _pairs = [(int(i), str(a)) for i, a in zip(_ok["id"], _ok["DCAn Number"])]
-               _where = " AND (b.state_accession_number IS NULL OR btrim(b.state_accession_number) = '' OR lower(btrim(b.state_accession_number)) IN ('nan','none','null'))" if _only_empty else ""
+                _where = " AND (b.state_accession_number IS NULL OR btrim(b.state_accession_number) = '' OR lower(btrim(b.state_accession_number)) IN ('nan','none','null'))" if _only_empty else ""
                 _updated = 0
                 for s in range(0, len(_pairs), 2000):
                     chunk = _pairs[s:s + 2000]
