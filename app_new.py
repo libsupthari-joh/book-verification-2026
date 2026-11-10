@@ -1139,6 +1139,101 @@ def generate_tamil_pdf_table(df, headers, col_widths, report_title, orientation=
 
     return bytes(pdf.output())
 
+# ===================== CSV + Excel + PDF பதிவிறக்க உதவிச் செயல்பாடு (Master Data பகுதிக்கு) =====================
+def _export_ready_df(df):
+    """Excel-ல் பிழை வராமல் இருக்க time-zone உள்ள தேதி நெடுவரிசைகளிலிருந்து time-zone நீக்கும்."""
+    _d = df.copy()
+    for _c in _d.columns:
+        try:
+            if str(_d[_c].dtype).startswith("datetime64") and getattr(_d[_c].dt, "tz", None) is not None:
+                _d[_c] = _d[_c].dt.tz_localize(None)
+        except Exception:
+            pass
+    return _d
+
+def _df_signature(df):
+    """cache key-க்காக DataFrame-ன் சிறிய கைரேகை."""
+    try:
+        return f"{len(df)}_{len(df.columns)}_{int(pd.util.hash_pandas_object(df, index=False).sum())}"
+    except Exception:
+        return f"{len(df)}_{len(df.columns)}"
+
+@st.cache_data(show_spinner=False)
+def _xlsx_bytes_cached(key, _df):
+    """DataFrame-ஐ Excel (.xlsx) bytes ஆக்கி cache செய்யும் (பெரிய அட்டவணை மீண்டும் மீண்டும் உருவாகாது)."""
+    import io as _io
+    try:
+        import xlsxwriter  # noqa: F401
+        _engine = "xlsxwriter"
+    except ImportError:
+        _engine = "openpyxl"
+    _buf = _io.BytesIO()
+    with pd.ExcelWriter(_buf, engine=_engine) as _w:
+        _df.to_excel(_w, sheet_name="Master Data", index=False)
+    return _buf.getvalue()
+
+def _master_downloads(df, base_name, key, pdf_cols=None, pdf_title=None):
+    """CSV + Excel + PDF பதிவிறக்க பட்டன்கள் (எந்த DataFrame-க்கும்)."""
+    _stamp = datetime.now().strftime("%Y%m%d_%H%M")
+    _safe = "".join("_" if ch in '\\/:*?"<>|' else ch for ch in str(base_name))
+    _df = _export_ready_df(df)
+    _sig = _df_signature(_df)
+    _c1, _c2, _c3 = st.columns(3)
+    with _c1:
+        st.download_button(
+            label="📥 CSV",
+            data=_csv_bytes_cached(f"{key}_{_sig}", _df),
+            file_name=f"{_safe}_{_stamp}.csv",
+            mime="text/csv",
+            type="primary",
+            use_container_width=True,
+            key=f"{key}_csv"
+        )
+    with _c2:
+        if len(_df) > 60000:
+            st.info("ℹ️ Excel-க்கு 60000-க்கும் குறைவான வரிசைகள் தேவை; CSV-ஐப் பயன்படுத்தவும்.")
+        elif len(_df) > 5000 and not st.session_state.get(f"{key}_xl_on"):
+            # பெரிய அட்டவணை: பக்கம் மெதுவாகாமல் இருக்க, பொத்தானை அழுத்தும்போது மட்டும் Excel உருவாக்கப்படும்.
+            if st.button("📊 Excel உருவாக்கு", key=f"{key}_xlgen", use_container_width=True):
+                st.session_state[f"{key}_xl_on"] = True
+                st.rerun()
+        else:
+            st.download_button(
+                label="📥 Excel",
+                data=_xlsx_bytes_cached(f"{key}_{_sig}", _df),
+                file_name=f"{_safe}_{_stamp}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                key=f"{key}_xlsx"
+            )
+    with _c3:
+        if len(_df) > 3000:
+            st.info("ℹ️ PDF-ஆக பதிவிறக்க 3000-க்கும் குறைவான வரிசைகள் இருக்க வேண்டும். பதிப்பகம்/நூலகத்தைத் தேர்ந்தெடுத்துக் குறைக்கவும்; முழுத் தரவு CSV/Excel-ல்.")
+        elif st.button("📄 PDF உருவாக்கு", key=f"{key}_pdfgen", use_container_width=True):
+            _cols = [c for c in (pdf_cols or list(_df.columns)) if c in _df.columns][:8]
+            if not _cols:
+                st.info("ℹ️ PDF-க்கு நெடுவரிசைகள் இல்லை.")
+            else:
+                _pdf_df = _df[_cols].fillna("").astype(str)
+                _w = tuple([max(20, 270 // len(_cols))] * len(_cols))
+                _pdf_bytes = generate_tamil_pdf_table(_pdf_df, [str(c) for c in _cols], _w, pdf_title or base_name)
+                if _pdf_bytes is None:
+                    st.error("❌ Tamil font கோப்பு கிடைக்கவில்லை.")
+                else:
+                    if len(_df.columns) > len(_cols) and not pdf_cols:
+                        st.caption(f"ℹ️ PDF-ல் முதல் {len(_cols)} நெடுவரிசைகள் மட்டும் உள்ளன; முழு விவரம் Excel/CSV-ல்.")
+                    st.download_button(
+                        label="📥 PDF பதிவிறக்கம்",
+                        data=_pdf_bytes,
+                        file_name=f"{_safe}_{_stamp}.pdf",
+                        mime="application/pdf",
+                        type="primary",
+                        use_container_width=True,
+                        key=f"{key}_pdf"
+                    )
+
+_MASTER_PDF_COLS = ["state_accession_number", "book_id", "title", "author", "vendor_name", "library_type", "library_name_tm", "received_stats"]
+
 neon_df_ticker = load_neon_database()
 total_books_in_db = len(neon_df_ticker)
 
@@ -3117,6 +3212,7 @@ elif current == "Master Data":
                            "பெறப்பட்டது": ("received_stats", "sum")}).reset_index()
                     _pub_sum["பெறப்படாதது"] = _pub_sum["நூல்கள்"] - _pub_sum["பெறப்பட்டது"]
                     st.dataframe(_pub_sum, use_container_width=True, hide_index=True, height=420)
+                    _master_downloads(_pub_sum, "Master_Publisher_Summary", "mdl_pub_sum", pdf_title="பதிப்பகம் வாரிச் சுருக்கம்")
 
                     st.markdown("### 🌐 முழு அட்டவணை விவரங்கள் (முதல் 1,000 வரிசைகள் மட்டும் திரையில்)")
                     st.caption(f"ℹ️ மொத்தம் {len(final_all_df):,} வரிசைகள். திரை வேகமாக இருக்க முதல் 1,000 மட்டுமே காட்டப்படுகிறது; முழுத் தரவும் கீழே உள்ள பொத்தானில் CSV-ஆகக் கிடைக்கும். "
@@ -3125,14 +3221,9 @@ elif current == "Master Data":
                     _disp = _disp.where(_disp.notna(), "")
                     st.dataframe(_disp, use_container_width=True)
 
-                    csv_all_master = _csv_bytes_cached(f"master_all_{_records_sig(_recs_all)}", final_all_df)
-                    st.download_button(
-                        label="📥 அனைத்து பதிப்பகங்களின் Master Data பதிவிறக்கம் (ஒரே CSV)",
-                        data=csv_all_master,
-                        file_name="Master_Data_ReceivedStats_ALL_Publishers.csv",
-                        mime="text/csv",
-                        type="primary"
-                    )
+                    st.markdown("#### 📥 அனைத்து பதிப்பகங்களின் Master Data பதிவிறக்கம்")
+                    _master_downloads(final_all_df, "Master_Data_ReceivedStats_ALL_Publishers", "mdl_all_pub",
+                                      pdf_cols=_MASTER_PDF_COLS, pdf_title="Master Data — அனைத்து பதிப்பகங்கள்")
 
                 elif sel_master_pub != "-- பதிப்பகத்தைத் தேர்ந்தெடுக்கவும் --":
                     rep_df = pd.DataFrame(st.session_state["submitted_reports"])
@@ -3156,14 +3247,9 @@ elif current == "Master Data":
                     st.markdown(f"### 📍 பதிப்பகம்: {sel_master_pub} — முழு அட்டவணை விவரங்கள்")
                     st.dataframe(final_pub_df, use_container_width=True)
                     
-                    csv_master = final_pub_df.to_csv(index=False).encode('utf-8-sig')
-                    st.download_button(
-                        label="📥 பதிப்பக Master Data பதிவிறக்கம் (CSV)",
-                        data=csv_master,
-                        file_name=f"Master_Data_ReceivedStats_{sel_master_pub}.csv",
-                        mime="text/csv",
-                        type="primary"
-                    )
+                    st.markdown("#### 📥 பதிப்பக Master Data பதிவிறக்கம்")
+                    _master_downloads(final_pub_df, f"Master_Data_ReceivedStats_{sel_master_pub}", "mdl_pub",
+                                      pdf_cols=_MASTER_PDF_COLS, pdf_title=f"Master Data — {sel_master_pub}")
         else:
             st.markdown("### 🏛️ பணி முடிக்கப்பட்ட நூலகம் வாரியான முழு விவரங்கள்")
             lib_col_name = next((c for c in neon_df.columns if 'library' in c and ('name' in c or 'tm' in c)), None)
@@ -3179,27 +3265,17 @@ elif current == "Master Data":
                     st.caption(f"ℹ️ திரை வேகமாக இருக்க முதல் 1,000 வரிசைகள் மட்டும் காட்டப்படுகின்றன; முழுத் தரவு CSV-ஆகக் கிடைக்கும். ஒரு நூலகத்தின் முழு விவரத்துக்கு மேலே அதைத் தேர்ந்தெடுக்கவும்.")
                     st.dataframe(submitted_neon_df.head(1000), use_container_width=True)
 
-                    csv_all_lib = _csv_bytes_cached(f"lib_all_{len(submitted_neon_df)}_{len(submitted_pubs)}", submitted_neon_df)
-                    st.download_button(
-                        label="📥 அனைத்து நூலகங்களின் Master Data பதிவிறக்கம் (ஒரே CSV)",
-                        data=csv_all_lib,
-                        file_name="Master_Data_Library_ALL.csv",
-                        mime="text/csv",
-                        type="primary"
-                    )
+                    st.markdown("#### 📥 அனைத்து நூலகங்களின் Master Data பதிவிறக்கம்")
+                    _master_downloads(submitted_neon_df, "Master_Data_Library_ALL", "mdl_all_lib",
+                                      pdf_cols=_MASTER_PDF_COLS, pdf_title="Master Data — அனைத்து நூலகங்கள்")
                 elif sel_lib != "-- நூலகத்தைத் தேர்ந்தெடுக்கவும் --":
                     lib_df = submitted_neon_df[submitted_neon_df[lib_col_name] == sel_lib].copy()
                     st.markdown(f"### 🏛️ நூலகம்: {sel_lib} (மொத்த நூல்கள்: {len(lib_df)})")
                     st.dataframe(lib_df, use_container_width=True)
                     
-                    csv_lib = lib_df.to_csv(index=False).encode('utf-8-sig')
-                    st.download_button(
-                        label="📥 நூலக Master Data பதிவிறக்கம் (CSV)",
-                        data=csv_lib,
-                        file_name=f"Master_Data_Library_{sel_lib}.csv",
-                        mime="text/csv",
-                        type="primary"
-                    )
+                    st.markdown("#### 📥 நூலக Master Data பதிவிறக்கம்")
+                    _master_downloads(lib_df, f"Master_Data_Library_{sel_lib}", "mdl_lib",
+                                      pdf_cols=_MASTER_PDF_COLS, pdf_title=f"Master Data — {sel_lib}")
             else:
                 st.warning("⚠️ நூலகப் பெயர் காலம் (Library Name Column) டேட்டாபேஸில் கிடைக்கவில்லை.")
 
