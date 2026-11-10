@@ -489,6 +489,9 @@ def _load_books_raw():
         conn.close()
         if not df.empty:
             df.columns = [str(c).strip().lower() for c in df.columns]
+            for _c in df.columns:
+                if df[_c].dtype == object:
+                    df[_c] = df[_c].where(~df[_c].astype(str).str.strip().str.lower().isin(["nan"]), None)
             return df
     except Exception as e:
         st.error(f"❌ டேட்டாபேஸ் இணைப்பில் பிழை: {e}")
@@ -3118,7 +3121,9 @@ elif current == "Master Data":
                     st.markdown("### 🌐 முழு அட்டவணை விவரங்கள் (முதல் 1,000 வரிசைகள் மட்டும் திரையில்)")
                     st.caption(f"ℹ️ மொத்தம் {len(final_all_df):,} வரிசைகள். திரை வேகமாக இருக்க முதல் 1,000 மட்டுமே காட்டப்படுகிறது; முழுத் தரவும் கீழே உள்ள பொத்தானில் CSV-ஆகக் கிடைக்கும். "
                                "ஒரு குறிப்பிட்ட பதிப்பகத்தின் முழு விவரத்தைப் பார்க்க மேலே பட்டியலில் அதைத் தேர்ந்தெடுக்கவும்.")
-                    st.dataframe(final_all_df.head(1000), use_container_width=True)
+                    _disp = final_all_df.head(1000).astype(object)
+                    _disp = _disp.where(_disp.notna(), "")
+                    st.dataframe(_disp, use_container_width=True)
 
                     csv_all_master = _csv_bytes_cached(f"master_all_{_records_sig(_recs_all)}", final_all_df)
                     st.download_button(
